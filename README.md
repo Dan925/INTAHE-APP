@@ -8,7 +8,9 @@ See the project brief for full context; this README only covers running the code
 - Node.js + TypeScript (strict mode)
 - PostgreSQL, migrated with [`node-pg-migrate`](https://github.com/salsita/node-pg-migrate) (plain SQL migrations)
 - Express, versioned REST API under `/v1`
-- Money is always integer cents, never floats
+- Stripe Connect (destination charges), one connected account per organization
+- Money is always integer cents, never floats; fees are computed once at
+  purchase time and stored, never recalculated at display
 
 ## Setup
 
@@ -40,6 +42,15 @@ Point `DATABASE_URL` at a disposable test database before running:
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/intahe_test npx node-pg-migrate up -m src/db/migrations
 npm test
 ```
+
+Stripe is the one thing tests mock — `src/services/stripe/stripePayments.ts`
+(`createPaymentIntent`/`retrievePaymentIntent`) is replaced with `jest.mock()`
+so checkout tests never hit the network. Webhook signature verification is
+tested for real (no mocking): it's pure HMAC over `STRIPE_WEBHOOK_SECRET`,
+so `stripe.webhooks.generateTestHeaderString()` can produce a valid signed
+request entirely offline. Point `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`
+at real test-mode credentials to exercise checkout against the actual
+Stripe API outside of tests.
 
 ## Project structure
 
@@ -102,7 +113,44 @@ Role hierarchy (`owner > admin > staff > volunteer`) matches the brief's
 permission table exactly, so a single `requireOrgRole(minRole)` middleware
 covers every route.
 
+## Ticket Types + Checkout + Stripe (implemented)
+
+- `POST /v1/organizations/:organizationId/events/:eventId/ticket-types` — owner/admin
+- `GET .../ticket-types`, `GET .../ticket-types/:ticketTypeId` — any member (cursor-paginated list)
+- `PATCH .../ticket-types/:ticketTypeId` — owner/admin
+
+- `POST /v1/events/:eventId/orders` — checkout, public (guest or logged-in
+  buyer via optional `Authorization` header). Requires an `Idempotency-Key`
+  header — blocking, not optional, per the brief. Body:
+  `{ buyer_email, line_items: [{ ticket_type_id, quantity }] }`. Returns
+  `{ order, client_secret }`; the order starts `pending` and a Stripe
+  `PaymentIntent` is created in the same request (destination charge to the
+  organization's connected account with `application_fee_amount` set to
+  `intahe_fee_cents`, or a plain platform charge if the organization hasn't
+  connected Stripe yet).
+- `POST /v1/stripe/webhook` — Stripe calls this on `payment_intent.succeeded`;
+  marks the order `paid`, generates one `tickets` row (with QR code) per
+  unit purchased, and records a `transactions` row. QR codes are generated
+  here, at payment confirmation, never at checkout initiation. Idempotent
+  against Stripe's at-least-once delivery.
+- `GET /v1/organizations/:organizationId/events/:eventId/orders`,
+  `GET .../orders/:orderId` — owner/admin only ("voir les rapports
+  financiers"); order detail includes its tickets.
+
+Reserving inventory (`ticket_types.quantity_sold`), inserting the order, and
+creating the Stripe PaymentIntent all happen inside one DB transaction — if
+the Stripe call fails, the reservation is rolled back, so no capacity is
+ever held for an order that never got a PaymentIntent. `ticket_sold_out` is
+returned when demand exceeds supply, matching the brief's exact error format
+example.
+
+Two tables exist beyond the brief's core schema, both required to make the
+above work: `password_reset_tokens` (auth) and `order_line_items`, which
+records what was purchased before any `tickets` row exists (needed because
+ticket/QR generation is deferred to payment confirmation).
+
 ## Next up
 
-Ticket Types + Checkout + Stripe Connect, with a blocking `Idempotency-Key`
-on the order endpoint.
+QR check-in + Orders/Guest List UI, scoped per event (never cross-event,
+even within the same organization), then the organizer dashboard (net
+revenue from paid orders only, excluding refunds).

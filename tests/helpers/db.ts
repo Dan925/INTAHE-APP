@@ -5,6 +5,7 @@ export async function truncateAllTables(): Promise<void> {
     TRUNCATE TABLE
       transactions,
       tickets,
+      order_line_items,
       orders,
       ticket_types,
       events,
