@@ -165,7 +165,29 @@ ticket/QR generation is deferred to payment confirmation).
   owner/admin/staff only (not volunteer, per the brief's table); cursor-paginated,
   joins ticket + order + ticket type for attendee/buyer/status info.
 
-## Next up
+## Dashboard (implemented)
 
-The organizer dashboard: net revenue computed from paid orders only,
-excluding refunds.
+- `GET /v1/organizations/:organizationId/dashboard` — owner/admin only
+  ("voir les rapports financiers"). Returns org-wide `totals` plus a
+  per-event breakdown array (every non-deleted event appears, even with
+  zero sales). Both are built from orders currently `status = 'paid'`
+  only — once an order moves to `refunded`/`partial_refund` it drops out
+  of every sum automatically, satisfying "exclut les remboursements"
+  without a separate filter. `net_revenue_cents = total_cents -
+  stripe_fee_cents - intahe_fee_cents`, which works out to `subtotal_cents`
+  when the buyer paid the fees, or `subtotal_cents` minus both fees when
+  the organizer absorbed them — either way, it's what actually lands in
+  the organization's Stripe balance.
+
+This completes the brief's Phase 1/MVP roadmap end to end: Auth →
+Organizations + Events → Ticket Types + Checkout + Stripe → Check-in +
+Orders + Guest List → Dashboard.
+
+## Out of scope for this MVP
+
+Per the brief: promo codes, global capacity, full multi-organizer Stripe
+Connect onboarding (the connected-account field exists and destination
+charges are wired up, but there's no Account Links onboarding flow yet —
+an org without `stripe_account_id` falls back to a plain platform charge),
+guest list export, push notifications, and Google OAuth (the schema
+supports it via `users.auth_provider` but no route implements it yet).

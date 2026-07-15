@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../../middleware/auth';
 import { requireOrgRole } from '../../middleware/requireOrgRole';
+import * as dashboardService from '../../services/dashboard/dashboardService';
 import * as organizationService from '../../services/organizations/organizationService';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parseLimit } from '../../utils/pagination';
@@ -64,6 +65,15 @@ router.patch(
       req.body,
     );
     res.status(200).json({ organization });
+  }),
+);
+
+router.get(
+  '/:organizationId/dashboard',
+  requireOrgRole('admin'), // "Voir les rapports financiers" — owner/admin only
+  asyncHandler(async (req, res) => {
+    const dashboard = await dashboardService.getOrganizationDashboard(req.params['organizationId']!);
+    res.status(200).json(dashboard);
   }),
 );
 
