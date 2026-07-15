@@ -101,4 +101,22 @@ router.post(
   }),
 );
 
+router.post(
+  '/:eventId/cancel',
+  requireOrgRole('admin'),
+  asyncHandler(async (req, res) => {
+    const event = await eventService.cancelEvent(req.params['organizationId']!, req.params['eventId']!);
+    res.status(200).json({ event });
+  }),
+);
+
+router.post(
+  '/:eventId/complete',
+  requireOrgRole('admin'),
+  asyncHandler(async (req, res) => {
+    const event = await eventService.completeEvent(req.params['organizationId']!, req.params['eventId']!);
+    res.status(200).json({ event });
+  }),
+);
+
 export default router;

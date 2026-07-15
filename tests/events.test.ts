@@ -181,6 +181,177 @@ describe('POST /v1/organizations/:organizationId/events/:eventId/publish', () =>
   });
 });
 
+describe('POST /v1/organizations/:organizationId/events/:eventId/cancel', () => {
+  it('cancels a draft event', async () => {
+    const owner = await signupTestUser(app);
+    const org = await createOrg(owner);
+    const created = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(validEvent);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/cancel`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.event.status).toBe('cancelled');
+  });
+
+  it('cancels a published event', async () => {
+    const owner = await signupTestUser(app);
+    const org = await createOrg(owner);
+    const created = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(validEvent);
+    await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/publish`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/cancel`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.event.status).toBe('cancelled');
+  });
+
+  it('refuses to cancel an already-cancelled event', async () => {
+    const owner = await signupTestUser(app);
+    const org = await createOrg(owner);
+    const created = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(validEvent);
+    await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/cancel`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/cancel`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('event_not_cancellable');
+  });
+
+  it('refuses to cancel a completed event', async () => {
+    const owner = await signupTestUser(app);
+    const org = await createOrg(owner);
+    const created = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(validEvent);
+    await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/publish`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+    await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/complete`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/cancel`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('event_not_cancellable');
+  });
+
+  it('forbids a staff member from cancelling an event', async () => {
+    const owner = await signupTestUser(app);
+    const staff = await signupTestUser(app);
+    const org = await createOrg(owner);
+    await addMember(org.id, staff.userId, 'staff');
+    const created = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(validEvent);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/cancel`)
+      .set('Authorization', `Bearer ${staff.accessToken}`);
+
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('POST /v1/organizations/:organizationId/events/:eventId/complete', () => {
+  it('completes a published event', async () => {
+    const owner = await signupTestUser(app);
+    const org = await createOrg(owner);
+    const created = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(validEvent);
+    await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/publish`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/complete`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.event.status).toBe('completed');
+  });
+
+  it('refuses to complete a draft event', async () => {
+    const owner = await signupTestUser(app);
+    const org = await createOrg(owner);
+    const created = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(validEvent);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/complete`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('event_not_completable');
+  });
+
+  it('refuses to complete a cancelled event', async () => {
+    const owner = await signupTestUser(app);
+    const org = await createOrg(owner);
+    const created = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(validEvent);
+    await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/cancel`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/complete`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('event_not_completable');
+  });
+
+  it('forbids a staff member from completing an event', async () => {
+    const owner = await signupTestUser(app);
+    const staff = await signupTestUser(app);
+    const org = await createOrg(owner);
+    await addMember(org.id, staff.userId, 'staff');
+    const created = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(validEvent);
+    await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/publish`)
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${org.id}/events/${created.body.event.id}/complete`)
+      .set('Authorization', `Bearer ${staff.accessToken}`);
+
+    expect(res.status).toBe(403);
+  });
+});
+
 describe('GET /v1/organizations/:organizationId/events (cursor pagination)', () => {
   it('paginates with a cursor instead of an offset', async () => {
     const owner = await signupTestUser(app);

@@ -182,6 +182,72 @@ export async function publishEvent(organizationId: string, eventId: string): Pro
   return toPublicEvent(published);
 }
 
+export async function cancelEvent(organizationId: string, eventId: string): Promise<PublicEvent> {
+  const existing = await pool.query<EventRow>(
+    `SELECT * FROM events WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL`,
+    [eventId, organizationId],
+  );
+  const event = existing.rows[0];
+  if (!event) {
+    throw notFound();
+  }
+  if (event.status !== 'draft' && event.status !== 'published') {
+    throw new ApiError(
+      409,
+      'event_not_cancellable',
+      `Event cannot be cancelled from status "${event.status}".`,
+      'status',
+    );
+  }
+
+  // No automatic refunds here on purpose: cancelling an event and refunding
+  // its orders are two separate, deliberate admin actions. Silently
+  // triggering a wave of Stripe refunds as a side effect of a status change
+  // would be a surprising, hard-to-undo thing for this endpoint to do.
+  const result = await pool.query<EventRow>(
+    `UPDATE events SET status = 'cancelled'
+     WHERE id = $1 AND organization_id = $2 AND status IN ('draft', 'published')
+     RETURNING *`,
+    [eventId, organizationId],
+  );
+  const cancelled = result.rows[0];
+  if (!cancelled) {
+    throw notFound();
+  }
+  return toPublicEvent(cancelled);
+}
+
+export async function completeEvent(organizationId: string, eventId: string): Promise<PublicEvent> {
+  const existing = await pool.query<EventRow>(
+    `SELECT * FROM events WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL`,
+    [eventId, organizationId],
+  );
+  const event = existing.rows[0];
+  if (!event) {
+    throw notFound();
+  }
+  if (event.status !== 'published') {
+    throw new ApiError(
+      409,
+      'event_not_completable',
+      `Event cannot be completed from status "${event.status}".`,
+      'status',
+    );
+  }
+
+  const result = await pool.query<EventRow>(
+    `UPDATE events SET status = 'completed'
+     WHERE id = $1 AND organization_id = $2 AND status = 'published'
+     RETURNING *`,
+    [eventId, organizationId],
+  );
+  const completed = result.rows[0];
+  if (!completed) {
+    throw notFound();
+  }
+  return toPublicEvent(completed);
+}
+
 export async function listEvents(
   organizationId: string,
   cursor: string | undefined,

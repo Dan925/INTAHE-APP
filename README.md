@@ -190,6 +190,14 @@ All routes below require `Authorization: Bearer <access_token>`.
 - `PATCH /v1/organizations/:organizationId/events/:eventId` — owner/admin only
 - `POST /v1/organizations/:organizationId/events/:eventId/publish` — owner/admin
   only; only valid from `draft` status (`409 event_not_publishable` otherwise)
+- `POST /v1/organizations/:organizationId/events/:eventId/cancel` — owner/admin
+  only; valid from `draft` or `published` (`409 event_not_cancellable` from
+  `cancelled`/`completed`). Deliberately doesn't touch existing orders —
+  cancelling an event and refunding its orders are two separate admin
+  actions, not one triggering the other as a side effect.
+- `POST /v1/organizations/:organizationId/events/:eventId/complete` —
+  owner/admin only; only valid from `published` (`409 event_not_completable`
+  otherwise)
 
 Role hierarchy (`owner > admin > staff > volunteer`) matches the brief's
 permission table exactly, so a single `requireOrgRole(minRole)` middleware
