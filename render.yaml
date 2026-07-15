@@ -14,6 +14,11 @@
 # the Render dashboard after the blueprint is applied (Stripe keys and the
 # Google OAuth client IDs are real secrets/config that don't belong in a
 # file committed to git).
+#
+# Migrations run via startCommand (not preDeployCommand — that's a paid-plan
+# -only feature and intahe-api-staging runs on Render's free tier).
+# node-pg-migrate tracks what's already applied, so running it on every
+# start (not just fresh deploys) is a safe no-op when there's nothing new.
 services:
   - type: web
     name: intahe-api-staging
@@ -24,8 +29,7 @@ services:
     autoDeploy: true
     healthCheckPath: /health
     buildCommand: npm ci && npm run build
-    preDeployCommand: npm run migrate:up
-    startCommand: npm start
+    startCommand: npm run migrate:up && npm start
     envVars:
       - key: NODE_ENV
         value: staging
@@ -59,8 +63,7 @@ services:
     autoDeploy: false
     healthCheckPath: /health
     buildCommand: npm ci && npm run build
-    preDeployCommand: npm run migrate:up
-    startCommand: npm start
+    startCommand: npm run migrate:up && npm start
     envVars:
       - key: NODE_ENV
         value: production

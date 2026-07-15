@@ -69,8 +69,11 @@ database, not just different env vars on a shared one.
    `STRIPE_CONNECT_REFRESH_URL`, `STRIPE_CONNECT_RETURN_URL`,
    `GOOGLE_OAUTH_CLIENT_IDS`. `JWT_SECRET` is auto-generated per
    environment by Render itself — staging and production never share one.
-3. Migrations run automatically as a `preDeployCommand` before every
-   deploy, on both environments.
+3. Migrations run via `startCommand` (`npm run migrate:up && npm start`),
+   not `preDeployCommand` — that's a paid-plan-only feature on Render and
+   staging runs on the free tier. `node-pg-migrate` tracks what's already
+   applied, so running it on every start (not just fresh deploys) is a
+   safe no-op once there's nothing new.
 4. **Staging** (`intahe-api-staging`) auto-deploys on every push to `main`.
    **Production** (`intahe-api-production`) does not — `autoDeploy: false`
    is deliberate, so a bad push can't reach real payment traffic without
