@@ -1,0 +1,95 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Defines staging and production as fully separate services + databases,
+# per the brief ("environnements staging + production séparés dès le
+# départ"). Staging auto-deploys on every push to `main` so it's always a
+# preview of what's about to ship; production deploys are manual
+# (autoDeploy: false) so a bad push can't reach real money/customers
+# without a deliberate click — promote staging to production once it's
+# been checked.
+#
+# Setup: Render dashboard -> New -> Blueprint -> point at this repo. Render
+# provisions both services and both databases from this file. Secrets
+# marked `sync: false` are NOT stored here — set them per-environment in
+# the Render dashboard after the blueprint is applied (Stripe keys and the
+# Google OAuth client IDs are real secrets/config that don't belong in a
+# file committed to git).
+services:
+  - type: web
+    name: intahe-api-staging
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run migrate:up
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: staging
+      - key: DATABASE_URL
+        fromDatabase:
+          name: intahe-db-staging
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: PASSWORD_RESET_TOKEN_TTL_MINUTES
+        value: '30'
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_CONNECT_REFRESH_URL
+        sync: false
+      - key: STRIPE_CONNECT_RETURN_URL
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_IDS
+        sync: false
+
+  - type: web
+    name: intahe-api-production
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeploy: false
+    healthCheckPath: /health
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run migrate:up
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: intahe-db-production
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: PASSWORD_RESET_TOKEN_TTL_MINUTES
+        value: '30'
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_CONNECT_REFRESH_URL
+        sync: false
+      - key: STRIPE_CONNECT_RETURN_URL
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_IDS
+        sync: false
+
+databases:
+  - name: intahe-db-staging
+    plan: free
+    region: oregon
+
+  - name: intahe-db-production
+    plan: starter
+    region: oregon

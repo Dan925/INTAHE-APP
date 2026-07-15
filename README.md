@@ -43,6 +43,55 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5432/intahe_test npx node-pg
 npm test
 ```
 
+## CI
+
+`.github/workflows/ci.yml` runs on every push and pull request: `npm ci`,
+typecheck, lint, migrate a fresh Postgres 16 service container, `npm test`,
+then `npm run build`. Nothing merges green without the full suite passing
+against a real database — the same one this README's manual testing
+sections use, not a mock.
+
+## Deployment
+
+Two fully separate environments, per the brief ("environnements staging +
+production séparés dès le départ") — each with its own service and its own
+database, not just different env vars on a shared one.
+
+**Render** (this repo's default — see `render.yaml`):
+
+1. Render dashboard → New → Blueprint → point it at this repo. Render reads
+   `render.yaml` and provisions both web services and both Postgres
+   databases in one shot.
+2. Set the secrets `render.yaml` deliberately leaves out (marked
+   `sync: false`, so they're never committed to git) on **each**
+   environment separately, in the Render dashboard:
+   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+   `STRIPE_CONNECT_REFRESH_URL`, `STRIPE_CONNECT_RETURN_URL`,
+   `GOOGLE_OAUTH_CLIENT_IDS`. `JWT_SECRET` is auto-generated per
+   environment by Render itself — staging and production never share one.
+3. Migrations run automatically as a `preDeployCommand` before every
+   deploy, on both environments.
+4. **Staging** (`intahe-api-staging`) auto-deploys on every push to `main`.
+   **Production** (`intahe-api-production`) does not — `autoDeploy: false`
+   is deliberate, so a bad push can't reach real payment traffic without
+   someone deliberately promoting it from the Render dashboard once
+   staging looks right.
+5. Point each environment's Stripe webhook (in the Stripe dashboard) at
+   `https://<that-service>.onrender.com/v1/stripe/webhook`, and each
+   environment's Google Cloud OAuth client at the corresponding
+   `STRIPE_CONNECT_RETURN_URL`/`STRIPE_CONNECT_REFRESH_URL` /whatever
+   frontend eventually owns those redirects.
+
+**Fly.io / Railway / anywhere else that wants a container**: use the
+`Dockerfile` instead — multi-stage build, production dependencies only,
+runs migrations before starting the server on every deploy (`node-pg-migrate`
+tracks what's already applied, so re-running it on a restart is a safe
+no-op, not just on a fresh deploy). Verified locally in this repo's dev
+environment (no Docker daemon available there) by reproducing the same
+steps outside a container: fresh `npm ci --omit=dev`, the compiled `dist`
+output, and the migrations directory — confirmed it boots and serves real
+requests before this was written up.
+
 Stripe is the one thing tests mock — `src/services/stripe/stripePayments.ts`
 (`createPaymentIntent`/`retrievePaymentIntent`) is replaced with `jest.mock()`
 so checkout tests never hit the network. Webhook signature verification is
@@ -64,6 +113,9 @@ src/
   types/        shared TS types (DB rows, etc.)
   utils/        errors, validation, password hashing, JWT
 tests/          jest + supertest, hits a real Postgres instance
+.github/workflows/ci.yml   typecheck + lint + test + build, on every push/PR
+render.yaml                 Render Blueprint: staging + production, each with its own DB
+Dockerfile                   portable alternative for Fly.io/Railway/self-hosted
 ```
 
 ## API conventions
