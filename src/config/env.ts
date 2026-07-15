@@ -20,6 +20,15 @@ const envSchema = z.object({
   // Comma-separated: the mobile app's iOS/Android OAuth client ID(s) plus
   // any web client ID, all valid `aud` claims for tokens we should accept.
   GOOGLE_OAUTH_CLIENT_IDS: z.string().min(1).default('placeholder.apps.googleusercontent.com'),
+  // 're_placeholder' is a recognized sentinel (see services/email/emailClient.ts):
+  // the app boots fine without a real Resend account, and emails are logged
+  // instead of sent for real until this is configured.
+  RESEND_API_KEY: z.string().min(1).default('re_placeholder'),
+  EMAIL_FROM_ADDRESS: z.string().email().default('no-reply@intahe.app'),
+  EMAIL_FROM_NAME: z.string().min(1).default('Intahe'),
+  // Frontend route the password reset email's link points to — a
+  // placeholder until a frontend exists to own it.
+  PASSWORD_RESET_URL: z.string().url().default('http://localhost:3000/reset-password'),
 });
 
 export const env = envSchema.parse(process.env);

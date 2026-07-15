@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type Stripe from 'stripe';
 import { pool } from '../../config/database';
+import { sendEmail } from '../email/emailClient';
 import type { OrderLineItemRow, OrderRow } from '../../types/db';
 
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
@@ -35,6 +36,7 @@ async function syncConnectedAccountChargesEnabled(
 
 async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<void> {
   const client = await pool.connect();
+  let confirmedOrder: { id: string; buyerEmail: string } | null = null;
   try {
     await client.query('BEGIN');
 
@@ -78,18 +80,36 @@ async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<vo
     );
 
     await client.query('COMMIT');
-
-    await deliverOrderConfirmationEmail(order.buyer_email, order.id);
+    confirmedOrder = { id: order.id, buyerEmail: order.buyer_email };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
   } finally {
     client.release();
   }
+
+  // Deliberately outside the try/catch above: the order is already
+  // committed at this point, so a delivery failure here must never roll
+  // back real data or make the webhook response look like a failure to
+  // Stripe. A failed response would make Stripe retry, and the retry would
+  // just hit the `status === 'paid'` idempotency guard above and return
+  // early without ever re-attempting the email — so a thrown error here
+  // wouldn't even get the retry it seemed to be asking for.
+  if (confirmedOrder) {
+    await deliverOrderConfirmationEmail(confirmedOrder.buyerEmail, confirmedOrder.id);
+  }
 }
 
 async function deliverOrderConfirmationEmail(email: string, orderId: string): Promise<void> {
-  // TODO: wire up a real transactional email provider, same as password
-  // reset. Logging keeps the flow testable end-to-end before that exists.
-  console.log(`[order-confirmation] would email ${email} for order ${orderId}`);
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Your Intahe order is confirmed',
+      html: `<p>Thanks for your purchase! Your order is confirmed.</p>
+<p>Order reference: <strong>${orderId}</strong></p>
+<p>Your tickets have been generated and are ready.</p>`,
+    });
+  } catch (err) {
+    console.error('Failed to send order confirmation email:', err);
+  }
 }

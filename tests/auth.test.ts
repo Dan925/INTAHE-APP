@@ -1,7 +1,12 @@
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { pool } from '../src/config/database';
+import { sendEmail } from '../src/services/email/emailClient';
 import { truncateAllTables } from './helpers/db';
+
+jest.mock('../src/services/email/emailClient');
+
+const mockSendEmail = sendEmail as jest.MockedFunction<typeof sendEmail>;
 
 const app = createApp();
 
@@ -13,6 +18,8 @@ const validSignup = {
 
 beforeEach(async () => {
   await truncateAllTables();
+  jest.clearAllMocks();
+  mockSendEmail.mockResolvedValue(undefined);
 });
 
 afterAll(async () => {
@@ -123,17 +130,12 @@ describe('password reset flow', () => {
     );
     expect(tokenRow.rows).toHaveLength(1);
 
-    // The raw token is only ever available via the (stubbed) email delivery
-    // step, so this test reaches into the service layer's hashing logic by
-    // requesting a reset then intercepting console output would be brittle;
-    // instead we exercise the confirm endpoint through the DB token record
-    // by regenerating a request and capturing the token from the logger.
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-    await request(app).post('/v1/auth/password-reset/request').send({ email: validSignup.email });
-    const logCall = logSpy.mock.calls.find((call) => String(call[0]).includes('password-reset'));
-    logSpy.mockRestore();
-    expect(logCall).toBeDefined();
-    const rawToken = String(logCall?.[0]).split('token ')[1];
+    // The raw token is only ever available via the email delivery step
+    // (only its hash is persisted), so extract it from the reset link in
+    // the mocked email body rather than the DB.
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const emailHtml = mockSendEmail.mock.calls[0]?.[0]?.html ?? '';
+    const rawToken = emailHtml.match(/token=([a-f0-9]+)/)?.[1];
     expect(rawToken).toBeTruthy();
 
     const confirmRes = await request(app)

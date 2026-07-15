@@ -140,7 +140,10 @@ Dockerfile                   portable alternative for Fly.io/Railway/self-hosted
 - `POST /v1/auth/signup` — email + password signup (`auth_provider = 'email'`)
 - `POST /v1/auth/login`
 - `POST /v1/auth/password-reset/request` — always returns 200, doesn't reveal
-  whether the email is registered
+  whether the email is registered. Email delivery failures are caught and
+  logged rather than propagated, so a Resend outage can't turn into a
+  500-for-real-accounts-only response that would undo the point of always
+  returning 200.
 - `POST /v1/auth/password-reset/confirm` — single-use, time-limited token
 - `POST /v1/auth/google` — body `{ id_token }`. The client (mobile/web) gets
   an ID token from Google's own sign-in SDK and hands it to this endpoint;
@@ -310,6 +313,32 @@ organization member management, refunds, and Stripe Connect onboarding
   checkout and refunds both gate on `stripe_account_id AND
   stripe_charges_enabled` before attempting a destination charge /
   `reverse_transfer`, falling back to a plain platform charge otherwise.
+
+## Transactional email (implemented)
+
+Password reset and order confirmation emails go through
+[Resend](https://resend.com) via `src/services/email/emailClient.ts` — the
+one function (`sendEmail`) every other part of the app calls, mirroring how
+Stripe/Google API calls are each isolated to a single thin wrapper.
+
+The wrapper checks `RESEND_API_KEY` on every call (not cached at import
+time): with the placeholder default, it logs what it would have sent and
+returns without touching the network at all. This matters more here than
+for Stripe/Google because order confirmation fires from the checkout
+webhook, which most of the test suite exercises indirectly just to test
+unrelated things (dashboards, refunds, check-in) — requiring every one of
+those files to remember to mock email sending would be fragile. With a real
+key configured, both delivery failures are caught locally and logged
+rather than allowed to propagate:
+
+- Password reset: propagating would turn "always 200" into "200 for
+  unknown emails, 500 for known ones during a Resend outage" — exactly the
+  enumeration signal that response is designed to never give.
+- Order confirmation: the DB transaction is already committed by the time
+  the email is sent; letting a delivery error fail the webhook response
+  would make Stripe retry, and the retry would just hit the
+  `status === 'paid'` idempotency guard and return early — never actually
+  retrying the email it seemed to be asking for.
 
 ## Out of scope for this MVP
 

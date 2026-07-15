@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { pool } from '../../config/database';
 import { env } from '../../config/env';
+import { sendEmail } from '../email/emailClient';
 import { verifyGoogleIdToken } from '../google/googleAuthClient';
 import { ApiError } from '../../utils/errors';
 import { signAccessToken } from '../../utils/jwt';
@@ -199,7 +200,20 @@ export async function confirmPasswordReset(rawToken: string, newPassword: string
 }
 
 async function deliverPasswordResetEmail(email: string, rawToken: string): Promise<void> {
-  // TODO: wire up a real transactional email provider. Logging keeps the
-  // flow testable end-to-end before that integration exists.
-  console.log(`[password-reset] would email ${email} with token ${rawToken}`);
+  const resetUrl = `${env.PASSWORD_RESET_URL}?token=${encodeURIComponent(rawToken)}`;
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Reset your Intahe password',
+      html: `<p>Someone requested a password reset for this account.</p>
+<p><a href="${resetUrl}">Reset your password</a>. This link expires in ${env.PASSWORD_RESET_TOKEN_TTL_MINUTES} minutes.</p>
+<p>If you didn't request this, you can safely ignore this email.</p>`,
+    });
+  } catch (err) {
+    // requestPasswordReset always returns 200 so this endpoint can't be
+    // used to enumerate accounts — letting a delivery failure propagate
+    // would make that 200-vs-500 distinction leak exactly what it's meant
+    // to hide. The token still exists in the DB either way; log and move on.
+    console.error('Failed to send password reset email:', err);
+  }
 }
