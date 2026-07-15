@@ -154,6 +154,21 @@ covers every route.
 - `GET /v1/organizations/:organizationId/events/:eventId/orders`,
   `GET .../orders/:orderId` — owner/admin only ("voir les rapports
   financiers"); order detail includes its tickets.
+- `POST .../orders/:orderId/refund` — owner/admin only ("émettre des
+  remboursements"). Body `{ amount_cents? }`; omit for a full refund of
+  whatever balance remains. Partial refunds can stack (e.g. refund half,
+  then refund the rest later) — the refundable balance is derived from
+  `SUM(transactions.amount_cents) WHERE type = 'refund'` rather than stored
+  redundantly on the order, so it can't drift out of sync. The order moves
+  to `partial_refund` while a balance remains, or `refunded` once it hits
+  zero; either way it leaves `status = 'paid'`, which is what makes it drop
+  out of the dashboard's revenue sums automatically. `409
+  order_not_refundable` for a `pending` or already-fully-refunded order;
+  `400 invalid_refund_amount` for a request over the remaining balance. On
+  a Connect destination charge (organization has `stripe_account_id`), the
+  refund also sets `reverse_transfer` + `refund_application_fee` so the
+  money actually comes back from the connected account and Intahe's own
+  cut, instead of the platform silently eating the loss.
 
 Reserving inventory (`ticket_types.quantity_sold`), inserting the order, and
 creating the Stripe PaymentIntent all happen inside one DB transaction — if
