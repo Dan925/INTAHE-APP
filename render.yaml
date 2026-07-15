@@ -93,6 +93,9 @@ databases:
     plan: free
     region: oregon
 
+  # 'starter' is a legacy Postgres plan Render no longer offers to new
+  # databases; 'basic-1gb' is the current equivalent entry-level paid tier.
+  # Check Render's Postgres pricing page and adjust if your needs differ.
   - name: intahe-db-production
-    plan: starter
+    plan: basic-1gb
     region: oregon
