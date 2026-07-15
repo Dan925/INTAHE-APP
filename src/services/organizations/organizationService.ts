@@ -150,8 +150,8 @@ export async function listOrganizationsForUser(
 ): Promise<CursorPage<PublicOrganization>> {
   const decoded = cursor ? decodeCursor(cursor) : null;
 
-  const result = await pool.query<OrganizationRow>(
-    `SELECT o.*
+  const result = await pool.query<OrganizationRow & { cursor_created_at: string }>(
+    `SELECT o.*, o.created_at::text AS cursor_created_at
      FROM organizations o
      JOIN organization_members om
        ON om.organization_id = o.id
@@ -171,6 +171,6 @@ export async function listOrganizationsForUser(
     result.rows,
     limit,
     toPublicOrganization,
-    (row) => encodeCursor(row.created_at, row.id),
+    (row) => encodeCursor(row.cursor_created_at, row.id),
   );
 }

@@ -10,8 +10,14 @@ export interface DecodedCursor {
   id: string;
 }
 
-export function encodeCursor(createdAt: Date, id: string): string {
-  return Buffer.from(`${createdAt.toISOString()}|${id}`, 'utf8').toString('base64url');
+// Takes the raw Postgres text representation of the timestamp, not a JS
+// Date: rows created in the same DB transaction can share an identical
+// microsecond-precision `created_at` (Postgres's `now()` is transaction-
+// scoped), and JS Date only has millisecond precision. Round-tripping
+// through a Date would truncate the cursor below the true value and could
+// silently drop same-timestamp rows from the next page.
+export function encodeCursor(createdAtText: string, id: string): string {
+  return Buffer.from(`${createdAtText}|${id}`, 'utf8').toString('base64url');
 }
 
 export function decodeCursor(cursor: string): DecodedCursor {

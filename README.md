@@ -149,8 +149,23 @@ above work: `password_reset_tokens` (auth) and `order_line_items`, which
 records what was purchased before any `tickets` row exists (needed because
 ticket/QR generation is deferred to payment confirmation).
 
+## Check-in + Guest List (implemented)
+
+- `POST /v1/organizations/:organizationId/events/:eventId/check-in` — any
+  role (owner/admin/staff/volunteer), body `{ qr_code }`. `404
+  ticket_not_found` if the code doesn't match any ticket *for this event* —
+  including a ticket that's real but belongs to a different event, even in
+  the same organization: `tickets` only stores `order_id`, so every lookup
+  joins through `orders.event_id` to scope it, making cross-event check-in
+  structurally impossible rather than just policy. `409
+  ticket_already_checked_in` on a repeat scan (race-safe: the update is
+  conditioned on `checked_in_at IS NULL`, so two simultaneous scans of the
+  same ticket can't both succeed).
+- `GET /v1/organizations/:organizationId/events/:eventId/guest-list` —
+  owner/admin/staff only (not volunteer, per the brief's table); cursor-paginated,
+  joins ticket + order + ticket type for attendee/buyer/status info.
+
 ## Next up
 
-QR check-in + Orders/Guest List UI, scoped per event (never cross-event,
-even within the same organization), then the organizer dashboard (net
-revenue from paid orders only, excluding refunds).
+The organizer dashboard: net revenue computed from paid orders only,
+excluding refunds.

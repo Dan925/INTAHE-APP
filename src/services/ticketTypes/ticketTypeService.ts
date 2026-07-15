@@ -126,8 +126,8 @@ export async function listTicketTypes(
 ): Promise<CursorPage<PublicTicketType>> {
   const decoded = cursor ? decodeCursor(cursor) : null;
 
-  const result = await pool.query<TicketTypeRow>(
-    `SELECT * FROM ticket_types
+  const result = await pool.query<TicketTypeRow & { cursor_created_at: string }>(
+    `SELECT *, created_at::text AS cursor_created_at FROM ticket_types
      WHERE event_id = $1
        AND (
          $2::timestamptz IS NULL
@@ -138,5 +138,5 @@ export async function listTicketTypes(
     [eventId, decoded?.createdAt ?? null, decoded?.id ?? null, limit + 1],
   );
 
-  return buildPage(result.rows, limit, toPublicTicketType, (row) => encodeCursor(row.created_at, row.id));
+  return buildPage(result.rows, limit, toPublicTicketType, (row) => encodeCursor(row.cursor_created_at, row.id));
 }

@@ -189,8 +189,8 @@ export async function listEvents(
 ): Promise<CursorPage<PublicEvent>> {
   const decoded = cursor ? decodeCursor(cursor) : null;
 
-  const result = await pool.query<EventRow>(
-    `SELECT * FROM events
+  const result = await pool.query<EventRow & { cursor_created_at: string }>(
+    `SELECT *, created_at::text AS cursor_created_at FROM events
      WHERE organization_id = $1
        AND deleted_at IS NULL
        AND (
@@ -202,5 +202,5 @@ export async function listEvents(
     [organizationId, decoded?.createdAt ?? null, decoded?.id ?? null, limit + 1],
   );
 
-  return buildPage(result.rows, limit, toPublicEvent, (row) => encodeCursor(row.created_at, row.id));
+  return buildPage(result.rows, limit, toPublicEvent, (row) => encodeCursor(row.cursor_created_at, row.id));
 }

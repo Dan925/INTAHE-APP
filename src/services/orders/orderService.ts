@@ -58,8 +58,8 @@ export async function listOrdersForEvent(
 ): Promise<CursorPage<PublicOrder>> {
   const decoded = cursor ? decodeCursor(cursor) : null;
 
-  const result = await pool.query<OrderRow>(
-    `SELECT * FROM orders
+  const result = await pool.query<OrderRow & { cursor_created_at: string }>(
+    `SELECT *, created_at::text AS cursor_created_at FROM orders
      WHERE event_id = $1
        AND (
          $2::timestamptz IS NULL
@@ -70,7 +70,7 @@ export async function listOrdersForEvent(
     [eventId, decoded?.createdAt ?? null, decoded?.id ?? null, limit + 1],
   );
 
-  return buildPage(result.rows, limit, toPublicOrder, (row) => encodeCursor(row.created_at, row.id));
+  return buildPage(result.rows, limit, toPublicOrder, (row) => encodeCursor(row.cursor_created_at, row.id));
 }
 
 export async function getOrderForEvent(
