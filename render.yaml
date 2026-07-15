@@ -28,7 +28,13 @@ services:
     branch: main
     autoDeploy: true
     healthCheckPath: /health
-    buildCommand: npm ci && npm run build
+    # --include=dev is required: NODE_ENV is set below (staging/production),
+    # and npm silently skips devDependencies — including typescript itself —
+    # when NODE_ENV=production/staging is present during install, breaking
+    # the build entirely (discovered live: tsc fell back to some other
+    # TypeScript on Render's image and errored on a removed compiler option
+    # that the actually-pinned 5.9.3 doesn't even have).
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm run migrate:up && npm start
     envVars:
       - key: NODE_ENV
@@ -62,7 +68,13 @@ services:
     branch: main
     autoDeploy: false
     healthCheckPath: /health
-    buildCommand: npm ci && npm run build
+    # --include=dev is required: NODE_ENV is set below (staging/production),
+    # and npm silently skips devDependencies — including typescript itself —
+    # when NODE_ENV=production/staging is present during install, breaking
+    # the build entirely (discovered live: tsc fell back to some other
+    # TypeScript on Render's image and errored on a removed compiler option
+    # that the actually-pinned 5.9.3 doesn't even have).
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm run migrate:up && npm start
     envVars:
       - key: NODE_ENV
