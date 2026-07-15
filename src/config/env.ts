@@ -17,6 +17,9 @@ const envSchema = z.object({
   // are frontend routes — placeholders until a frontend exists to own them.
   STRIPE_CONNECT_REFRESH_URL: z.string().url().default('http://localhost:3000/stripe/connect/refresh'),
   STRIPE_CONNECT_RETURN_URL: z.string().url().default('http://localhost:3000/stripe/connect/return'),
+  // Comma-separated: the mobile app's iOS/Android OAuth client ID(s) plus
+  // any web client ID, all valid `aud` claims for tokens we should accept.
+  GOOGLE_OAUTH_CLIENT_IDS: z.string().min(1).default('placeholder.apps.googleusercontent.com'),
 });
 
 export const env = envSchema.parse(process.env);

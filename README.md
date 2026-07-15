@@ -87,9 +87,18 @@ tests/          jest + supertest, hits a real Postgres instance
 - `POST /v1/auth/password-reset/request` — always returns 200, doesn't reveal
   whether the email is registered
 - `POST /v1/auth/password-reset/confirm` — single-use, time-limited token
-
-Google OAuth is part of the schema (`users.auth_provider`) but not yet wired
-up as a route — out of scope for this first pass.
+- `POST /v1/auth/google` — body `{ id_token }`. The client (mobile/web) gets
+  an ID token from Google's own sign-in SDK and hands it to this endpoint;
+  the backend verifies it against Google's public keys (`google-auth-library`,
+  checking signature/expiry/issuer/audience) rather than trusting anything
+  the client asserts. `401 invalid_google_token` if verification fails,
+  `401 google_email_not_verified` if the token is valid but the email on it
+  isn't. Matches by `google_sub` (Google's durable user id) first; on a
+  first-ever sign-in, falls back to linking an existing `email`-provider
+  account with the same verified email instead of creating a duplicate —
+  password login keeps working on a linked account, Google becomes a second
+  way in, not a replacement. Only creates a brand-new user if neither
+  lookup finds anyone.
 
 ## Organizations + Events (implemented)
 
@@ -241,6 +250,5 @@ organization member management, refunds, and Stripe Connect onboarding
 
 ## Out of scope for this MVP
 
-Per the brief: promo codes, global capacity, guest list export, push
-notifications, and Google OAuth (the schema supports it via
-`users.auth_provider` but no route implements it yet).
+Per the brief: promo codes, global capacity, guest list export, and push
+notifications.

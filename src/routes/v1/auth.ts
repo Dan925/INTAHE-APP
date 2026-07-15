@@ -18,6 +18,10 @@ const loginSchema = z.object({
   password: z.string().min(1, 'password is required.'),
 });
 
+const googleSignInSchema = z.object({
+  id_token: z.string().min(1, 'id_token is required.'),
+});
+
 const passwordResetRequestSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
 });
@@ -42,6 +46,16 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email, password } = req.body as z.infer<typeof loginSchema>;
     const result = await authService.login(email, password);
+    res.status(200).json(result);
+  }),
+);
+
+router.post(
+  '/google',
+  validateBody(googleSignInSchema),
+  asyncHandler(async (req, res) => {
+    const { id_token } = req.body as z.infer<typeof googleSignInSchema>;
+    const result = await authService.signInWithGoogle(id_token);
     res.status(200).json(result);
   }),
 );

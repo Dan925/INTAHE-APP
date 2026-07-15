@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { pool } from '../../config/database';
 import { env } from '../../config/env';
+import { verifyGoogleIdToken } from '../google/googleAuthClient';
 import { ApiError } from '../../utils/errors';
 import { signAccessToken } from '../../utils/jwt';
 import { hashPassword, verifyPassword } from '../../utils/password';
@@ -79,6 +80,65 @@ export async function login(email: string, password: string): Promise<AuthResult
   const isValid = await verifyPassword(password, user.password_hash);
   if (!isValid) {
     throw new ApiError(401, 'invalid_credentials', 'Incorrect email or password.', null);
+  }
+
+  const accessToken = signAccessToken({ sub: user.id, email: user.email });
+  return { user: toPublicUser(user), access_token: accessToken };
+}
+
+/**
+ * Finds the user by Google's durable `sub` claim first. If that's a first
+ * sign-in, falls back to matching an existing account by verified email —
+ * Google has already proven the person owns that email, so it's safe to
+ * link the two auth methods onto one account rather than creating a
+ * duplicate. Creates a brand-new `auth_provider = 'google'` user only if
+ * neither lookup finds anyone.
+ */
+export async function signInWithGoogle(idToken: string): Promise<AuthResult> {
+  let payload;
+  try {
+    payload = await verifyGoogleIdToken(idToken);
+  } catch {
+    throw new ApiError(401, 'invalid_google_token', 'The Google ID token is invalid or expired.', null);
+  }
+
+  if (!payload.emailVerified) {
+    throw new ApiError(
+      401,
+      'google_email_not_verified',
+      "This Google account's email address is not verified.",
+      null,
+    );
+  }
+
+  const byGoogleSub = await pool.query<UserRow>(
+    `SELECT * FROM users WHERE google_sub = $1 AND deleted_at IS NULL`,
+    [payload.sub],
+  );
+  let user = byGoogleSub.rows[0];
+
+  if (!user) {
+    const byEmail = await findActiveUserByEmail(payload.email);
+    if (byEmail) {
+      const linkResult = await pool.query<UserRow>(
+        `UPDATE users SET google_sub = $2 WHERE id = $1 RETURNING *`,
+        [byEmail.id, payload.sub],
+      );
+      user = linkResult.rows[0];
+    } else {
+      const fallbackName = payload.fullName ?? payload.email.split('@')[0] ?? payload.email;
+      const insertResult = await pool.query<UserRow>(
+        `INSERT INTO users (email, auth_provider, full_name, avatar_url, google_sub)
+         VALUES ($1, 'google', $2, $3, $4)
+         RETURNING *`,
+        [payload.email, fallbackName, payload.avatarUrl, payload.sub],
+      );
+      user = insertResult.rows[0];
+    }
+  }
+
+  if (!user) {
+    throw new Error('Google sign-in did not resolve to a user row.');
   }
 
   const accessToken = signAccessToken({ sub: user.id, email: user.email });

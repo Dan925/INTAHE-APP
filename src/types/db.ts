@@ -10,6 +10,7 @@ export interface UserRow {
   full_name: string;
   phone: string | null;
   avatar_url: string | null;
+  google_sub: string | null;
   created_at: Date;
   deleted_at: Date | null;
 }
