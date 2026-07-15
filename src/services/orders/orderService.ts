@@ -158,7 +158,8 @@ export async function refundOrder(
     const orgResult = await client.query<OrganizationRow>(`SELECT * FROM organizations WHERE id = $1`, [
       organizationId,
     ]);
-    const reverseTransfer = Boolean(orgResult.rows[0]?.stripe_account_id);
+    const org = orgResult.rows[0];
+    const reverseTransfer = Boolean(org?.stripe_account_id) && Boolean(org?.stripe_charges_enabled);
 
     const refund = await createRefund({
       paymentIntentId: order.stripe_payment_intent_id,

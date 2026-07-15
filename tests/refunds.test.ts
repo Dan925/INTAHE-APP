@@ -193,11 +193,12 @@ describe('POST .../orders/:orderId/refund', () => {
     expect(res.body.error.code).toBe('order_not_refundable');
   });
 
-  it('sets reverse_transfer when the organization has a connected Stripe account', async () => {
+  it('sets reverse_transfer when the organization has a connected, charges-enabled Stripe account', async () => {
     const fixture = await createOrgAndPublishedEvent(app);
-    await pool.query(`UPDATE organizations SET stripe_account_id = 'acct_test_123' WHERE id = $1`, [
-      fixture.organization.id,
-    ]);
+    await pool.query(
+      `UPDATE organizations SET stripe_account_id = 'acct_test_123', stripe_charges_enabled = true WHERE id = $1`,
+      [fixture.organization.id],
+    );
     const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
       price_cents: 2500,
       quantity_total: 10,

@@ -233,12 +233,18 @@ export async function createOrder(
       );
     }
 
+    // A connected account existing isn't enough — onboarding can be started
+    // and abandoned. Only route funds to it once Stripe has confirmed via
+    // account.updated that it can actually accept charges; otherwise fall
+    // back to a plain platform charge (the brief's allowed simplified mode).
+    const canUseDestinationCharge = Boolean(organization.stripe_account_id) && organization.stripe_charges_enabled;
+
     const paymentIntent = await createPaymentIntent({
       amountCents: totalCents,
       currency,
       orderId: order.id,
-      destinationAccountId: organization.stripe_account_id,
-      applicationFeeCents: organization.stripe_account_id ? intaheFeeCents : undefined,
+      destinationAccountId: canUseDestinationCharge ? organization.stripe_account_id : null,
+      applicationFeeCents: canUseDestinationCharge ? intaheFeeCents : undefined,
     });
 
     const updatedOrderResult = await client.query<OrderRow>(

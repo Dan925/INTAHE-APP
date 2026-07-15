@@ -214,13 +214,33 @@ ticket/QR generation is deferred to payment confirmation).
 
 This completes the brief's Phase 1/MVP roadmap end to end: Auth →
 Organizations + Events → Ticket Types + Checkout + Stripe → Check-in +
-Orders + Guest List → Dashboard.
+Orders + Guest List → Dashboard. Beyond that roadmap, this repo also adds
+organization member management, refunds, and Stripe Connect onboarding
+(below) — all real functional gaps once the MVP is actually being used.
+
+## Stripe Connect onboarding (implemented)
+
+- `POST /v1/organizations/:organizationId/stripe/onboarding-link` — owner
+  only ("gérer facturation / Stripe" is the one row in the brief's
+  permission table with no admin access at all). Creates the organization's
+  Connect Express account on first call (idempotent — a second call reuses
+  the existing `stripe_account_id` instead of creating another one, so
+  re-clicking "Connect Stripe" after abandoning onboarding resumes the same
+  account) and returns `{ url }`, a Stripe-hosted onboarding link to
+  redirect the owner to.
+- `GET /v1/organizations/:organizationId/stripe/status` — owner only.
+  Returns `{ connected, charges_enabled }`, both read straight from the
+  organization row — no live Stripe API call needed.
+- `stripe_charges_enabled` (new column on `organizations`) is kept in sync
+  by the `account.updated` webhook rather than polled, per Stripe's own
+  guidance. Having a connected account isn't the same as being able to
+  accept charges on it — onboarding can be started and abandoned — so
+  checkout and refunds both gate on `stripe_account_id AND
+  stripe_charges_enabled` before attempting a destination charge /
+  `reverse_transfer`, falling back to a plain platform charge otherwise.
 
 ## Out of scope for this MVP
 
-Per the brief: promo codes, global capacity, full multi-organizer Stripe
-Connect onboarding (the connected-account field exists and destination
-charges are wired up, but there's no Account Links onboarding flow yet —
-an org without `stripe_account_id` falls back to a plain platform charge),
-guest list export, push notifications, and Google OAuth (the schema
-supports it via `users.auth_provider` but no route implements it yet).
+Per the brief: promo codes, global capacity, guest list export, push
+notifications, and Google OAuth (the schema supports it via
+`users.auth_provider` but no route implements it yet).

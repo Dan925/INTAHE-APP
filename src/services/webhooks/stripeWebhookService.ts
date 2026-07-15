@@ -9,9 +9,28 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     await markOrderPaidAndIssueTickets(paymentIntent.id);
     return;
   }
+  if (event.type === 'account.updated') {
+    const account = event.data.object as Stripe.Account;
+    await syncConnectedAccountChargesEnabled(account.id, Boolean(account.charges_enabled));
+    return;
+  }
   // Other event types (e.g. payment_intent.payment_failed) are acknowledged
   // but intentionally ignored: the orders.status enum has no "failed" state
   // in this schema, so a failed attempt just leaves the order pending.
+}
+
+// Stripe recommends syncing charges_enabled from this webhook rather than
+// polling the Accounts API — it fires whenever onboarding progresses (or
+// regresses, e.g. a compliance hold), which is exactly what checkout and
+// refunds need to know before attempting a destination charge.
+async function syncConnectedAccountChargesEnabled(
+  stripeAccountId: string,
+  chargesEnabled: boolean,
+): Promise<void> {
+  await pool.query(`UPDATE organizations SET stripe_charges_enabled = $2 WHERE stripe_account_id = $1`, [
+    stripeAccountId,
+    chargesEnabled,
+  ]);
 }
 
 async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<void> {

@@ -30,6 +30,7 @@ export interface OrganizationRow {
   logo_url: string | null;
   contact_email: string | null;
   stripe_account_id: string | null;
+  stripe_charges_enabled: boolean;
   created_at: Date;
   deleted_at: Date | null;
 }

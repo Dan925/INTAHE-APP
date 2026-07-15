@@ -13,6 +13,10 @@ const envSchema = z.object({
   // until a genuine sk_test_/whsec_ value is configured.
   STRIPE_SECRET_KEY: z.string().min(1).default('sk_test_placeholder'),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).default('whsec_placeholder'),
+  // Where Stripe redirects the organizer after Connect onboarding. These
+  // are frontend routes — placeholders until a frontend exists to own them.
+  STRIPE_CONNECT_REFRESH_URL: z.string().url().default('http://localhost:3000/stripe/connect/refresh'),
+  STRIPE_CONNECT_RETURN_URL: z.string().url().default('http://localhost:3000/stripe/connect/return'),
 });
 
 export const env = envSchema.parse(process.env);

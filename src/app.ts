@@ -10,6 +10,7 @@ import eventsRouter from './routes/v1/events';
 import organizationMembersRouter from './routes/v1/organizationMembers';
 import organizationsRouter from './routes/v1/organizations';
 import ordersRouter from './routes/v1/orders';
+import stripeConnectRouter from './routes/v1/stripeConnect';
 import stripeWebhookRouter from './routes/v1/stripeWebhook';
 import ticketTypesRouter from './routes/v1/ticketTypes';
 
@@ -33,6 +34,7 @@ export function createApp() {
   app.use('/v1/auth', authRouter);
   app.use('/v1/organizations', organizationsRouter);
   app.use('/v1/organizations/:organizationId/members', organizationMembersRouter);
+  app.use('/v1/organizations/:organizationId/stripe', stripeConnectRouter);
   app.use('/v1/organizations/:organizationId/events', eventsRouter);
   app.use('/v1/organizations/:organizationId/events/:eventId/ticket-types', ticketTypesRouter);
   app.use('/v1/organizations/:organizationId/events/:eventId/orders', ordersRouter);
