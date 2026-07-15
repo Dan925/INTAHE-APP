@@ -102,6 +102,24 @@ All routes below require `Authorization: Bearer <access_token>`.
 - `GET /v1/organizations/:organizationId` — any member
 - `PATCH /v1/organizations/:organizationId` — owner/admin only
 
+- `POST /v1/organizations/:organizationId/members/invite` — owner/admin; body
+  `{ email, role }` (`role` is `admin`/`staff`/`volunteer`, never `owner` —
+  the only way to become owner is creating the organization; there's no
+  ownership-transfer endpoint). `404 invitee_not_found` if that email has no
+  Intahe account yet (invites don't create accounts); `409
+  invite_already_pending` / `already_a_member` on conflict.
+- `POST /v1/organizations/:organizationId/members/accept` — the invited
+  user only, self-service; not gated by `requireOrgRole` since an
+  unaccepted invitee isn't a member yet by that middleware's own
+  definition. `404 invite_not_found` if there's no pending invite for the
+  caller.
+- `GET /v1/organizations/:organizationId/members` — owner/admin, cursor-paginated
+- `PATCH /v1/organizations/:organizationId/members/:memberId` — owner/admin,
+  body `{ role }`; `400 cannot_modify_owner` if the target is the owner
+- `DELETE /v1/organizations/:organizationId/members/:memberId` — owner/admin;
+  `400 cannot_remove_owner` if the target is the owner (the "exactly one
+  owner" invariant holds for removal too, not just creation)
+
 - `POST /v1/organizations/:organizationId/events` — create a draft event (owner/admin)
 - `GET /v1/organizations/:organizationId/events` — list events (any member, cursor-paginated)
 - `GET /v1/organizations/:organizationId/events/:eventId` — any member
