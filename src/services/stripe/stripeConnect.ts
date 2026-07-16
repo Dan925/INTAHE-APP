@@ -13,7 +13,9 @@ export async function createConnectedAccount(input: CreateConnectedAccountInput)
     controller: {
       stripe_dashboard: { type: 'express' },
       fees: { payer: 'application' },
-      losses: { payments: 'stripe' },
+      // Stripe requires the platform (not Stripe) to control losses when
+      // stripe_dashboard.type is 'express'.
+      losses: { payments: 'application' },
     },
     capabilities: {
       card_payments: { requested: true },
