@@ -7,7 +7,14 @@ export interface CreateConnectedAccountInput {
 
 export async function createConnectedAccount(input: CreateConnectedAccountInput): Promise<Stripe.Account> {
   const params: Stripe.AccountCreateParams = {
-    type: 'express',
+    // Modern equivalent of the legacy `type: 'express'` shorthand — recent
+    // API versions require the loss/fee responsibilities to be declared
+    // explicitly on account creation rather than inferred from `type`.
+    controller: {
+      stripe_dashboard: { type: 'express' },
+      fees: { payer: 'application' },
+      losses: { payments: 'stripe' },
+    },
     capabilities: {
       card_payments: { requested: true },
       transfers: { requested: true },
