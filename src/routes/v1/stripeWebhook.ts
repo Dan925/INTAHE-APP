@@ -20,7 +20,10 @@ router.post(
     let event;
     try {
       event = constructWebhookEvent(req.body as Buffer, signature);
-    } catch {
+    } catch (err) {
+      // Signature failures are otherwise silent in the logs, which makes a
+      // misconfigured secret indistinguishable from any other cause here.
+      console.error('Stripe webhook signature verification failed:', err);
       throw new ApiError(400, 'invalid_webhook_signature', 'Webhook signature verification failed.', null);
     }
 
