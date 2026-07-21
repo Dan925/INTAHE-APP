@@ -14,6 +14,21 @@ export function constructWebhookEvent(rawBody: Buffer, signature: string): Strip
     .map((s) => s.trim())
     .filter(Boolean);
 
+  // TEMPORARY diagnostic: a persistent "no signatures found" in production
+  // despite a confirmed-correct secret means something differs between what
+  // the dashboard shows and what this process actually read from the
+  // environment at boot — log shape/length only, never the secret itself.
+  console.log(
+    'STRIPE_WEBHOOK_SECRET diagnostic:',
+    JSON.stringify({
+      rawLength: env.STRIPE_WEBHOOK_SECRET.length,
+      rawFirst6: env.STRIPE_WEBHOOK_SECRET.slice(0, 6),
+      rawLast6: env.STRIPE_WEBHOOK_SECRET.slice(-6),
+      parsedCount: secrets.length,
+      parsedShapes: secrets.map((s) => ({ length: s.length, first6: s.slice(0, 6), last4: s.slice(-4) })),
+    }),
+  );
+
   let lastError: unknown;
   for (const secret of secrets) {
     try {
