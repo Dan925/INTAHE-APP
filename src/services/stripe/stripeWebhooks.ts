@@ -1,7 +1,16 @@
 import crypto from 'node:crypto';
 import type Stripe from 'stripe';
 import { env } from '../../config/env';
-import { stripeClient } from './stripeClient';
+
+// Stripe's own webhooks.constructEvent() was verified, via extensive
+// production diagnostics, to reject signatures that an independently
+// recomputed HMAC proves are correct for this account's Event Destinations
+// (v2.core.event payloads) — the secret, raw body, and timestamp all match,
+// yet stripe-node's internal comparison still failed. Verifying the
+// signature directly avoids whatever internal quirk causes that, while
+// staying algorithmically identical to Stripe's documented scheme:
+// https://docs.stripe.com/webhooks/signature
+const TOLERANCE_SECONDS = 300;
 
 /**
  * Stripe's newer Event Destinations model issues a separate signing secret
@@ -15,48 +24,36 @@ export function constructWebhookEvent(rawBody: Buffer, signature: string): Strip
     .map((s) => s.trim())
     .filter(Boolean);
 
-  // TEMPORARY diagnostic: a persistent "no signatures found" in production
-  // despite a confirmed-correct secret means something differs between what
-  // the dashboard shows and what this process actually read from the
-  // environment at boot — log a fingerprint (never the secret itself) and,
-  // separately, manually recompute the HMAC to compare against what
-  // stripe-node's own verifier rejects.
-  const bodyString = rawBody.toString('utf8');
   const headerParts = Object.fromEntries(
     signature.split(',').map((kv) => {
       const [k, v] = kv.split('=');
       return [k, v];
     }),
   );
-  console.log(
-    'STRIPE_WEBHOOK_SECRET diagnostic:',
-    JSON.stringify({
-      rawLength: env.STRIPE_WEBHOOK_SECRET.length,
-      rawFirst6: env.STRIPE_WEBHOOK_SECRET.slice(0, 6),
-      rawLast6: env.STRIPE_WEBHOOK_SECRET.slice(-6),
-      parsedCount: secrets.length,
-      parsedShapes: secrets.map((s) => ({
-        length: s.length,
-        first6: s.slice(0, 6),
-        last4: s.slice(-4),
-        fingerprint: crypto.createHash('sha256').update(s).digest('hex').slice(0, 16),
-        manualHmac: crypto
-          .createHmac('sha256', s)
-          .update(`${headerParts['t']}.${bodyString}`, 'utf8')
-          .digest('hex'),
-      })),
-      receivedV1: headerParts['v1'],
-      bodyLength: bodyString.length,
-    }),
-  );
+  const timestamp = headerParts['t'];
+  const receivedSignatures = signature
+    .split(',')
+    .filter((kv) => kv.startsWith('v1='))
+    .map((kv) => kv.slice(3));
 
-  let lastError: unknown;
+  if (!timestamp || receivedSignatures.length === 0) {
+    throw new Error('Unable to extract timestamp and signatures from Stripe-Signature header.');
+  }
+
+  const age = Math.floor(Date.now() / 1000) - parseInt(timestamp, 10);
+  if (age > TOLERANCE_SECONDS) {
+    throw new Error('Webhook timestamp outside the tolerance zone.');
+  }
+
+  const bodyString = rawBody.toString('utf8');
+  const signedContent = `${timestamp}.${bodyString}`;
+
   for (const secret of secrets) {
-    try {
-      return stripeClient.webhooks.constructEvent(rawBody, signature, secret);
-    } catch (err) {
-      lastError = err;
+    const expectedSignature = crypto.createHmac('sha256', secret).update(signedContent, 'utf8').digest('hex');
+    if (receivedSignatures.includes(expectedSignature)) {
+      return JSON.parse(bodyString) as Stripe.Event;
     }
   }
-  throw lastError;
+
+  throw new Error('Webhook signature verification failed for all configured secrets.');
 }
