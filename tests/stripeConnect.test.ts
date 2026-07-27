@@ -4,7 +4,7 @@ import { createApp } from '../src/app';
 import { env } from '../src/config/env';
 import { pool } from '../src/config/database';
 import { stripeClient } from '../src/services/stripe/stripeClient';
-import { createAccountLink, createConnectedAccount } from '../src/services/stripe/stripeConnect';
+import { createAccountLink, createConnectedAccount, retrieveAccount } from '../src/services/stripe/stripeConnect';
 import { createPaymentIntent } from '../src/services/stripe/stripePayments';
 import { signupTestUser } from './helpers/auth';
 import { truncateAllTables } from './helpers/db';
@@ -15,6 +15,7 @@ jest.mock('../src/services/stripe/stripePayments');
 
 const mockCreateConnectedAccount = createConnectedAccount as jest.MockedFunction<typeof createConnectedAccount>;
 const mockCreateAccountLink = createAccountLink as jest.MockedFunction<typeof createAccountLink>;
+const mockRetrieveAccount = retrieveAccount as jest.MockedFunction<typeof retrieveAccount>;
 const mockCreatePaymentIntent = createPaymentIntent as jest.MockedFunction<typeof createPaymentIntent>;
 
 const app = createApp();
@@ -27,6 +28,10 @@ beforeEach(async () => {
     return { id } as never;
   });
   mockCreateAccountLink.mockImplementation(async () => ({ url: 'https://connect.stripe.com/setup/test' }) as never);
+  // getConnectStatus reconciles against a live Stripe fetch on every call —
+  // default to charges_enabled: false so tests only see it flip when they
+  // explicitly arrange for it (e.g. via the account.updated webhook test).
+  mockRetrieveAccount.mockImplementation(async () => ({ charges_enabled: false }) as never);
   mockCreatePaymentIntent.mockImplementation(async () => {
     const id = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
     return { id, client_secret: `${id}_secret` } as never;
@@ -157,6 +162,10 @@ describe('account.updated webhook', () => {
     const res = await sendAccountUpdated(stripeAccountId, true);
     expect(res.status).toBe(200);
 
+    // getConnectStatus reconciles against a live Stripe fetch, so the mock
+    // must reflect the same post-webhook state for this assertion to be
+    // testing the webhook sync rather than the live-reconciliation fetch.
+    mockRetrieveAccount.mockImplementation(async () => ({ charges_enabled: true }) as never);
     const statusRes = await request(app)
       .get(`/v1/organizations/${org.id}/stripe/status`)
       .set('Authorization', `Bearer ${owner.accessToken}`);

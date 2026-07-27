@@ -42,3 +42,7 @@ export async function createAccountLink(input: CreateAccountLinkInput): Promise<
     type: 'account_onboarding',
   });
 }
+
+export async function retrieveAccount(accountId: string): Promise<Stripe.Account> {
+  return stripeClient.accounts.retrieve(accountId);
+}

@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import type Stripe from 'stripe';
 import { pool } from '../../config/database';
 import { sendEmail } from '../email/emailClient';
-import { stripeClient } from '../stripe/stripeClient';
+import { retrieveAccount } from '../stripe/stripeConnect';
 import type { OrderLineItemRow, OrderRow } from '../../types/db';
 
 // This Stripe account's connected accounts were set up as Accounts v2, whose
@@ -32,7 +32,7 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     (v2Event.type === 'v2.core.account.updated' || v2Event.type === 'v2.core.account.created') &&
     v2Event.related_object?.id
   ) {
-    const account = await stripeClient.accounts.retrieve(v2Event.related_object.id);
+    const account = await retrieveAccount(v2Event.related_object.id);
     await syncConnectedAccountChargesEnabled(account.id, Boolean(account.charges_enabled));
     return;
   }

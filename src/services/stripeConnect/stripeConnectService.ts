@@ -1,7 +1,7 @@
 import { pool } from '../../config/database';
 import { env } from '../../config/env';
 import { ApiError } from '../../utils/errors';
-import { createAccountLink, createConnectedAccount } from '../stripe/stripeConnect';
+import { createAccountLink, createConnectedAccount, retrieveAccount } from '../stripe/stripeConnect';
 import type { OrganizationRow } from '../../types/db';
 
 export interface OnboardingLinkResult {
@@ -53,10 +53,28 @@ export async function createOnboardingLink(organizationId: string): Promise<Onbo
   return { url: accountLink.url };
 }
 
+/**
+ * A manual status check is exactly the moment to reconcile against Stripe
+ * directly rather than trust only the webhook-synced flag — if the account
+ * has actually progressed since the last webhook delivery (or a delivery
+ * was ever missed), this both answers the caller correctly and self-heals
+ * the stored value for every other read (e.g. checkout's destination-charge
+ * decision) in the meantime.
+ */
 export async function getConnectStatus(organizationId: string): Promise<StripeConnectStatus> {
   const organization = await getActiveOrganization(organizationId);
-  return {
-    connected: organization.stripe_account_id !== null,
-    charges_enabled: organization.stripe_charges_enabled,
-  };
+  if (!organization.stripe_account_id) {
+    return { connected: false, charges_enabled: false };
+  }
+
+  const account = await retrieveAccount(organization.stripe_account_id);
+  const chargesEnabled = Boolean(account.charges_enabled);
+  if (chargesEnabled !== organization.stripe_charges_enabled) {
+    await pool.query(`UPDATE organizations SET stripe_charges_enabled = $2 WHERE id = $1`, [
+      organizationId,
+      chargesEnabled,
+    ]);
+  }
+
+  return { connected: true, charges_enabled: chargesEnabled };
 }
