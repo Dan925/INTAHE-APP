@@ -2,7 +2,19 @@ import crypto from 'node:crypto';
 import type Stripe from 'stripe';
 import { pool } from '../../config/database';
 import { sendEmail } from '../email/emailClient';
+import { stripeClient } from '../stripe/stripeClient';
 import type { OrderLineItemRow, OrderRow } from '../../types/db';
+
+// This Stripe account's connected accounts were set up as Accounts v2, whose
+// events arrive as v2.core.account.created/updated — a "thin" event carrying
+// only { related_object: { id } }, not the account object itself — rather
+// than the classic v1 account.updated event with the full object inline.
+// Both are handled here since which one a given Stripe account/platform
+// emits isn't something this code controls.
+interface StripeV2AccountEvent {
+  type: string;
+  related_object?: { id: string; type: string };
+}
 
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   if (event.type === 'payment_intent.succeeded') {
@@ -12,6 +24,15 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   }
   if (event.type === 'account.updated') {
     const account = event.data.object as Stripe.Account;
+    await syncConnectedAccountChargesEnabled(account.id, Boolean(account.charges_enabled));
+    return;
+  }
+  const v2Event = event as unknown as StripeV2AccountEvent;
+  if (
+    (v2Event.type === 'v2.core.account.updated' || v2Event.type === 'v2.core.account.created') &&
+    v2Event.related_object?.id
+  ) {
+    const account = await stripeClient.accounts.retrieve(v2Event.related_object.id);
     await syncConnectedAccountChargesEnabled(account.id, Boolean(account.charges_enabled));
     return;
   }
