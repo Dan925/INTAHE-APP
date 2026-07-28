@@ -12,11 +12,8 @@ import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { createOrder, type CheckoutResult } from '@/lib/checkout';
 import { cancelEvent, getEvent, publishEvent, type Event } from '@/lib/events';
+import { formatPrice } from '@/lib/format';
 import { createTicketType, listTicketTypes, type TicketType } from '@/lib/ticketTypes';
-
-function formatPrice(cents: number, currency: string) {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(cents / 100);
-}
 
 export default function EventScreen() {
   const { orgId, eventId } = useLocalSearchParams<{ orgId: string; eventId: string }>();
@@ -109,6 +106,7 @@ export default function EventScreen() {
         name: typeName.trim(),
         price_cents: priceCents,
         quantity_total: quantityTotal,
+        currency: 'eur',
       });
       setTypeName('');
       setTypePrice('');
@@ -179,6 +177,47 @@ export default function EventScreen() {
           {event.status === 'draft' || event.status === 'published' ? (
             <Button title="Annuler l'événement" variant="destructive" onPress={onCancel} loading={isUpdating} />
           ) : null}
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.managementTitle}>
+            Gestion
+          </ThemedText>
+          <View style={styles.managementActions}>
+            <Button
+              title="Commandes"
+              variant="ghost"
+              style={styles.managementButton}
+              onPress={() =>
+                router.push({
+                  pathname: '/organizations/[orgId]/events/[eventId]/orders',
+                  params: { orgId, eventId },
+                })
+              }
+            />
+            <Button
+              title="Liste des invités"
+              variant="ghost"
+              style={styles.managementButton}
+              onPress={() =>
+                router.push({
+                  pathname: '/organizations/[orgId]/events/[eventId]/guest-list',
+                  params: { orgId, eventId },
+                })
+              }
+            />
+            <Button
+              title="Check-in"
+              variant="ghost"
+              style={styles.managementButton}
+              onPress={() =>
+                router.push({
+                  pathname: '/organizations/[orgId]/events/[eventId]/check-in',
+                  params: { orgId, eventId },
+                })
+              }
+            />
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -346,6 +385,17 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: Spacing.six,
+  },
+  managementTitle: {
+    marginBottom: Spacing.three,
+  },
+  managementActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  managementButton: {
+    paddingHorizontal: Spacing.three,
   },
   sectionHeader: {
     flexDirection: 'row',

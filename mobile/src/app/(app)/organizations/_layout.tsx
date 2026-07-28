@@ -16,6 +16,9 @@ export default function OrganizationsLayout() {
       <Stack.Screen name="[orgId]/index" options={{ title: '' }} />
       <Stack.Screen name="[orgId]/events/[eventId]" options={{ title: 'Événement' }} />
       <Stack.Screen name="[orgId]/events/[eventId]/tickets/[orderId]" options={{ title: 'Mes billets' }} />
+      <Stack.Screen name="[orgId]/events/[eventId]/orders/index" options={{ title: 'Commandes' }} />
+      <Stack.Screen name="[orgId]/events/[eventId]/guest-list" options={{ title: 'Liste des invités' }} />
+      <Stack.Screen name="[orgId]/events/[eventId]/check-in" options={{ title: 'Check-in' }} />
     </Stack>
   );
 }

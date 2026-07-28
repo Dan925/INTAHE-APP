@@ -30,7 +30,7 @@ export function createTicketType(
   token: string,
   organizationId: string,
   eventId: string,
-  input: { name: string; price_cents: number; quantity_total: number },
+  input: { name: string; price_cents: number; quantity_total: number; currency?: string },
 ): Promise<{ ticket_type: TicketType }> {
   return apiRequest(`/v1/organizations/${organizationId}/events/${eventId}/ticket-types`, {
     method: 'POST',
