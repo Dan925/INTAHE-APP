@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { optionalAuth } from '../../middleware/auth';
 import * as checkoutService from '../../services/checkout/checkoutService';
+import * as ticketService from '../../services/tickets/ticketService';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { ApiError } from '../../utils/errors';
 import { validateBody } from '../../utils/validate';
@@ -47,6 +48,22 @@ router.post(
       req.body,
     );
     res.status(201).json(result);
+  }),
+);
+
+router.get(
+  '/:orderId/tickets',
+  optionalAuth,
+  asyncHandler(async (req, res) => {
+    const eventId = req.params['eventId']!;
+    const buyerEmail = typeof req.query['buyer_email'] === 'string' ? req.query['buyer_email'] : undefined;
+    const tickets = await ticketService.listTicketsForOrder(
+      eventId,
+      req.params['orderId']!,
+      req.user?.id ?? null,
+      buyerEmail,
+    );
+    res.status(200).json({ items: tickets });
   }),
 );
 

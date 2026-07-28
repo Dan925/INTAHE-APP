@@ -1,4 +1,4 @@
-import { useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -22,6 +22,7 @@ export default function EventScreen() {
   const { orgId, eventId } = useLocalSearchParams<{ orgId: string; eventId: string }>();
   const { session } = useAuth();
   const navigation = useNavigation();
+  const router = useRouter();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
@@ -288,9 +289,20 @@ export default function EventScreen() {
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary" style={styles.paymentNote}>
                   Le paiement par carte (Stripe) n'est pas encore branché dans l'app mobile — cette étape
-                  nécessite un appareil ou simulateur réel pour être testée et sera ajoutée ensuite. La commande
-                  reste en attente de paiement.
+                  nécessite un appareil ou simulateur réel pour être testée et sera ajoutée ensuite. Les billets
+                  (QR codes) ne seront disponibles qu'une fois le paiement confirmé.
                 </ThemedText>
+                <Button
+                  title="Voir mes billets"
+                  variant="ghost"
+                  style={styles.viewTicketsButton}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/organizations/[orgId]/events/[eventId]/tickets/[orderId]',
+                      params: { orgId, eventId, orderId: checkoutResult.order.id },
+                    })
+                  }
+                />
               </ThemedView>
             ) : null}
           </View>
@@ -369,5 +381,10 @@ const styles = StyleSheet.create({
   },
   paymentNote: {
     marginTop: Spacing.two,
+  },
+  viewTicketsButton: {
+    marginTop: Spacing.three,
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.three,
   },
 });

@@ -1,6 +1,8 @@
+import QRCode from 'qrcode';
 import { pool } from '../../config/database';
 import { ApiError } from '../../utils/errors';
 import { buildPage, decodeCursor, encodeCursor, type CursorPage } from '../../utils/pagination';
+import type { OrderRow } from '../../types/db';
 
 export interface PublicTicket {
   id: string;
@@ -11,6 +13,11 @@ export interface PublicTicket {
   attendee_email: string | null;
   checked_in_at: string | null;
   checked_in_by: string | null;
+}
+
+export interface BuyerTicket extends PublicTicket {
+  ticket_type_name: string;
+  qr_code_image: string;
 }
 
 export interface GuestListEntry extends PublicTicket {
@@ -102,6 +109,43 @@ export async function checkInTicket(
     checked_in_at: updated.checked_in_at,
     checked_in_by: updated.checked_in_by,
   });
+}
+
+// Buyers aren't authenticated by default (guest checkout), so ownership is
+// proven either by a matching session (buyer_user_id) or by echoing back the
+// buyer_email used at checkout — never by orderId alone, which is guessable.
+export async function listTicketsForOrder(
+  eventId: string,
+  orderId: string,
+  requesterUserId: string | null,
+  buyerEmail: string | undefined,
+): Promise<BuyerTicket[]> {
+  const orderResult = await pool.query<OrderRow>(`SELECT * FROM orders WHERE id = $1 AND event_id = $2`, [
+    orderId,
+    eventId,
+  ]);
+  const order = orderResult.rows[0];
+  const isOwner = order
+    ? requesterUserId
+      ? order.buyer_user_id === requesterUserId
+      : Boolean(buyerEmail) && order.buyer_email === buyerEmail
+    : false;
+  if (!order || !isOwner) {
+    throw new ApiError(404, 'order_not_found', 'Order not found.', null);
+  }
+
+  const result = await pool.query<TicketJoinRow>(
+    `${TICKET_JOIN_SELECT} WHERE t.order_id = $1 ORDER BY t.created_at ASC`,
+    [orderId],
+  );
+
+  return Promise.all(
+    result.rows.map(async (row) => ({
+      ...toPublicTicket(row),
+      ticket_type_name: row.ticket_type_name,
+      qr_code_image: await QRCode.toDataURL(row.qr_code, { margin: 1, width: 240 }),
+    })),
+  );
 }
 
 export async function listGuestList(
