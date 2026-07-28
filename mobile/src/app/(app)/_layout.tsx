@@ -13,7 +13,7 @@ export default function AppLayout() {
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarStyle: { backgroundColor: theme.backgroundElement, borderTopColor: theme.border },
       }}>
-      <Tabs.Screen name="index" options={{ title: 'Événements' }} />
+      <Tabs.Screen name="organizations" options={{ title: 'Organisations' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profil' }} />
     </Tabs>
   );
