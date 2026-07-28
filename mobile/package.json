@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.7",
+    "@stripe/stripe-react-native": "^0.72.0",
     "expo": "~57.0.8",
     "expo-constants": "~57.0.7",
     "expo-device": "~57.0.1",

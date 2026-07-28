@@ -1,9 +1,12 @@
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme, View } from 'react-native';
 
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+
+const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -32,10 +35,12 @@ function RootNavigator() {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
-    </ThemeProvider>
+    <StripeProvider publishableKey={stripePublishableKey}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </ThemeProvider>
+    </StripeProvider>
   );
 }

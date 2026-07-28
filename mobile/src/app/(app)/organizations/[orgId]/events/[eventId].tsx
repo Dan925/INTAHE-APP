@@ -1,3 +1,4 @@
+import { useStripe } from '@stripe/stripe-react-native';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
@@ -20,6 +21,7 @@ export default function EventScreen() {
   const { session } = useAuth();
   const navigation = useNavigation();
   const router = useRouter();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
@@ -39,6 +41,10 @@ export default function EventScreen() {
   const [isOrdering, setIsOrdering] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [checkoutResult, setCheckoutResult] = useState<CheckoutResult | null>(null);
+  const [isPaymentReady, setIsPaymentReady] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentSucceeded, setPaymentSucceeded] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -127,16 +133,46 @@ export default function EventScreen() {
     setIsOrdering(true);
     setOrderError(null);
     setCheckoutResult(null);
+    setPaymentError(null);
+    setPaymentSucceeded(false);
+    setIsPaymentReady(false);
     try {
       const result = await createOrder(session?.token ?? null, eventId, {
         buyer_email: buyerEmail.trim(),
         line_items: [{ ticket_type_id: selectedTypeId, quantity: parsedQuantity }],
       });
       setCheckoutResult(result);
+
+      if (result.client_secret) {
+        const { error: initError } = await initPaymentSheet({
+          merchantDisplayName: 'Intahe',
+          paymentIntentClientSecret: result.client_secret,
+        });
+        if (initError) {
+          setPaymentError(initError.message);
+        } else {
+          setIsPaymentReady(true);
+        }
+      }
     } catch (err) {
       setOrderError(err instanceof Error ? err.message : 'Impossible de créer la commande.');
     } finally {
       setIsOrdering(false);
+    }
+  }
+
+  async function onPay() {
+    setIsPaying(true);
+    setPaymentError(null);
+    try {
+      const { error: presentError } = await presentPaymentSheet();
+      if (presentError) {
+        setPaymentError(presentError.message);
+      } else {
+        setPaymentSucceeded(true);
+      }
+    } finally {
+      setIsPaying(false);
     }
   }
 
@@ -323,25 +359,42 @@ export default function EventScreen() {
                     ticketTypes.find((t) => t.id === selectedTypeId)?.currency ?? 'EUR',
                   )}
                 </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Statut : {checkoutResult.order.status}
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary" style={styles.paymentNote}>
-                  Le paiement par carte (Stripe) n'est pas encore branché dans l'app mobile — cette étape
-                  nécessite un appareil ou simulateur réel pour être testée et sera ajoutée ensuite. Les billets
-                  (QR codes) ne seront disponibles qu'une fois le paiement confirmé.
-                </ThemedText>
-                <Button
-                  title="Voir mes billets"
-                  variant="ghost"
-                  style={styles.viewTicketsButton}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/organizations/[orgId]/events/[eventId]/tickets/[orderId]',
-                      params: { orgId, eventId, orderId: checkoutResult.order.id },
-                    })
-                  }
-                />
+
+                {paymentError ? (
+                  <ThemedText type="small" themeColor="destructive" style={styles.paymentNote}>
+                    {paymentError}
+                  </ThemedText>
+                ) : null}
+
+                {paymentSucceeded ? (
+                  <>
+                    <ThemedText type="smallBold" themeColor="success" style={styles.paymentNote}>
+                      Paiement réussi
+                    </ThemedText>
+                    <Button
+                      title="Voir mes billets"
+                      variant="ghost"
+                      style={styles.viewTicketsButton}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/organizations/[orgId]/events/[eventId]/tickets/[orderId]',
+                          params: { orgId, eventId, orderId: checkoutResult.order.id },
+                        })
+                      }
+                    />
+                  </>
+                ) : isPaymentReady ? (
+                  <Button
+                    title="Payer maintenant"
+                    onPress={onPay}
+                    loading={isPaying}
+                    style={styles.viewTicketsButton}
+                  />
+                ) : (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Statut : {checkoutResult.order.status}
+                  </ThemedText>
+                )}
               </ThemedView>
             ) : null}
           </View>
