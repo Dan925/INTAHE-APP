@@ -1,0 +1,8 @@
+:root {
+  --font-display:
+    system-ui, ui-sans-serif, sans-serif-condensed, sans-serif, Apple Color Emoji, Segoe UI Emoji,
+    Segoe UI Symbol, Noto Color Emoji;
+  --font-body: system-ui, ui-sans-serif, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+}

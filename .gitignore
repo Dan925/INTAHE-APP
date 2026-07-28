@@ -3,6 +3,10 @@ dist/
 .env
 .env.*
 !.env.example
+# The mobile app's .env only holds the public API base URL (EXPO_PUBLIC_*
+# vars are bundled into the client anyway, so there's no secret to protect)
+# — commit it so a fresh clone points at the right API out of the box.
+!mobile/.env
 *.log
 coverage/
 .DS_Store
