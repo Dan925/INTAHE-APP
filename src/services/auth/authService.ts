@@ -99,7 +99,11 @@ export async function signInWithGoogle(idToken: string): Promise<AuthResult> {
   let payload;
   try {
     payload = await verifyGoogleIdToken(idToken);
-  } catch {
+  } catch (err) {
+    // TEMPORARY diagnostic: this otherwise swallows the real reason
+    // (audience mismatch, clock skew, bad issuer, etc.) behind one generic
+    // 401, which made a live signInWithGoogle failure impossible to debug.
+    console.error('Google ID token verification failed:', err);
     throw new ApiError(401, 'invalid_google_token', 'The Google ID token is invalid or expired.', null);
   }
 
