@@ -28,8 +28,12 @@ npx expo start        # or: npm run web / npm run ios / npm run android
 - **Ticket types + checkout**: create/list ticket types on an event, and a checkout form that creates a real order (`POST /v1/events/:eventId/orders`) and displays the resulting total/status.
 - **Tickets (QR codes)**: a "Voir mes billets" screen that fetches the buyer's tickets for an order (`GET /v1/events/:eventId/orders/:orderId/tickets`, a new buyer-facing endpoint — ownership is checked via the session or the `buyer_email` used at checkout, never orderId alone) and renders each ticket's QR code (generated server-side as a PNG data URI via the `qrcode` package).
 - **Check-in + Orders + Guest List** (from the event detail screen's "Gestion" section): a manual QR-code entry screen for check-in (`POST .../check-in`, shows French messages for "not found" / "already checked in"), a guest list (`GET .../guest-list`, scanned/pending status per ticket), and an admin orders list (`GET .../orders`, buyer email + total + status).
+- **Organization members** (from the org detail screen's "Membres" button): invite by email + role (admin/staff/volunteer — the invitee must already have an Intahe account), list members with role and pending/accepted status, cycle a member's role, remove a member.
+- **Dashboard** (org detail screen's "Dashboard" button): totals (tickets sold, paid orders, net revenue) plus a per-event breakdown, from `GET /v1/organizations/:organizationId/dashboard`.
 
-All of the above are tested end-to-end against a local instance of the backend, driven with a headless browser (Playwright) against the web build — see the "Get started" note above on pointing `EXPO_PUBLIC_API_BASE_URL` at `http://localhost:3000` for this. Tickets are only issued once an order's Stripe payment actually succeeds (the webhook in `stripeWebhookService.ts`), so testing the tickets/check-in/guest-list screens requires seeding a paid order directly in Postgres to stand in for that webhook — see the deferred-payment note below for why.
+All of the above are tested end-to-end against a local instance of the backend, driven with a headless browser (Playwright) against the web build — see the "Get started" note above on pointing `EXPO_PUBLIC_API_BASE_URL` at `http://localhost:3000` for this. Tickets are only issued once an order's Stripe payment actually succeeds (the webhook in `stripeWebhookService.ts`), so testing the tickets/check-in/guest-list/dashboard screens requires seeding a paid order directly in Postgres to stand in for that webhook — see the deferred-payment note below for why.
+
+Member management has one known gap: there's no screen for an invitee to accept a pending invite. `listOrganizationsForUser` only returns organizations with an *accepted* membership, so a newly invited user has no way to discover the invite from within the app — the backend has no `GET /v1/me/invites`-style endpoint to list pending invites for the current user. The admin-side flow (invite, see it as pending, change role, remove) is fully built and tested; accepting from the invitee's side needs that backend endpoint first.
 
 Check-in uses manual code entry rather than a camera scanner: real QR scanning would need `expo-camera` and real hardware to verify, neither of which are testable in this sandbox. The code is functionally identical either way (both end up calling the same `qr_code` string to the check-in endpoint) — swapping in a camera-based scanner later doesn't change the underlying flow.
 
@@ -39,4 +43,4 @@ The checkout screen creates the order and shows the receipt, but it stops there:
 
 ## Not yet built
 
-Organization member management, dashboard. See the project brief's MVP build order.
+Accepting a pending organization invite (see the member management gap above). The core MVP build order from the project brief is otherwise complete.

@@ -74,6 +74,21 @@ export default function OrganizationScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.content}>
+        <View style={styles.orgActions}>
+          <Button
+            title="Membres"
+            variant="ghost"
+            style={styles.orgActionButton}
+            onPress={() => router.push({ pathname: '/organizations/[orgId]/members', params: { orgId } })}
+          />
+          <Button
+            title="Dashboard"
+            variant="ghost"
+            style={styles.orgActionButton}
+            onPress={() => router.push({ pathname: '/organizations/[orgId]/dashboard', params: { orgId } })}
+          />
+        </View>
+
         {error ? (
           <ThemedText type="small" themeColor="destructive" style={styles.error}>
             {error}
@@ -145,6 +160,14 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: Spacing.four,
+  },
+  orgActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginBottom: Spacing.four,
+  },
+  orgActionButton: {
+    paddingHorizontal: Spacing.three,
   },
   error: {
     marginBottom: Spacing.three,
