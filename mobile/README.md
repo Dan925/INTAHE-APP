@@ -21,10 +21,18 @@ npx expo start        # or: npm run web / npm run ios / npm run android
 - `src/lib/auth-context.tsx` — session state (token + user), persisted via `expo-secure-store` (native only — web falls back to in-memory, since web isn't a real target).
 - `src/components/` — shared primitives (`Button`, `TextField`, `ThemedText`, `ThemedView`) styled from `src/constants/theme.ts`, the same kraft/paper/teal design system as the backend's web test console.
 
-## Auth flow (implemented)
+## Implemented
 
-Signup, login, logout, and route protection are wired to the real backend (`/v1/auth/signup`, `/v1/auth/login`) and tested end-to-end against a local instance of the backend (signup → session stored → redirect to app tabs; wrong password → French error message; logout → redirect back to login).
+- **Auth**: signup, login, logout, route protection (`/v1/auth/signup`, `/v1/auth/login`), tested end-to-end against a local instance of the backend.
+- **Organizations + Events**: create/list organizations, create/list events (custom date/time fields, since `@react-native-community/datetimepicker` has no web implementation), publish/cancel transitions.
+- **Ticket types + checkout**: create/list ticket types on an event, and a checkout form that creates a real order (`POST /v1/events/:eventId/orders`) and displays the resulting total/status.
+
+All of the above are tested end-to-end against a local instance of the backend, driven with a headless browser (Playwright) against the web build — see the "Get started" note above on pointing `EXPO_PUBLIC_API_BASE_URL` at `http://localhost:3000` for this.
+
+### Stripe payment — deferred
+
+The checkout screen creates the order and shows the receipt, but it stops there: it does not present a card form or confirm payment. `@stripe/stripe-react-native` (needed for that step) breaks Metro's entire web bundle the moment it's imported anywhere in the app — not just the payment screen — because its barrel file re-exports native-only components that import React Native internals Metro refuses to bundle for web. Since this app is tested via a headless browser against a local backend, adding it now would make everything else untestable too. This was a deliberate choice, not an oversight: build everything up through order creation, and add the actual `PaymentSheet` integration once a real device or simulator is available to test it on.
 
 ## Not yet built
 
-Everything past auth: browsing/creating events, ticket types, checkout (Stripe), tickets/QR codes, check-in, organization management, dashboard. See the project brief's MVP build order.
+Tickets/QR codes, check-in, organization member management, dashboard. See the project brief's MVP build order.
