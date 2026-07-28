@@ -182,3 +182,45 @@ export async function removeMember(organizationId: string, memberId: string): Pr
 
   await pool.query(`DELETE FROM organization_members WHERE id = $1`, [memberId]);
 }
+
+export interface PendingInvite {
+  id: string;
+  organization_id: string;
+  organization_name: string;
+  organization_slug: string;
+  role: Role;
+  invited_at: string | null;
+}
+
+interface PendingInviteRow {
+  id: string;
+  organization_id: string;
+  organization_name: string;
+  organization_slug: string;
+  role: Role;
+  invited_at: Date | null;
+}
+
+// listOrganizationsForUser only returns accepted memberships, so an invited
+// user has no other way to discover a pending invite from within the app —
+// this is what backs that discovery.
+export async function listPendingInvitesForUser(userId: string): Promise<PendingInvite[]> {
+  const result = await pool.query<PendingInviteRow>(
+    `SELECT om.id, om.organization_id, o.name AS organization_name, o.slug AS organization_slug,
+            om.role, om.invited_at
+     FROM organization_members om
+     JOIN organizations o ON o.id = om.organization_id
+     WHERE om.user_id = $1 AND om.accepted_at IS NULL AND o.deleted_at IS NULL
+     ORDER BY om.invited_at DESC`,
+    [userId],
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    organization_id: row.organization_id,
+    organization_name: row.organization_name,
+    organization_slug: row.organization_slug,
+    role: row.role,
+    invited_at: row.invited_at ? row.invited_at.toISOString() : null,
+  }));
+}

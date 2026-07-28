@@ -53,3 +53,23 @@ export function removeMember(token: string, organizationId: string, memberId: st
     token,
   });
 }
+
+export interface PendingInvite {
+  id: string;
+  organization_id: string;
+  organization_name: string;
+  organization_slug: string;
+  role: MemberRole;
+  invited_at: string | null;
+}
+
+export function listPendingInvites(token: string): Promise<{ items: PendingInvite[] }> {
+  return apiRequest('/v1/me/invites', { token });
+}
+
+export function acceptInvite(token: string, organizationId: string): Promise<{ member: Member }> {
+  return apiRequest(`/v1/organizations/${organizationId}/members/accept`, {
+    method: 'POST',
+    token,
+  });
+}

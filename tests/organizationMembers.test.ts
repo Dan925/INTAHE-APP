@@ -220,6 +220,61 @@ describe('member management protects the owner invariant', () => {
   });
 });
 
+describe('GET /v1/me/invites', () => {
+  it('lists only the pending invites for the current user', async () => {
+    const owner = await signupTestUser(app);
+    const invitee = await signupTestUser(app);
+    const org = await createOrg(owner, 'Org With Invite');
+    await request(app)
+      .post(`/v1/organizations/${org.id}/members/invite`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ email: invitee.email, role: 'staff' });
+
+    const res = await request(app)
+      .get('/v1/me/invites')
+      .set('Authorization', `Bearer ${invitee.accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0]).toMatchObject({
+      organization_id: org.id,
+      organization_name: 'Org With Invite',
+      role: 'staff',
+    });
+
+    // The owner has no pending invite of their own (their membership was
+    // accepted at org creation), so their list should be empty.
+    const ownerRes = await request(app)
+      .get('/v1/me/invites')
+      .set('Authorization', `Bearer ${owner.accessToken}`);
+    expect(ownerRes.body.items).toHaveLength(0);
+  });
+
+  it('drops an invite from the list once accepted', async () => {
+    const owner = await signupTestUser(app);
+    const invitee = await signupTestUser(app);
+    const org = await createOrg(owner);
+    await request(app)
+      .post(`/v1/organizations/${org.id}/members/invite`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ email: invitee.email, role: 'volunteer' });
+    await request(app)
+      .post(`/v1/organizations/${org.id}/members/accept`)
+      .set('Authorization', `Bearer ${invitee.accessToken}`);
+
+    const res = await request(app)
+      .get('/v1/me/invites')
+      .set('Authorization', `Bearer ${invitee.accessToken}`);
+
+    expect(res.body.items).toHaveLength(0);
+  });
+
+  it('requires authentication', async () => {
+    const res = await request(app).get('/v1/me/invites');
+    expect(res.status).toBe(401);
+  });
+});
+
 describe('GET /v1/organizations/:organizationId/members', () => {
   it('lists members with user details, owner/admin only', async () => {
     const owner = await signupTestUser(app);

@@ -9,12 +9,22 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { acceptInvite, listPendingInvites, type PendingInvite } from '@/lib/organizationMembers';
 import { createOrganization, listOrganizations, type Organization } from '@/lib/organizations';
+
+const ROLE_LABELS: Record<PendingInvite['role'], string> = {
+  owner: 'Propriétaire',
+  admin: 'Admin',
+  staff: 'Staff',
+  volunteer: 'Bénévole',
+};
 
 export default function OrganizationsScreen() {
   const { session } = useAuth();
   const router = useRouter();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [invites, setInvites] = useState<PendingInvite[]>([]);
+  const [acceptingInviteId, setAcceptingInviteId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -25,8 +35,12 @@ export default function OrganizationsScreen() {
     if (!session) return;
     setIsLoading(true);
     try {
-      const page = await listOrganizations(session.token);
-      setOrganizations(page.items);
+      const [orgsPage, invitesPage] = await Promise.all([
+        listOrganizations(session.token),
+        listPendingInvites(session.token),
+      ]);
+      setOrganizations(orgsPage.items);
+      setInvites(invitesPage.items);
     } catch {
       setError('Impossible de charger les organisations.');
     } finally {
@@ -56,6 +70,20 @@ export default function OrganizationsScreen() {
     }
   }
 
+  async function onAccept(invite: PendingInvite) {
+    if (!session) return;
+    setAcceptingInviteId(invite.id);
+    setError(null);
+    try {
+      await acceptInvite(session.token, invite.organization_id);
+      await load();
+    } catch {
+      setError("Impossible d'accepter cette invitation.");
+    } finally {
+      setAcceptingInviteId(null);
+    }
+  }
+
   return (
     <ThemedView style={styles.container}>
       <View style={styles.content}>
@@ -63,6 +91,29 @@ export default function OrganizationsScreen() {
           <ThemedText type="small" themeColor="destructive" style={styles.error}>
             {error}
           </ThemedText>
+        ) : null}
+
+        {invites.length > 0 ? (
+          <View style={styles.invites}>
+            <ThemedText type="subtitle" style={styles.invitesTitle}>
+              Invitations en attente
+            </ThemedText>
+            {invites.map((invite) => (
+              <ListItem
+                key={invite.id}
+                title={invite.organization_name}
+                subtitle={ROLE_LABELS[invite.role]}
+                right={
+                  <Button
+                    title="Accepter"
+                    style={styles.acceptButton}
+                    loading={acceptingInviteId === invite.id}
+                    onPress={() => onAccept(invite)}
+                  />
+                }
+              />
+            ))}
+          </View>
         ) : null}
 
         {showCreateForm ? (
@@ -126,6 +177,15 @@ const styles = StyleSheet.create({
   },
   error: {
     marginBottom: Spacing.three,
+  },
+  invites: {
+    marginBottom: Spacing.five,
+  },
+  invitesTitle: {
+    marginBottom: Spacing.three,
+  },
+  acceptButton: {
+    paddingHorizontal: Spacing.three,
   },
   createForm: {
     marginBottom: Spacing.four,
