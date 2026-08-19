@@ -65,7 +65,7 @@ export default function OrdersScreen() {
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
             <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-              Aucune commande pour l'instant.
+              Aucune commande pour l&apos;instant.
             </ThemedText>
           }
           renderItem={({ item }) => (

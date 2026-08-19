@@ -130,7 +130,7 @@ export default function OrganizationScreen() {
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
               <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                Aucun événement pour l'instant.
+                Aucun événement pour l&apos;instant.
               </ThemedText>
             }
             renderItem={({ item }) => (

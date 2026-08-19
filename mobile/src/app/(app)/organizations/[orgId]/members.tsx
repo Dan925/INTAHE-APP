@@ -154,7 +154,7 @@ export default function MembersScreen() {
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
               <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                Aucun membre pour l'instant.
+                Aucun membre pour l&apos;instant.
               </ThemedText>
             }
             renderItem={({ item }) => (

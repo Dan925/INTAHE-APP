@@ -57,7 +57,7 @@ export default function GuestListScreen() {
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
             <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-              Aucun billet vendu pour l'instant.
+              Aucun billet vendu pour l&apos;instant.
             </ThemedText>
           }
           renderItem={({ item }) => (

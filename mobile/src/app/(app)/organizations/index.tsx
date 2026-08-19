@@ -148,7 +148,7 @@ export default function OrganizationsScreen() {
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
               <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                Aucune organisation pour l'instant.
+                Aucune organisation pour l&apos;instant.
               </ThemedText>
             }
             renderItem={({ item }) => (

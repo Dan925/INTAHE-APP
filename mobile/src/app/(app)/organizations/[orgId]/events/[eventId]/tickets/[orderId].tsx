@@ -55,7 +55,7 @@ export default function OrderTicketsScreen() {
           </ThemedText>
         ) : tickets.length === 0 ? (
           <ThemedText type="small" themeColor="textSecondary">
-            Aucun billet pour cette commande pour l'instant.
+            Aucun billet pour cette commande pour l&apos;instant.
           </ThemedText>
         ) : (
           tickets.map((ticket) => (

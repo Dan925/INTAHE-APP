@@ -298,7 +298,7 @@ export default function EventScreen() {
 
           {ticketTypes.length === 0 ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-              Aucun type de billet pour l'instant.
+              Aucun type de billet pour l&apos;instant.
             </ThemedText>
           ) : (
             ticketTypes.map((type) => (

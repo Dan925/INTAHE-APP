@@ -91,7 +91,7 @@ export default function DashboardScreen() {
 
         {dashboard.events.length === 0 ? (
           <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-            Aucun événement pour l'instant.
+            Aucun événement pour l&apos;instant.
           </ThemedText>
         ) : (
           dashboard.events.map((entry) => <EventRow key={entry.event_id} entry={entry} />)

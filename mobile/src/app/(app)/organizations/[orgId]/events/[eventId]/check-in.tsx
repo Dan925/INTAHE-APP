@@ -48,7 +48,7 @@ export default function CheckInScreen() {
     <ThemedView style={styles.container}>
       <View style={styles.content}>
         <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-          Saisis le code du billet (habituellement scanné via QR code) pour l'enregistrer à l'entrée.
+          Saisis le code du billet (habituellement scanné via QR code) pour l&apos;enregistrer à l&apos;entrée.
         </ThemedText>
 
         <TextField

@@ -4,8 +4,6 @@
  * red/orange reserved strictly for destructive actions.
  */
 
-import '@/global.css';
-
 import { Platform } from 'react-native';
 
 export const Colors = {
@@ -51,11 +49,6 @@ export const Fonts = Platform.select({
     display: 'sans-serif-condensed',
     body: 'normal',
     mono: 'monospace',
-  },
-  web: {
-    display: 'var(--font-display)',
-    body: 'var(--font-body)',
-    mono: 'var(--font-mono)',
   },
 });
 
