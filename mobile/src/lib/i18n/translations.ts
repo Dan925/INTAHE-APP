@@ -11,6 +11,8 @@ export interface Translations {
     invalid_credentials: string;
     no_account: string;
     discover_link: string;
+    or_divider: string;
+    apple_error: string;
   };
   signup: {
     title: string;
@@ -71,6 +73,8 @@ export const fr: Translations = {
     invalid_credentials: 'Email ou mot de passe incorrect.',
     no_account: 'Pas encore de compte ? Inscris-toi',
     discover_link: 'Découvrir des événements sans compte',
+    or_divider: 'ou',
+    apple_error: 'La connexion avec Apple a échoué. Réessaie.',
   },
   signup: {
     title: 'Créer un compte',
@@ -132,6 +136,8 @@ export const en: Translations = {
     invalid_credentials: 'Incorrect email or password.',
     no_account: "Don't have an account? Sign up",
     discover_link: 'Discover events without an account',
+    or_divider: 'or',
+    apple_error: 'Sign in with Apple failed. Try again.',
   },
   signup: {
     title: 'Create an account',

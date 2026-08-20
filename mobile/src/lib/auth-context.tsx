@@ -34,6 +34,7 @@ interface AuthContextValue {
   isRestoring: boolean;
   signup: (input: { email: string; password: string; full_name: string; phone?: string }) => Promise<void>;
   login: (input: { email: string; password: string }) => Promise<void>;
+  loginWithApple: (input: { identityToken: string; fullName?: string }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -86,14 +87,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [applyAuthResult],
   );
 
+  const loginWithApple = useCallback(
+    async (input: { identityToken: string; fullName?: string }) => {
+      const result = await apiRequest<AuthResult>('/v1/auth/apple', {
+        method: 'POST',
+        body: { identity_token: input.identityToken, full_name: input.fullName },
+      });
+      await applyAuthResult(result);
+    },
+    [applyAuthResult],
+  );
+
   const logout = useCallback(async () => {
     setSession(null);
     await persistSession(null);
   }, []);
 
   const value = useMemo(
-    () => ({ session, isRestoring, signup, login, logout }),
-    [session, isRestoring, signup, login, logout],
+    () => ({ session, isRestoring, signup, login, loginWithApple, logout }),
+    [session, isRestoring, signup, login, loginWithApple, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
