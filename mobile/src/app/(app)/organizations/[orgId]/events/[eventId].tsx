@@ -112,7 +112,7 @@ export default function EventScreen() {
         name: typeName.trim(),
         price_cents: priceCents,
         quantity_total: quantityTotal,
-        currency: 'eur',
+        currency: 'cad',
       });
       setTypeName('');
       setTypePrice('');
@@ -268,7 +268,7 @@ export default function EventScreen() {
             <View style={styles.createForm}>
               <TextField label="Nom" value={typeName} onChangeText={setTypeName} />
               <TextField
-                label="Prix (EUR)"
+                label="Prix (CAD)"
                 value={typePrice}
                 onChangeText={setTypePrice}
                 keyboardType="decimal-pad"
@@ -356,7 +356,7 @@ export default function EventScreen() {
                 <ThemedText type="small" themeColor="textSecondary">
                   Total : {formatPrice(
                     checkoutResult.order.total_cents,
-                    ticketTypes.find((t) => t.id === selectedTypeId)?.currency ?? 'EUR',
+                    ticketTypes.find((t) => t.id === selectedTypeId)?.currency ?? 'CAD',
                   )}
                 </ThemedText>
 

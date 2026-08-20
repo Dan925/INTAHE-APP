@@ -28,7 +28,7 @@ function EventRow({ entry }: { entry: EventDashboardEntry }) {
         {entry.orders_paid_count} commandes · {entry.tickets_sold} billets
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
-        Net : {formatPrice(entry.net_revenue_cents, 'EUR')}
+        Net : {formatPrice(entry.net_revenue_cents, 'CAD')}
       </ThemedText>
     </ThemedView>
   );
@@ -82,7 +82,7 @@ export default function DashboardScreen() {
         <View style={styles.statsRow}>
           <Stat label="Billets vendus" value={String(dashboard.totals.tickets_sold)} />
           <Stat label="Commandes payées" value={String(dashboard.totals.orders_paid_count)} />
-          <Stat label="Revenu net" value={formatPrice(dashboard.totals.net_revenue_cents, 'EUR')} />
+          <Stat label="Revenu net" value={formatPrice(dashboard.totals.net_revenue_cents, 'CAD')} />
         </View>
 
         <ThemedText type="subtitle" style={styles.sectionTitle}>

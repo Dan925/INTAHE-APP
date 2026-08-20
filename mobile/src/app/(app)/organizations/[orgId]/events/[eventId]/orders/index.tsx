@@ -71,7 +71,7 @@ export default function OrdersScreen() {
           renderItem={({ item }) => (
             <ListItem
               title={item.buyer_email}
-              subtitle={`${formatPrice(item.total_cents, 'EUR')} · ${STATUS_LABELS[item.status] ?? item.status}`}
+              subtitle={`${formatPrice(item.total_cents, 'CAD')} · ${STATUS_LABELS[item.status] ?? item.status}`}
             />
           )}
         />
