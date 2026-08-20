@@ -199,3 +199,19 @@ label {
 .row > * {
   flex: 1;
 }
+
+footer.site-footer {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  border-top: 1px solid var(--border);
+}
+
+footer.site-footer a {
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-decoration: none;
+}

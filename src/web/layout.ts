@@ -21,6 +21,8 @@ export function renderPage(options: {
   currentPath: string;
   brand: string;
   toggleLabel: string;
+  footerPrivacyLabel: string;
+  footerRefundLabel: string;
 }): string {
   const otherLocale = options.locale === 'fr' ? 'en' : 'fr';
   const separator = options.currentPath.includes('?') ? '&' : '?';
@@ -44,6 +46,10 @@ export function renderPage(options: {
   <main class="page">
 ${options.bodyHtml}
   </main>
+  <footer class="site-footer">
+    <a href="/privacy">${options.footerPrivacyLabel}</a>
+    <a href="/refunds">${options.footerRefundLabel}</a>
+  </footer>
 ${options.scriptSrc ? `  <script src="${options.scriptSrc}" defer></script>` : ''}
 </body>
 </html>`;

@@ -3,6 +3,7 @@ import express, { Router } from 'express';
 import { resolveLocale, serverStrings } from './i18n';
 import { renderPage } from './layout';
 import { privacyPolicyHtml } from './privacyContent';
+import { refundPolicyHtml } from './refundContent';
 
 const router = Router();
 
@@ -21,6 +22,8 @@ router.get(
         currentPath: req.path,
         brand: strings.brand,
         toggleLabel: strings.toggle_label,
+        footerPrivacyLabel: strings.footer.privacy_link,
+        footerRefundLabel: strings.footer.refund_link,
         bodyHtml: `
     <h1>${strings.discover.title}</h1>
     <p class="text-secondary">${strings.discover.intro}</p>
@@ -47,6 +50,8 @@ router.get(
         currentPath: req.path,
         brand: strings.brand,
         toggleLabel: strings.toggle_label,
+        footerPrivacyLabel: strings.footer.privacy_link,
+        footerRefundLabel: strings.footer.refund_link,
         bodyHtml: `
     <div id="event-container">
       <div class="loader">${strings.event.loading}</div>
@@ -69,6 +74,8 @@ router.get(
         currentPath: req.path,
         brand: strings.brand,
         toggleLabel: strings.toggle_label,
+        footerPrivacyLabel: strings.footer.privacy_link,
+        footerRefundLabel: strings.footer.refund_link,
         bodyHtml: `
     <div id="tickets-container">
       <div class="loader">${strings.tickets.loading}</div>
@@ -90,7 +97,29 @@ router.get(
         currentPath: req.path,
         brand: strings.brand,
         toggleLabel: strings.toggle_label,
+        footerPrivacyLabel: strings.footer.privacy_link,
+        footerRefundLabel: strings.footer.refund_link,
         bodyHtml: privacyPolicyHtml(locale),
+      }),
+    );
+  },
+);
+
+router.get(
+  '/refunds',
+  (req, res) => {
+    const locale = resolveLocale(req, res);
+    const strings = serverStrings[locale];
+    res.type('html').send(
+      renderPage({
+        title: strings.refund.title,
+        locale,
+        currentPath: req.path,
+        brand: strings.brand,
+        toggleLabel: strings.toggle_label,
+        footerPrivacyLabel: strings.footer.privacy_link,
+        footerRefundLabel: strings.footer.refund_link,
+        bodyHtml: refundPolicyHtml(locale),
       }),
     );
   },

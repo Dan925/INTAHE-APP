@@ -61,6 +61,13 @@ interface ServerStrings {
   privacy: {
     title: string;
   };
+  refund: {
+    title: string;
+  };
+  footer: {
+    privacy_link: string;
+    refund_link: string;
+  };
 }
 
 const fr: ServerStrings = {
@@ -82,6 +89,13 @@ const fr: ServerStrings = {
   privacy: {
     title: 'Politique de confidentialité — Intahe',
   },
+  refund: {
+    title: 'Politique de remboursement — Intahe',
+  },
+  footer: {
+    privacy_link: 'Confidentialité',
+    refund_link: 'Remboursements',
+  },
 };
 
 const en: ServerStrings = {
@@ -102,6 +116,13 @@ const en: ServerStrings = {
   },
   privacy: {
     title: 'Privacy policy — Intahe',
+  },
+  refund: {
+    title: 'Refund policy — Intahe',
+  },
+  footer: {
+    privacy_link: 'Privacy',
+    refund_link: 'Refunds',
   },
 };
 
