@@ -22,6 +22,12 @@ const googleSignInSchema = z.object({
   id_token: z.string().min(1, 'id_token is required.'),
 });
 
+const appleSignInSchema = z.object({
+  identity_token: z.string().min(1, 'identity_token is required.'),
+  // Only present on the client's very first Apple sign-in for this app.
+  full_name: z.string().trim().min(1).optional(),
+});
+
 const passwordResetRequestSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
 });
@@ -56,6 +62,16 @@ router.post(
   asyncHandler(async (req, res) => {
     const { id_token } = req.body as z.infer<typeof googleSignInSchema>;
     const result = await authService.signInWithGoogle(id_token);
+    res.status(200).json(result);
+  }),
+);
+
+router.post(
+  '/apple',
+  validateBody(appleSignInSchema),
+  asyncHandler(async (req, res) => {
+    const { identity_token, full_name } = req.body as z.infer<typeof appleSignInSchema>;
+    const result = await authService.signInWithApple(identity_token, full_name);
     res.status(200).json(result);
   }),
 );

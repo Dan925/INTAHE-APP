@@ -23,6 +23,7 @@
     "google-auth-library": "^10.9.0",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.2.2",
     "node-pg-migrate": "^7.6.1",
     "pg": "^8.13.1",
     "qrcode": "^1.5.4",

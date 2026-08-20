@@ -61,6 +61,8 @@ services:
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_IDS
         sync: false
+      - key: APPLE_CLIENT_IDS
+        sync: false
 
   - type: web
     name: intahe-api-production
@@ -102,6 +104,8 @@ services:
       - key: STRIPE_CONNECT_RETURN_URL
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_IDS
+        sync: false
+      - key: APPLE_CLIENT_IDS
         sync: false
 
 databases:

@@ -25,6 +25,10 @@ const envSchema = z.object({
   // Comma-separated: the mobile app's iOS/Android OAuth client ID(s) plus
   // any web client ID, all valid `aud` claims for tokens we should accept.
   GOOGLE_OAUTH_CLIENT_IDS: z.string().min(1).default('placeholder.apps.googleusercontent.com'),
+  // Comma-separated: every `aud` claim Apple identity tokens are allowed to
+  // carry — normally just the app's bundle identifier (native Sign in with
+  // Apple), plus a Services ID if a web sign-in flow is added later.
+  APPLE_CLIENT_IDS: z.string().min(1).default('com.intahe.app'),
   // 're_placeholder' is a recognized sentinel (see services/email/emailClient.ts):
   // the app boots fine without a real Resend account, and emails are logged
   // instead of sent for real until this is configured.

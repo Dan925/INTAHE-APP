@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { pool } from '../../config/database';
 import { env } from '../../config/env';
 import { sendEmail } from '../email/emailClient';
+import { verifyAppleIdToken } from '../apple/appleAuthClient';
 import { verifyGoogleIdToken } from '../google/googleAuthClient';
 import { ApiError } from '../../utils/errors';
 import { signAccessToken } from '../../utils/jwt';
@@ -144,6 +145,61 @@ export async function signInWithGoogle(idToken: string): Promise<AuthResult> {
 
   if (!user) {
     throw new Error('Google sign-in did not resolve to a user row.');
+  }
+
+  const accessToken = signAccessToken({ sub: user.id, email: user.email });
+  return { user: toPublicUser(user), access_token: accessToken };
+}
+
+/**
+ * Same linking strategy as signInWithGoogle: match by Apple's durable `sub`
+ * first, fall back to linking onto an existing account with the same
+ * verified email, otherwise create a fresh `auth_provider = 'apple'` user.
+ *
+ * `fullName` only arrives on the very first authorization (Apple hands it
+ * to the client directly, never puts it in the token) — every later
+ * sign-in omits it, so it's optional here and only used on the create path.
+ */
+export async function signInWithApple(identityToken: string, fullName?: string): Promise<AuthResult> {
+  let payload;
+  try {
+    payload = await verifyAppleIdToken(identityToken);
+  } catch (err) {
+    console.error('Apple identity token verification failed:', err);
+    throw new ApiError(401, 'invalid_apple_token', 'The Apple identity token is invalid or expired.', null);
+  }
+
+  if (!payload.emailVerified) {
+    throw new ApiError(401, 'apple_email_not_verified', "This Apple account's email address is not verified.", null);
+  }
+
+  const byAppleSub = await pool.query<UserRow>(`SELECT * FROM users WHERE apple_sub = $1 AND deleted_at IS NULL`, [
+    payload.sub,
+  ]);
+  let user = byAppleSub.rows[0];
+
+  if (!user) {
+    const byEmail = await findActiveUserByEmail(payload.email);
+    if (byEmail) {
+      const linkResult = await pool.query<UserRow>(`UPDATE users SET apple_sub = $2 WHERE id = $1 RETURNING *`, [
+        byEmail.id,
+        payload.sub,
+      ]);
+      user = linkResult.rows[0];
+    } else {
+      const resolvedName = fullName?.trim() || payload.email.split('@')[0] || payload.email;
+      const insertResult = await pool.query<UserRow>(
+        `INSERT INTO users (email, auth_provider, full_name, apple_sub)
+         VALUES ($1, 'apple', $2, $3)
+         RETURNING *`,
+        [payload.email, resolvedName, payload.sub],
+      );
+      user = insertResult.rows[0];
+    }
+  }
+
+  if (!user) {
+    throw new Error('Apple sign-in did not resolve to a user row.');
   }
 
   const accessToken = signAccessToken({ sub: user.id, email: user.email });

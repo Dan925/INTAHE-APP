@@ -1,6 +1,6 @@
 import type { Role } from './roles';
 
-export type AuthProvider = 'email' | 'google';
+export type AuthProvider = 'email' | 'google' | 'apple';
 
 export interface UserRow {
   id: string;
@@ -11,6 +11,7 @@ export interface UserRow {
   phone: string | null;
   avatar_url: string | null;
   google_sub: string | null;
+  apple_sub: string | null;
   created_at: Date;
   deleted_at: Date | null;
 }
