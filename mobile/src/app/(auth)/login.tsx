@@ -1,16 +1,18 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTranslation } from '@/lib/i18n/context';
 import { ApiError, useAuth } from '@/lib/auth-context';
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const { t, locale, setLocale } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -24,8 +26,8 @@ export default function LoginScreen() {
     } catch (err) {
       setError(
         err instanceof ApiError && err.code === 'invalid_credentials'
-          ? 'Email ou mot de passe incorrect.'
-          : "Une erreur est survenue. Réessaie.",
+          ? t('login.invalid_credentials')
+          : t('common.error_generic'),
       );
     } finally {
       setIsSubmitting(false);
@@ -38,13 +40,22 @@ export default function LoginScreen() {
       behavior={Platform.select({ ios: 'padding', default: undefined })}>
       <ThemedView style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ThemedText type="title">Intahe</ThemedText>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+            style={styles.langToggle}>
+            <ThemedText type="small" themeColor="primary">
+              {locale === 'fr' ? 'English' : 'Français'}
+            </ThemedText>
+          </Pressable>
+
+          <ThemedText type="title">{t('login.brand')}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-            Connecte-toi pour gérer tes événements ou tes billets.
+            {t('login.subtitle')}
           </ThemedText>
 
           <TextField
-            label="Email"
+            label={t('login.email')}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -53,7 +64,7 @@ export default function LoginScreen() {
             textContentType="emailAddress"
           />
           <TextField
-            label="Mot de passe"
+            label={t('login.password')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -66,17 +77,17 @@ export default function LoginScreen() {
             </ThemedText>
           ) : null}
 
-          <Button title="Se connecter" onPress={onSubmit} loading={isSubmitting} />
+          <Button title={t('login.submit')} onPress={onSubmit} loading={isSubmitting} />
 
           <Link href="/(auth)/signup" style={styles.link}>
             <ThemedText type="linkPrimary" themeColor="primary">
-              Pas encore de compte ? Inscris-toi
+              {t('login.no_account')}
             </ThemedText>
           </Link>
 
           <Link href="/discover" style={styles.link}>
             <ThemedText type="link" themeColor="textSecondary">
-              Découvrir des événements sans compte
+              {t('login.discover_link')}
             </ThemedText>
           </Link>
         </ScrollView>
@@ -92,6 +103,10 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.four,
     paddingTop: Spacing.six,
+  },
+  langToggle: {
+    alignSelf: 'flex-end',
+    marginBottom: Spacing.three,
   },
   subtitle: {
     marginTop: Spacing.one,

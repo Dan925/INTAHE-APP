@@ -6,6 +6,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
+import { useTranslation } from '@/lib/i18n/context';
 import { listTicketsForOrder, type BuyerTicket } from '@/lib/tickets';
 
 export default function PublicOrderTicketsScreen() {
@@ -14,6 +15,7 @@ export default function PublicOrderTicketsScreen() {
     orderId: string;
     buyerEmail?: string;
   }>();
+  const { t } = useTranslation();
 
   const [tickets, setTickets] = useState<BuyerTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,13 +28,11 @@ export default function PublicOrderTicketsScreen() {
       const result = await listTicketsForOrder(null, eventId, orderId, buyerEmail);
       setTickets(result.items);
     } catch {
-      setError(
-        "Impossible de charger les billets. Le paiement n'a peut-être pas encore été confirmé.",
-      );
+      setError(t('tickets.load_error'));
     } finally {
       setIsLoading(false);
     }
-  }, [eventId, orderId, buyerEmail]);
+  }, [eventId, orderId, buyerEmail, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,7 +57,7 @@ export default function PublicOrderTicketsScreen() {
           </ThemedText>
         ) : tickets.length === 0 ? (
           <ThemedText type="small" themeColor="textSecondary">
-            Aucun billet pour cette commande pour l&apos;instant.
+            {t('tickets.empty')}
           </ThemedText>
         ) : (
           tickets.map((ticket) => (
@@ -71,7 +71,7 @@ export default function PublicOrderTicketsScreen() {
                 <ThemedText
                   type="small"
                   themeColor={ticket.checked_in_at ? 'success' : 'textSecondary'}>
-                  {ticket.checked_in_at ? 'Scanné' : "Pas encore scanné"}
+                  {ticket.checked_in_at ? t('tickets.scanned') : t('tickets.not_scanned')}
                 </ThemedText>
               </View>
             </ThemedView>

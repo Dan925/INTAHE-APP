@@ -8,10 +8,12 @@ import { ListItem } from '@/components/list-item';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTranslation } from '@/lib/i18n/context';
 import { listDiscoverableEvents, type DiscoverableEvent } from '@/lib/discover';
 
 export default function DiscoverScreen() {
   const router = useRouter();
+  const { t, localeTag } = useTranslation();
 
   const [events, setEvents] = useState<DiscoverableEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,11 +27,11 @@ export default function DiscoverScreen() {
       const result = await listDiscoverableEvents(location);
       setEvents(result.items);
     } catch {
-      setError('Impossible de charger les événements.');
+      setError(t('discover.load_error'));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -40,7 +42,7 @@ export default function DiscoverScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setError('Position refusée — les événements sont affichés par date.');
+        setError(t('discover.location_denied'));
         return;
       }
       const position = await Location.getCurrentPositionAsync({});
@@ -54,7 +56,7 @@ export default function DiscoverScreen() {
     <ThemedView style={styles.container}>
       <View style={styles.content}>
         <Button
-          title="Utiliser ma position"
+          title={t('discover.use_location')}
           variant="ghost"
           onPress={onUseCurrentLocation}
           loading={isLocating}
@@ -75,14 +77,14 @@ export default function DiscoverScreen() {
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
               <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                Aucun événement découvrable pour l&apos;instant.
+                {t('discover.empty')}
               </ThemedText>
             }
             renderItem={({ item }) => (
               <ListItem
                 title={item.name}
                 subtitle={
-                  new Date(item.start_at).toLocaleString('fr-CA') +
+                  new Date(item.start_at).toLocaleString(localeTag) +
                   (item.distance_km !== null ? ` · ${item.distance_km.toFixed(1)} km` : '') +
                   (item.address ? ` · ${item.address}` : '')
                 }

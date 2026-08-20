@@ -12,6 +12,7 @@ import { Spacing } from '@/constants/theme';
 import { createOrder, type CheckoutResult } from '@/lib/checkout';
 import { getPublicEvent, listPublicTicketTypes } from '@/lib/discover';
 import { formatPrice } from '@/lib/format';
+import { useTranslation } from '@/lib/i18n/context';
 import type { Event } from '@/lib/events';
 import type { TicketType } from '@/lib/ticketTypes';
 
@@ -20,6 +21,7 @@ export default function PublicEventScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { t, localeTag } = useTranslation();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
@@ -48,11 +50,11 @@ export default function PublicEventScreen() {
       setTicketTypes(ticketTypesResult.items);
       navigation.setOptions({ title: eventResult.event.name });
     } catch {
-      setError("Impossible de charger l'événement.");
+      setError(t('event_detail.load_error'));
     } finally {
       setIsLoading(false);
     }
-  }, [eventId, navigation]);
+  }, [eventId, navigation, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -89,7 +91,7 @@ export default function PublicEventScreen() {
         }
       }
     } catch (err) {
-      setOrderError(err instanceof Error ? err.message : 'Impossible de créer la commande.');
+      setOrderError(err instanceof Error ? err.message : t('event_detail.order_error_generic'));
     } finally {
       setIsOrdering(false);
     }
@@ -125,8 +127,10 @@ export default function PublicEventScreen() {
           {event.name}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={styles.dates}>
-          Du {new Date(event.start_at).toLocaleString('fr-CA')} au{' '}
-          {new Date(event.end_at).toLocaleString('fr-CA')}
+          {t('event_detail.date_range', {
+            start: new Date(event.start_at).toLocaleString(localeTag),
+            end: new Date(event.end_at).toLocaleString(localeTag),
+          })}
         </ThemedText>
         {event.address ? (
           <ThemedText type="small" themeColor="textSecondary">
@@ -142,22 +146,22 @@ export default function PublicEventScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <ThemedText type="subtitle">Billets</ThemedText>
+          <ThemedText type="subtitle">{t('event_detail.tickets_heading')}</ThemedText>
           {ticketTypes.length === 0 ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-              Aucun billet disponible pour l&apos;instant.
+              {t('event_detail.tickets_empty')}
             </ThemedText>
           ) : (
             ticketTypes.map((type) => (
               <ListItem
                 key={type.id}
                 title={type.name}
-                subtitle={`${formatPrice(type.price_cents, type.currency)} · ${type.quantity_total - type.quantity_sold} restant(s)`}
+                subtitle={`${formatPrice(type.price_cents, type.currency, localeTag)} · ${t('event_detail.remaining', { count: type.quantity_total - type.quantity_sold })}`}
                 onPress={() => setSelectedTypeId(type.id)}
                 right={
                   selectedTypeId === type.id ? (
                     <ThemedText type="smallBold" themeColor="primary">
-                      Sélectionné
+                      {t('event_detail.selected')}
                     </ThemedText>
                   ) : null
                 }
@@ -170,13 +174,18 @@ export default function PublicEventScreen() {
           <View style={styles.section}>
             <View style={styles.createForm}>
               <TextField
-                label="E-mail de l'acheteur"
+                label={t('event_detail.buyer_email')}
                 value={buyerEmail}
                 onChangeText={setBuyerEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
-              <TextField label="Quantité" value={quantity} onChangeText={setQuantity} keyboardType="number-pad" />
+              <TextField
+                label={t('event_detail.quantity')}
+                value={quantity}
+                onChangeText={setQuantity}
+                keyboardType="number-pad"
+              />
 
               {orderError ? (
                 <ThemedText type="small" themeColor="destructive" style={styles.error}>
@@ -185,7 +194,7 @@ export default function PublicEventScreen() {
               ) : null}
 
               <Button
-                title="Commander"
+                title={t('event_detail.order_button')}
                 onPress={onOrder}
                 loading={isOrdering}
                 disabled={!selectedTypeId || !buyerEmail.trim()}
@@ -194,13 +203,15 @@ export default function PublicEventScreen() {
 
             {checkoutResult ? (
               <ThemedView type="backgroundElement" style={styles.receipt}>
-                <ThemedText type="smallBold">Commande créée</ThemedText>
+                <ThemedText type="smallBold">{t('event_detail.order_created')}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Total :{' '}
-                  {formatPrice(
-                    checkoutResult.order.total_cents,
-                    ticketTypes.find((t) => t.id === selectedTypeId)?.currency ?? 'CAD',
-                  )}
+                  {t('event_detail.total', {
+                    amount: formatPrice(
+                      checkoutResult.order.total_cents,
+                      ticketTypes.find((tt) => tt.id === selectedTypeId)?.currency ?? 'CAD',
+                      localeTag,
+                    ),
+                  })}
                 </ThemedText>
 
                 {paymentError ? (
@@ -212,10 +223,10 @@ export default function PublicEventScreen() {
                 {paymentSucceeded ? (
                   <>
                     <ThemedText type="smallBold" themeColor="success" style={styles.paymentNote}>
-                      Paiement réussi
+                      {t('event_detail.payment_succeeded')}
                     </ThemedText>
                     <Button
-                      title="Voir mes billets"
+                      title={t('event_detail.view_tickets')}
                       variant="ghost"
                       style={styles.viewTicketsButton}
                       onPress={() =>
@@ -228,14 +239,14 @@ export default function PublicEventScreen() {
                   </>
                 ) : isPaymentReady ? (
                   <Button
-                    title="Payer maintenant"
+                    title={t('event_detail.pay_now')}
                     onPress={onPay}
                     loading={isPaying}
                     style={styles.viewTicketsButton}
                   />
                 ) : (
                   <ThemedText type="small" themeColor="textSecondary">
-                    Statut : {checkoutResult.order.status}
+                    {t('event_detail.status', { status: checkoutResult.order.status })}
                   </ThemedText>
                 )}
               </ThemedView>

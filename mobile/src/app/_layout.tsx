@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { useColorScheme, View } from 'react-native';
 
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { I18nProvider } from '@/lib/i18n/context';
 
 const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
@@ -39,9 +40,11 @@ export default function RootLayout() {
   return (
     <StripeProvider publishableKey={stripePublishableKey}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <AuthProvider>
-          <RootNavigator />
-        </AuthProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
+        </I18nProvider>
       </ThemeProvider>
     </StripeProvider>
   );

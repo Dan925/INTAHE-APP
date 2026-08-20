@@ -7,10 +7,12 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTranslation } from '@/lib/i18n/context';
 import { ApiError, useAuth } from '@/lib/auth-context';
 
 export default function SignupScreen() {
   const { signup } = useAuth();
+  const { t } = useTranslation();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,11 +28,11 @@ export default function SignupScreen() {
       await signup({ email: email.trim().toLowerCase(), password, full_name: fullName.trim() });
     } catch (err) {
       if (err instanceof ApiError && err.code === 'email_already_registered') {
-        setEmailError('Un compte existe déjà avec cet email.');
+        setEmailError(t('signup.email_taken'));
       } else if (err instanceof ApiError && err.code === 'validation_error') {
         setFormError(err.message);
       } else {
-        setFormError('Une erreur est survenue. Réessaie.');
+        setFormError(t('common.error_generic'));
       }
     } finally {
       setIsSubmitting(false);
@@ -43,14 +45,14 @@ export default function SignupScreen() {
       behavior={Platform.select({ ios: 'padding', default: undefined })}>
       <ThemedView style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ThemedText type="title">Créer un compte</ThemedText>
+          <ThemedText type="title">{t('signup.title')}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-            Un seul compte pour acheter des billets et organiser des événements.
+            {t('signup.subtitle')}
           </ThemedText>
 
-          <TextField label="Nom complet" value={fullName} onChangeText={setFullName} />
+          <TextField label={t('signup.full_name')} value={fullName} onChangeText={setFullName} />
           <TextField
-            label="Email"
+            label={t('signup.email')}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -60,7 +62,7 @@ export default function SignupScreen() {
             error={emailError}
           />
           <TextField
-            label="Mot de passe"
+            label={t('signup.password')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -73,11 +75,11 @@ export default function SignupScreen() {
             </ThemedText>
           ) : null}
 
-          <Button title="Créer le compte" onPress={onSubmit} loading={isSubmitting} />
+          <Button title={t('signup.submit')} onPress={onSubmit} loading={isSubmitting} />
 
           <Link href="/(auth)/login" style={styles.link}>
             <ThemedText type="linkPrimary" themeColor="primary">
-              Déjà un compte ? Connecte-toi
+              {t('signup.already_account')}
             </ThemedText>
           </Link>
         </ScrollView>
