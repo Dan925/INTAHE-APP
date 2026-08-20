@@ -50,7 +50,12 @@ export function constructWebhookEvent(rawBody: Buffer, signature: string): Strip
 
   for (const secret of secrets) {
     const expectedSignature = crypto.createHmac('sha256', secret).update(signedContent, 'utf8').digest('hex');
-    if (receivedSignatures.includes(expectedSignature)) {
+    const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+    const matched = receivedSignatures.some((received) => {
+      const receivedBuffer = Buffer.from(received, 'utf8');
+      return receivedBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(receivedBuffer, expectedBuffer);
+    });
+    if (matched) {
       return JSON.parse(bodyString) as Stripe.Event;
     }
   }
