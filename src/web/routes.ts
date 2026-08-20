@@ -15,7 +15,7 @@ router.get(
         scriptSrc: '/discover.js',
         bodyHtml: `
     <h1>Découvrir des événements</h1>
-    <p class="text-secondary">Trouve des événements près de chez toi. 1&nbsp;$ + 0,5&nbsp;% de frais par billet — le prix affiché est le prix payé, aucune surprise à la caisse.</p>
+    <p class="text-secondary">Trouve des événements près de chez toi.</p>
     <div class="row" style="margin-bottom: 16px;">
       <button id="locate-btn" type="button">Utiliser ma position</button>
     </div>

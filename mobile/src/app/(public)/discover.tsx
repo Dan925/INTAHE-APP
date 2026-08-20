@@ -53,10 +53,6 @@ export default function DiscoverScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.content}>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-          1&nbsp;$ + 0,5&nbsp;% de frais par billet — le prix affiché est le prix payé, aucune surprise
-          à la caisse.
-        </ThemedText>
         <Button
           title="Utiliser ma position"
           variant="ghost"
@@ -107,9 +103,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: Spacing.four,
-  },
-  hint: {
-    marginBottom: Spacing.three,
   },
   locateButton: {
     alignSelf: 'flex-start',
