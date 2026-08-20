@@ -8,6 +8,7 @@ import { Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { getOrganizationDashboard, type EventDashboardEntry, type OrganizationDashboard } from '@/lib/dashboard';
 import { formatPrice } from '@/lib/format';
+import { useTranslation } from '@/lib/i18n/context';
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -21,14 +22,18 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function EventRow({ entry }: { entry: EventDashboardEntry }) {
+  const { t } = useTranslation();
   return (
     <ThemedView type="backgroundElement" style={styles.eventCard}>
       <ThemedText type="smallBold">{entry.event_name}</ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
-        {entry.orders_paid_count} commandes · {entry.tickets_sold} billets
+        {t('org_dashboard.orders_tickets_summary', {
+          orders: entry.orders_paid_count,
+          tickets: entry.tickets_sold,
+        })}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
-        Net : {formatPrice(entry.net_revenue_cents, 'CAD')}
+        {t('org_dashboard.net_prefix', { amount: formatPrice(entry.net_revenue_cents, 'CAD') })}
       </ThemedText>
     </ThemedView>
   );
@@ -37,6 +42,7 @@ function EventRow({ entry }: { entry: EventDashboardEntry }) {
 export default function DashboardScreen() {
   const { orgId } = useLocalSearchParams<{ orgId: string }>();
   const { session } = useAuth();
+  const { t } = useTranslation();
 
   const [dashboard, setDashboard] = useState<OrganizationDashboard | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,11 +56,11 @@ export default function DashboardScreen() {
       const result = await getOrganizationDashboard(session.token, orgId);
       setDashboard(result);
     } catch {
-      setError('Impossible de charger le dashboard.');
+      setError(t('org_dashboard.load_error'));
     } finally {
       setIsLoading(false);
     }
-  }, [session, orgId]);
+  }, [session, orgId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,18 +86,18 @@ export default function DashboardScreen() {
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.statsRow}>
-          <Stat label="Billets vendus" value={String(dashboard.totals.tickets_sold)} />
-          <Stat label="Commandes payées" value={String(dashboard.totals.orders_paid_count)} />
-          <Stat label="Revenu net" value={formatPrice(dashboard.totals.net_revenue_cents, 'CAD')} />
+          <Stat label={t('org_dashboard.tickets_sold')} value={String(dashboard.totals.tickets_sold)} />
+          <Stat label={t('org_dashboard.orders_paid')} value={String(dashboard.totals.orders_paid_count)} />
+          <Stat label={t('org_dashboard.net_revenue')} value={formatPrice(dashboard.totals.net_revenue_cents, 'CAD')} />
         </View>
 
         <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Par événement
+          {t('org_dashboard.by_event')}
         </ThemedText>
 
         {dashboard.events.length === 0 ? (
           <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-            Aucun événement pour l&apos;instant.
+            {t('org_dashboard.empty')}
           </ThemedText>
         ) : (
           dashboard.events.map((entry) => <EventRow key={entry.event_id} entry={entry} />)

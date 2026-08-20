@@ -8,18 +8,20 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { formatPrice } from '@/lib/format';
+import { useTranslation } from '@/lib/i18n/context';
 import { listOrdersForEvent, type Order } from '@/lib/orders';
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'En attente',
-  paid: 'Payée',
-  refunded: 'Remboursée',
-  partially_refunded: 'Partiellement remboursée',
-};
 
 export default function OrdersScreen() {
   const { orgId, eventId } = useLocalSearchParams<{ orgId: string; eventId: string }>();
   const { session } = useAuth();
+  const { t } = useTranslation();
+
+  const STATUS_LABELS: Record<string, string> = {
+    pending: t('org_orders.status_pending'),
+    paid: t('org_orders.status_paid'),
+    refunded: t('org_orders.status_refunded'),
+    partially_refunded: t('org_orders.status_partially_refunded'),
+  };
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,11 +34,11 @@ export default function OrdersScreen() {
       const page = await listOrdersForEvent(session.token, orgId, eventId);
       setOrders(page.items);
     } catch {
-      setError('Impossible de charger les commandes.');
+      setError(t('org_orders.load_error'));
     } finally {
       setIsLoading(false);
     }
-  }, [session, orgId, eventId]);
+  }, [session, orgId, eventId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -65,7 +67,7 @@ export default function OrdersScreen() {
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
             <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-              Aucune commande pour l&apos;instant.
+              {t('org_orders.empty')}
             </ThemedText>
           }
           renderItem={({ item }) => (

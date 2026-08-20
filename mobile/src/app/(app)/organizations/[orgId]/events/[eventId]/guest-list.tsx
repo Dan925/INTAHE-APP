@@ -8,10 +8,12 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { listGuestList, type GuestListEntry } from '@/lib/checkin';
+import { useTranslation } from '@/lib/i18n/context';
 
 export default function GuestListScreen() {
   const { orgId, eventId } = useLocalSearchParams<{ orgId: string; eventId: string }>();
   const { session } = useAuth();
+  const { t } = useTranslation();
 
   const [entries, setEntries] = useState<GuestListEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,11 +26,11 @@ export default function GuestListScreen() {
       const page = await listGuestList(session.token, orgId, eventId);
       setEntries(page.items);
     } catch {
-      setError('Impossible de charger la liste des invités.');
+      setError(t('guest_list.load_error'));
     } finally {
       setIsLoading(false);
     }
-  }, [session, orgId, eventId]);
+  }, [session, orgId, eventId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,7 +59,7 @@ export default function GuestListScreen() {
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
             <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-              Aucun billet vendu pour l&apos;instant.
+              {t('guest_list.empty')}
             </ThemedText>
           }
           renderItem={({ item }) => (
@@ -66,7 +68,7 @@ export default function GuestListScreen() {
               subtitle={item.ticket_type_name}
               right={
                 <ThemedText type="small" themeColor={item.checked_in_at ? 'success' : 'textSecondary'}>
-                  {item.checked_in_at ? 'Scanné' : 'En attente'}
+                  {item.checked_in_at ? t('guest_list.scanned') : t('guest_list.pending')}
                 </ThemedText>
               }
             />

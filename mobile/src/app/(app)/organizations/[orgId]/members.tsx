@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { ApiError, useAuth } from '@/lib/auth-context';
+import { useTranslation } from '@/lib/i18n/context';
 import {
   inviteMember,
   listMembers,
@@ -18,28 +19,29 @@ import {
   type Member,
 } from '@/lib/organizationMembers';
 
-const ROLE_LABELS: Record<Member['role'], string> = {
-  owner: 'Propriétaire',
-  admin: 'Admin',
-  staff: 'Staff',
-  volunteer: 'Bénévole',
-};
-
 const NEXT_ROLE: Record<InvitableRole, InvitableRole> = {
   admin: 'staff',
   staff: 'volunteer',
   volunteer: 'admin',
 };
 
-const INVITE_ERROR_MESSAGES: Record<string, string> = {
-  invitee_not_found: "Aucun compte Intahe n'existe avec cet email.",
-  already_a_member: 'Cette personne est déjà membre de l’organisation.',
-  invite_already_pending: 'Une invitation est déjà en attente pour cette personne.',
-};
-
 export default function MembersScreen() {
   const { orgId } = useLocalSearchParams<{ orgId: string }>();
   const { session } = useAuth();
+  const { t } = useTranslation();
+
+  const ROLE_LABELS: Record<Member['role'], string> = {
+    owner: t('roles.owner'),
+    admin: t('roles.admin'),
+    staff: t('roles.staff'),
+    volunteer: t('roles.volunteer'),
+  };
+
+  const INVITE_ERROR_MESSAGES: Record<string, string> = {
+    invitee_not_found: t('org_members.invite_error_not_found'),
+    already_a_member: t('org_members.invite_error_already_member'),
+    invite_already_pending: t('org_members.invite_error_already_pending'),
+  };
 
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,11 +59,11 @@ export default function MembersScreen() {
       const page = await listMembers(session.token, orgId);
       setMembers(page.items);
     } catch {
-      setError('Impossible de charger les membres.');
+      setError(t('org_members.load_error'));
     } finally {
       setIsLoading(false);
     }
-  }, [session, orgId]);
+  }, [session, orgId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,7 +83,7 @@ export default function MembersScreen() {
       if (err instanceof ApiError) {
         setInviteError(INVITE_ERROR_MESSAGES[err.code] ?? err.message);
       } else {
-        setInviteError("Impossible d'inviter cette personne.");
+        setInviteError(t('org_members.invite_error_generic'));
       }
     } finally {
       setIsInviting(false);
@@ -94,7 +96,7 @@ export default function MembersScreen() {
       await updateMemberRole(session.token, orgId, member.id, NEXT_ROLE[member.role]);
       await load();
     } catch {
-      setError('Impossible de modifier ce rôle.');
+      setError(t('org_members.role_update_error'));
     }
   }
 
@@ -104,17 +106,17 @@ export default function MembersScreen() {
       await removeMember(session.token, orgId, member.id);
       await load();
     } catch {
-      setError('Impossible de retirer ce membre.');
+      setError(t('org_members.remove_error'));
     }
   }
 
   return (
     <ThemedView style={styles.container}>
       <View style={styles.content}>
-        <ThemedText type="subtitle">Inviter un membre</ThemedText>
+        <ThemedText type="subtitle">{t('org_members.invite_title')}</ThemedText>
         <View style={styles.inviteForm}>
           <TextField
-            label="Email"
+            label={t('org_members.email_label')}
             value={inviteEmail}
             onChangeText={setInviteEmail}
             autoCapitalize="none"
@@ -136,7 +138,12 @@ export default function MembersScreen() {
               {inviteError}
             </ThemedText>
           ) : null}
-          <Button title="Inviter" onPress={onInvite} loading={isInviting} disabled={!inviteEmail.trim()} />
+          <Button
+            title={t('org_members.invite_button')}
+            onPress={onInvite}
+            loading={isInviting}
+            disabled={!inviteEmail.trim()}
+          />
         </View>
 
         {error ? (
@@ -154,24 +161,24 @@ export default function MembersScreen() {
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
               <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                Aucun membre pour l&apos;instant.
+                {t('org_members.empty')}
               </ThemedText>
             }
             renderItem={({ item }) => (
               <ListItem
                 title={item.full_name}
-                subtitle={`${item.email} · ${ROLE_LABELS[item.role]}${item.accepted_at ? '' : ' (invitation en attente)'}`}
+                subtitle={`${item.email} · ${ROLE_LABELS[item.role]}${item.accepted_at ? '' : t('org_members.pending_invite_suffix')}`}
                 right={
                   item.role === 'owner' ? undefined : (
                     <View style={styles.memberActions}>
                       <Button
-                        title="Changer le rôle"
+                        title={t('org_members.change_role_button')}
                         variant="ghost"
                         style={styles.smallButton}
                         onPress={() => onCycleRole(item)}
                       />
                       <Button
-                        title="Retirer"
+                        title={t('org_members.remove_button')}
                         variant="destructive"
                         style={styles.smallButton}
                         onPress={() => onRemove(item)}

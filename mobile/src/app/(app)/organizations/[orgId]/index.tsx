@@ -14,6 +14,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth-context';
 import { createEvent, listEvents, type Event } from '@/lib/events';
+import { useTranslation } from '@/lib/i18n/context';
 import { getOrganization } from '@/lib/organizations';
 
 export default function OrganizationScreen() {
@@ -22,6 +23,7 @@ export default function OrganizationScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const theme = useTheme();
+  const { t, localeTag } = useTranslation();
 
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,11 +50,11 @@ export default function OrganizationScreen() {
       navigation.setOptions({ title: orgResult.organization.name });
       setEvents(eventsResult.items);
     } catch {
-      setError('Impossible de charger cette organisation.');
+      setError(t('organization_detail.load_error'));
     } finally {
       setIsLoading(false);
     }
-  }, [session, orgId, navigation]);
+  }, [session, orgId, navigation, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,7 +84,7 @@ export default function OrganizationScreen() {
       setShowCreateForm(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Impossible de créer l'événement.");
+      setError(err instanceof Error ? err.message : t('organization_detail.create_event_error'));
     } finally {
       setIsCreating(false);
     }
@@ -105,13 +107,13 @@ export default function OrganizationScreen() {
       <View style={styles.content}>
         <View style={styles.orgActions}>
           <Button
-            title="Membres"
+            title={t('organization_detail.members_button')}
             variant="ghost"
             style={styles.orgActionButton}
             onPress={() => router.push({ pathname: '/organizations/[orgId]/members', params: { orgId } })}
           />
           <Button
-            title="Dashboard"
+            title={t('organization_detail.dashboard_button')}
             variant="ghost"
             style={styles.orgActionButton}
             onPress={() => router.push({ pathname: '/organizations/[orgId]/dashboard', params: { orgId } })}
@@ -126,13 +128,13 @@ export default function OrganizationScreen() {
 
         {showCreateForm ? (
           <View style={styles.createForm}>
-            <TextField label="Nom de l'événement" value={name} onChangeText={setName} />
-            <DateTimeField label="Début" onChange={setStartAt} />
+            <TextField label={t('organization_detail.event_name_label')} value={name} onChangeText={setName} />
+            <DateTimeField label={t('organization_detail.start_label')} onChange={setStartAt} />
             <View style={{ height: Spacing.three }} />
-            <DateTimeField label="Fin" onChange={setEndAt} />
-            <TextField label="Adresse (optionnel)" value={address} onChangeText={setAddress} />
+            <DateTimeField label={t('organization_detail.end_label')} onChange={setEndAt} />
+            <TextField label={t('organization_detail.address_label')} value={address} onChangeText={setAddress} />
             <Button
-              title={coords ? 'Position enregistrée ✓' : 'Utiliser ma position actuelle'}
+              title={coords ? t('organization_detail.location_saved') : t('organization_detail.use_current_location')}
               variant="ghost"
               onPress={onUseCurrentLocation}
               loading={isLocating}
@@ -140,9 +142,9 @@ export default function OrganizationScreen() {
             />
             <View style={styles.discoverableRow}>
               <View style={styles.discoverableText}>
-                <ThemedText type="smallBold">Événement découvrable</ThemedText>
+                <ThemedText type="smallBold">{t('organization_detail.discoverable_title')}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Visible dans la recherche publique d&apos;événements à proximité.
+                  {t('organization_detail.discoverable_subtitle')}
                 </ThemedText>
               </View>
               <Switch
@@ -153,13 +155,13 @@ export default function OrganizationScreen() {
             </View>
             <View style={styles.createActions}>
               <Button
-                title="Annuler"
+                title={t('organization_detail.cancel_button')}
                 variant="ghost"
                 onPress={() => setShowCreateForm(false)}
                 style={styles.flexButton}
               />
               <Button
-                title="Créer"
+                title={t('organization_detail.create_button')}
                 onPress={onCreate}
                 loading={isCreating}
                 disabled={!name.trim() || !startAt || !endAt}
@@ -168,7 +170,7 @@ export default function OrganizationScreen() {
             </View>
           </View>
         ) : (
-          <Button title="Nouvel événement" onPress={() => setShowCreateForm(true)} />
+          <Button title={t('organization_detail.new_event_button')} onPress={() => setShowCreateForm(true)} />
         )}
 
         {isLoading ? (
@@ -180,13 +182,13 @@ export default function OrganizationScreen() {
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
               <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                Aucun événement pour l&apos;instant.
+                {t('organization_detail.empty')}
               </ThemedText>
             }
             renderItem={({ item }) => (
               <ListItem
                 title={item.name}
-                subtitle={new Date(item.start_at).toLocaleString()}
+                subtitle={new Date(item.start_at).toLocaleString(localeTag)}
                 onPress={() =>
                   router.push({
                     pathname: '/organizations/[orgId]/events/[eventId]',

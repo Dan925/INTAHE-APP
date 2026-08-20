@@ -9,19 +9,20 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { useTranslation } from '@/lib/i18n/context';
 import { acceptInvite, listPendingInvites, type PendingInvite } from '@/lib/organizationMembers';
 import { createOrganization, listOrganizations, type Organization } from '@/lib/organizations';
-
-const ROLE_LABELS: Record<PendingInvite['role'], string> = {
-  owner: 'Propriétaire',
-  admin: 'Admin',
-  staff: 'Staff',
-  volunteer: 'Bénévole',
-};
 
 export default function OrganizationsScreen() {
   const { session } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
+  const ROLE_LABELS: Record<PendingInvite['role'], string> = {
+    owner: t('roles.owner'),
+    admin: t('roles.admin'),
+    staff: t('roles.staff'),
+    volunteer: t('roles.volunteer'),
+  };
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [acceptingInviteId, setAcceptingInviteId] = useState<string | null>(null);
@@ -42,11 +43,11 @@ export default function OrganizationsScreen() {
       setOrganizations(orgsPage.items);
       setInvites(invitesPage.items);
     } catch {
-      setError('Impossible de charger les organisations.');
+      setError(t('organizations_list.load_error'));
     } finally {
       setIsLoading(false);
     }
-  }, [session]);
+  }, [session, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -64,7 +65,7 @@ export default function OrganizationsScreen() {
       setShowCreateForm(false);
       await load();
     } catch {
-      setError("Impossible de créer l'organisation.");
+      setError(t('organizations_list.create_error'));
     } finally {
       setIsCreating(false);
     }
@@ -78,7 +79,7 @@ export default function OrganizationsScreen() {
       await acceptInvite(session.token, invite.organization_id);
       await load();
     } catch {
-      setError("Impossible d'accepter cette invitation.");
+      setError(t('organizations_list.accept_error'));
     } finally {
       setAcceptingInviteId(null);
     }
@@ -88,7 +89,7 @@ export default function OrganizationsScreen() {
     <ThemedView style={styles.container}>
       <View style={styles.content}>
         <Button
-          title="Découvrir des événements"
+          title={t('organizations_list.discover_button')}
           variant="ghost"
           onPress={() => router.push('/discover')}
           style={styles.discoverButton}
@@ -103,7 +104,7 @@ export default function OrganizationsScreen() {
         {invites.length > 0 ? (
           <View style={styles.invites}>
             <ThemedText type="subtitle" style={styles.invitesTitle}>
-              Invitations en attente
+              {t('organizations_list.pending_invites_title')}
             </ThemedText>
             {invites.map((invite) => (
               <ListItem
@@ -112,7 +113,7 @@ export default function OrganizationsScreen() {
                 subtitle={ROLE_LABELS[invite.role]}
                 right={
                   <Button
-                    title="Accepter"
+                    title={t('organizations_list.accept_button')}
                     style={styles.acceptButton}
                     loading={acceptingInviteId === invite.id}
                     onPress={() => onAccept(invite)}
@@ -125,16 +126,16 @@ export default function OrganizationsScreen() {
 
         {showCreateForm ? (
           <View style={styles.createForm}>
-            <TextField label="Nom de l'organisation" value={newOrgName} onChangeText={setNewOrgName} />
+            <TextField label={t('organizations_list.org_name_label')} value={newOrgName} onChangeText={setNewOrgName} />
             <View style={styles.createActions}>
               <Button
-                title="Annuler"
+                title={t('organizations_list.cancel_button')}
                 variant="ghost"
                 onPress={() => setShowCreateForm(false)}
                 style={styles.flexButton}
               />
               <Button
-                title="Créer"
+                title={t('organizations_list.create_button')}
                 onPress={onCreate}
                 loading={isCreating}
                 disabled={!newOrgName.trim()}
@@ -143,7 +144,7 @@ export default function OrganizationsScreen() {
             </View>
           </View>
         ) : (
-          <Button title="Nouvelle organisation" onPress={() => setShowCreateForm(true)} />
+          <Button title={t('organizations_list.new_org_button')} onPress={() => setShowCreateForm(true)} />
         )}
 
         {isLoading ? (
@@ -155,7 +156,7 @@ export default function OrganizationsScreen() {
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
               <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                Aucune organisation pour l&apos;instant.
+                {t('organizations_list.empty')}
               </ThemedText>
             }
             renderItem={({ item }) => (

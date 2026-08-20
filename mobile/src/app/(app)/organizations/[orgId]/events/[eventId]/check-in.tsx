@@ -9,15 +9,17 @@ import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { ApiError, useAuth } from '@/lib/auth-context';
 import { checkInTicket, type GuestListEntry } from '@/lib/checkin';
-
-const ERROR_MESSAGES: Record<string, string> = {
-  ticket_not_found: "Aucun billet ne correspond à ce code pour cet événement.",
-  ticket_already_checked_in: 'Ce billet a déjà été scanné.',
-};
+import { useTranslation } from '@/lib/i18n/context';
 
 export default function CheckInScreen() {
   const { orgId, eventId } = useLocalSearchParams<{ orgId: string; eventId: string }>();
   const { session } = useAuth();
+  const { t } = useTranslation();
+
+  const ERROR_MESSAGES: Record<string, string> = {
+    ticket_not_found: t('check_in.error_not_found'),
+    ticket_already_checked_in: t('check_in.error_already'),
+  };
 
   const [qrCode, setQrCode] = useState('');
   const [isChecking, setIsChecking] = useState(false);
@@ -37,7 +39,7 @@ export default function CheckInScreen() {
       if (err instanceof ApiError) {
         setError(ERROR_MESSAGES[err.code] ?? err.message);
       } else {
-        setError('Impossible de valider ce billet.');
+        setError(t('check_in.error_generic'));
       }
     } finally {
       setIsChecking(false);
@@ -48,11 +50,11 @@ export default function CheckInScreen() {
     <ThemedView style={styles.container}>
       <View style={styles.content}>
         <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-          Saisis le code du billet (habituellement scanné via QR code) pour l&apos;enregistrer à l&apos;entrée.
+          {t('check_in.hint')}
         </ThemedText>
 
         <TextField
-          label="Code du billet"
+          label={t('check_in.code_label')}
           value={qrCode}
           onChangeText={setQrCode}
           autoCapitalize="none"
@@ -65,12 +67,17 @@ export default function CheckInScreen() {
           </ThemedText>
         ) : null}
 
-        <Button title="Enregistrer l'entrée" onPress={onCheckIn} loading={isChecking} disabled={!qrCode.trim()} />
+        <Button
+          title={t('check_in.submit_button')}
+          onPress={onCheckIn}
+          loading={isChecking}
+          disabled={!qrCode.trim()}
+        />
 
         {lastTicket ? (
           <ThemedView type="backgroundElement" style={styles.card}>
             <ThemedText type="smallBold" themeColor="success">
-              Billet validé
+              {t('check_in.success_title')}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {lastTicket.ticket_type_name} — {lastTicket.attendee_name ?? lastTicket.buyer_email}
