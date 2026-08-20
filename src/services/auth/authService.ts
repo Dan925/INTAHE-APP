@@ -22,6 +22,10 @@ export interface PublicUser {
   full_name: string;
   phone: string | null;
   avatar_url: string | null;
+  // Lets the client know whether to ask for a password when confirming a
+  // sensitive action like account deletion — true for plain email/password
+  // accounts and any Google/Apple account that was later linked to one.
+  has_password: boolean;
 }
 
 export interface AuthResult {
@@ -36,6 +40,7 @@ function toPublicUser(row: UserRow): PublicUser {
     full_name: row.full_name,
     phone: row.phone,
     avatar_url: row.avatar_url,
+    has_password: row.password_hash !== null,
   };
 }
 
