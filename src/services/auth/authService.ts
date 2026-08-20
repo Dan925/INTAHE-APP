@@ -259,6 +259,73 @@ export async function confirmPasswordReset(rawToken: string, newPassword: string
   }
 }
 
+/**
+ * Self-service account deletion (Apple Guideline 5.1.1(v) / general privacy
+ * good practice): tombstones the account rather than hard-deleting the row,
+ * matching the rest of the app's soft-delete pattern — order and ticket
+ * history stay intact for the organizer's records and any tax/accounting
+ * requirements, but every piece of the deleted user's own PII is scrubbed,
+ * and the email is freed up (unique indexes here are all scoped to active
+ * users) so the same address can sign up fresh later.
+ *
+ * Password confirmation is required whenever the account has one set —
+ * covers plain email/password accounts and any Google/Apple account that
+ * was originally created with a password and later linked. Accounts with
+ * no password (Google/Apple only) rely on the JWT alone, same as every
+ * other authenticated action.
+ *
+ * Blocks deletion while the user is the sole owner of an active
+ * organization — deleting them would silently orphan that organization
+ * (no one left who can manage payouts, refunds, or future events), so
+ * they're asked to transfer ownership or delete the organization first.
+ */
+export async function deleteOwnAccount(userId: string, password?: string): Promise<void> {
+  const result = await pool.query<UserRow>(`SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL`, [userId]);
+  const user = result.rows[0];
+  if (!user) {
+    throw new ApiError(404, 'user_not_found', 'Account not found.', null);
+  }
+
+  if (user.password_hash) {
+    const isValid = password ? await verifyPassword(password, user.password_hash) : false;
+    if (!isValid) {
+      throw new ApiError(401, 'invalid_password', 'Incorrect password.', 'password');
+    }
+  }
+
+  const ownedOrgs = await pool.query(
+    `SELECT o.name FROM organization_members om
+     JOIN organizations o ON o.id = om.organization_id
+     WHERE om.user_id = $1 AND om.role = 'owner' AND o.deleted_at IS NULL`,
+    [userId],
+  );
+  if (ownedOrgs.rowCount && ownedOrgs.rowCount > 0) {
+    throw new ApiError(
+      409,
+      'owns_organizations',
+      'Transfer ownership or delete your organization(s) before deleting your account.',
+      null,
+    );
+  }
+
+  await pool.query(
+    `UPDATE users
+     SET deleted_at = now(),
+         email = 'deleted-' || id || '@intahe.invalid',
+         full_name = 'Deleted user',
+         phone = NULL,
+         avatar_url = NULL,
+         -- users_password_required_for_email_provider forbids a NULL hash
+         -- while auth_provider = 'email'; leaving it in place is harmless
+         -- once deleted_at is set, since every login lookup filters that out.
+         password_hash = CASE WHEN auth_provider = 'email' THEN password_hash ELSE NULL END,
+         google_sub = NULL,
+         apple_sub = NULL
+     WHERE id = $1`,
+    [userId],
+  );
+}
+
 async function deliverPasswordResetEmail(email: string, rawToken: string): Promise<void> {
   const resetUrl = `${env.PASSWORD_RESET_URL}?token=${encodeURIComponent(rawToken)}`;
   try {
