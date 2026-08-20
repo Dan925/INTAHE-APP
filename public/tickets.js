@@ -9,7 +9,7 @@
     container.textContent = '';
 
     const title = document.createElement('h1');
-    title.textContent = 'Mes billets';
+    title.textContent = window.intaheT('tickets.title');
     container.appendChild(title);
 
     let items;
@@ -17,14 +17,12 @@
       const query = buyerEmail ? '?buyer_email=' + encodeURIComponent(buyerEmail) : '';
       const res = await fetch('/v1/events/' + eventId + '/orders/' + orderId + '/tickets' + query);
       const body = await res.json();
-      if (!res.ok) throw new Error((body.error && body.error.message) || 'Erreur inconnue.');
+      if (!res.ok) throw new Error((body.error && body.error.message) || window.intaheT('common.unknown_error'));
       items = body.items;
     } catch (err) {
       const p = document.createElement('p');
       p.className = 'error';
-      p.textContent =
-        'Impossible de charger les billets (le paiement n’a peut-être pas encore été confirmé — réessaie dans quelques secondes). ' +
-        err.message;
+      p.textContent = window.intaheT('tickets.load_error') + err.message;
       container.appendChild(p);
       return;
     }
@@ -32,8 +30,7 @@
     if (items.length === 0) {
       const p = document.createElement('p');
       p.className = 'text-secondary';
-      p.textContent =
-        'Aucun billet pour l’instant — si tu viens de payer, le paiement est peut-être encore en cours de confirmation. Recharge la page dans quelques secondes.';
+      p.textContent = window.intaheT('tickets.empty');
       container.appendChild(p);
       return;
     }
@@ -49,7 +46,7 @@
 
       const img = document.createElement('img');
       img.src = ticket.qr_code_image;
-      img.alt = 'QR code du billet';
+      img.alt = window.intaheT('tickets.qr_alt');
       img.style.width = '200px';
       img.style.height = '200px';
       img.style.display = 'block';
@@ -65,7 +62,7 @@
 
       const status = document.createElement('span');
       status.className = 'badge';
-      status.textContent = ticket.checked_in_at ? 'Scanné' : 'Pas encore scanné';
+      status.textContent = ticket.checked_in_at ? window.intaheT('tickets.scanned') : window.intaheT('tickets.not_scanned');
       card.appendChild(status);
 
       container.appendChild(card);

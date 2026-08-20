@@ -1,3 +1,5 @@
+import type { Locale } from './i18n';
+
 // Static legal content — authored directly, never interpolated with
 // user-controlled data, so no escaping concerns here (unlike the other
 // pages in src/web/, which fetch everything client-side for that reason).
@@ -9,9 +11,12 @@
 // a general level — it does not attempt to enumerate every US state's
 // privacy law, which is a real patchwork; a lawyer needs to confirm
 // what's actually required once the go-to-market states/provinces are
-// locked down. Fields marked [À COMPLÉTER] must be filled in before
-// publishing.
-export const privacyPolicyHtml = `
+// locked down. Fields marked [À COMPLÉTER]/[TO COMPLETE] must be filled
+// in before publishing. The English version is a translation of the
+// French draft, not an independently reviewed text — keep them in sync
+// by hand if either changes.
+
+const fr = `
 <h1>Politique de confidentialité</h1>
 <p class="text-secondary small">Dernière mise à jour : [À COMPLÉTER — date]</p>
 
@@ -93,3 +98,92 @@ export const privacyPolicyHtml = `
 <h2>13. Nous joindre</h2>
 <p>[À COMPLÉTER — courriel de contact général]</p>
 `;
+
+const en = `
+<h1>Privacy policy</h1>
+<p class="text-secondary small">Last updated: [TO COMPLETE — date]</p>
+
+<p><strong>Draft — not reviewed by a lawyer.</strong> This document accurately describes what the Intahe app actually does with personal information, but has not yet been reviewed by a privacy law professional. Since Intahe serves users in both Canada and the United States, several different legal frameworks may apply depending on where you live (see section 7) — this draft aims to respect the spirit of the main ones, but does not replace a legal review specific to each market the app is actually offered in. Sections marked [TO COMPLETE] must be filled in before official publication.</p>
+
+<h2>1. Who we are</h2>
+<p>Intahe ("we", "our") is a ticketing and event management platform. The party responsible for the personal information described below is:</p>
+<p>[TO COMPLETE — legal business name]<br/>
+[TO COMPLETE — address]<br/>
+[TO COMPLETE — general contact email]</p>
+
+<h2>2. Personal information we collect</h2>
+<p>We only collect what's necessary for the service to work:</p>
+<ul>
+  <li><strong>User account:</strong> full name, email address, password (never stored in plain text — only an irreversible cryptographic hash is kept), or your Google identifier if you sign in with Google.</li>
+  <li><strong>Ticket purchases:</strong> the buyer's email address (needed to send the confirmation and tickets), even without an account.</li>
+  <li><strong>Payment:</strong> we <strong>never</strong> receive or store your card number or full banking details. Payment is processed entirely by Stripe, our payment processor; we only receive confirmation that the payment succeeded.</li>
+  <li><strong>Organizations and events:</strong> for organizers — organization name, event name and description, event address and coordinates (if provided).</li>
+  <li><strong>Location:</strong> only if you explicitly allow it, to show you nearby events or to locate an event you're creating. Optional — declining doesn't prevent you from using the app.</li>
+  <li><strong>Technical information:</strong> no behavioral analytics or advertising tracking cookies are used. Only data strictly necessary for the app to function (e.g. a login token) is kept on your device.</li>
+</ul>
+
+<h2>3. Why we collect this information</h2>
+<ul>
+  <li>Create and manage your account, authenticate you</li>
+  <li>Process your ticket orders and generate your tickets (QR codes)</li>
+  <li>Let organizers manage their events and check in their guests (ticket validation at the door)</li>
+  <li>Send you the communications necessary for the service (order confirmation, password reset)</li>
+  <li>Show you nearby public events, if you use that feature</li>
+  <li>Detect and prevent fraud</li>
+</ul>
+<p>We never use your personal information for third-party marketing, and we do not <strong>sell</strong> or <strong>rent</strong> it to anyone — including under the broad meaning some U.S. laws (like the CCPA) give to the word "sale".</p>
+
+<h2>4. Who we share this information with</h2>
+<p>We rely on third-party service providers to operate the platform, each with access only to what it needs for its task:</p>
+<ul>
+  <li><strong>Stripe</strong> (payment processing) — receives the information necessary to process payment.</li>
+  <li><strong>Resend</strong> (transactional email delivery) — receives your email address to deliver confirmations and password resets.</li>
+  <li><strong>Google</strong> — only if you choose to sign in with a Google account.</li>
+  <li><strong>Render</strong> (cloud hosting for our servers and databases).</li>
+  <li><strong>The organizer of an event you buy a ticket to</strong> — sees your email address and your ticket's status, to the extent necessary to manage their event (guest list, check-in).</li>
+</ul>
+<p>We do not share any personal information for advertising purposes.</p>
+
+<h2>5. Where data is hosted</h2>
+<p>Our servers and databases are hosted with Render, in the United States (Oregon). If you reside in Canada, this means your personal information is processed and stored outside the country. [TO COMPLETE — confirm that a privacy impact assessment has been completed for this transfer outside Quebec, as required by Loi 25 for Quebec residents, and summarize the contractual safeguards in place with Render.]</p>
+
+<h2>6. How long we keep your information</h2>
+<p>[TO COMPLETE — precise retention period for each category: active account, deleted account, order/ticket history for accounting and tax purposes, etc.]</p>
+
+<h2>7. Your rights depending on where you live</h2>
+<p>Intahe serves users in Canada and the United States; the rights below vary depending on your province, state, and which law applies to you. In general, you can:</p>
+<ul>
+  <li>Access the personal information we hold about you</li>
+  <li>Have inaccurate or incomplete information corrected</li>
+  <li>Request deletion of your account and associated information, subject to legal retention obligations (e.g. tax records)</li>
+  <li>Get a copy of your information in a structured, commonly used format (portability)</li>
+  <li>Withdraw your consent to certain processing, where applicable</li>
+</ul>
+<p><strong>Canada:</strong> the Personal Information Protection and Electronic Documents Act (PIPEDA) governs these rights federally. If you reside in Quebec, Loi 25 also applies and gives you additional rights and recourse, including with the Commission d'accès à l'information du Québec (see section 11).</p>
+<p><strong>United States:</strong> if you reside in California, the California Consumer Privacy Act (CCPA/CPRA) gives you the right to know what information is collected, to have it deleted, and to opt out of its "sale" or "sharing" (we don't sell or share personal information for advertising purposes, see section 3). Other U.S. states have similar laws; if yours grants you additional rights, those apply too. [TO COMPLETE — confirm with a lawyer whether additional specific mechanisms are required depending on the states the app is actually offered in, e.g. a dedicated "Do Not Sell or Share My Personal Information" link.]</p>
+<p>To exercise any of these rights, no matter where you live, write to us at [TO COMPLETE — dedicated privacy request email].</p>
+
+<h2>8. Security</h2>
+<p>Passwords are hashed (never stored in plain text). Communication between the app and our servers is encrypted (HTTPS). Access to an organization's information is restricted to its members based on their role. No system is perfectly secure; in the event of a privacy incident presenting a real risk of significant harm, we will notify affected individuals as well as the relevant authorities (e.g. the Commission d'accès à l'information du Québec for Quebec residents) in accordance with applicable law.</p>
+
+<h2>9. Children</h2>
+<p>This service is not directed at anyone under 14 (13 in the United States, per COPPA) and we do not knowingly collect personal information from them.</p>
+
+<h2>10. Privacy officer</h2>
+<p>[TO COMPLETE — name and contact information of the designated person, as required by Loi 25 for Quebec residents. Absent an explicit designation, this role is filled by the person with the highest authority within the company.]</p>
+
+<h2>11. Complaints</h2>
+<p>If you have a concern about how your personal information is handled, contact us first at [TO COMPLETE]. Depending on where you live, you may also file a complaint with the relevant authority — for example the <a href="https://www.cai.gouv.qc.ca/" target="_blank" rel="noopener">Commission d'accès à l'information du Québec</a> for Quebec residents, or the <a href="https://www.priv.gc.ca/" target="_blank" rel="noopener">Office of the Privacy Commissioner of Canada</a> for other Canadian residents.</p>
+
+<h2>12. Changes</h2>
+<p>We may update this policy from time to time. The date of the last update is shown at the top of this page.</p>
+
+<h2>13. Contact us</h2>
+<p>[TO COMPLETE — general contact email]</p>
+`;
+
+const versions: Record<Locale, string> = { fr, en };
+
+export function privacyPolicyHtml(locale: Locale): string {
+  return versions[locale];
+}

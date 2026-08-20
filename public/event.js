@@ -3,11 +3,11 @@
   const eventId = location.pathname.split('/')[2];
 
   function formatDate(iso) {
-    return new Date(iso).toLocaleString('fr-CA', { dateStyle: 'medium', timeStyle: 'short' });
+    return new Date(iso).toLocaleString(window.intaheLocaleTag(), { dateStyle: 'medium', timeStyle: 'short' });
   }
 
   function formatPrice(cents, currency) {
-    return new Intl.NumberFormat('fr-CA', { style: 'currency', currency: currency.toUpperCase() }).format(
+    return new Intl.NumberFormat(window.intaheLocaleTag(), { style: 'currency', currency: currency.toUpperCase() }).format(
       cents / 100,
     );
   }
@@ -16,7 +16,7 @@
     const res = await fetch(url, options);
     const body = await res.json();
     if (!res.ok) {
-      const err = new Error((body.error && body.error.message) || 'Erreur inconnue.');
+      const err = new Error((body.error && body.error.message) || window.intaheT('common.unknown_error'));
       err.code = body.error && body.error.code;
       throw err;
     }
@@ -40,11 +40,11 @@
       ]);
     } catch (err) {
       container.textContent = '';
-      container.appendChild(showError('Impossible de charger cet événement. ' + err.message));
+      container.appendChild(showError(window.intaheT('event.load_error') + err.message));
       return;
     }
 
-    document.title = event.name + ' — Intahe';
+    document.title = event.name + window.intaheT('event.title_suffix');
 
     let selectedTicketTypeId = ticketTypes[0] ? ticketTypes[0].id : null;
 
@@ -73,7 +73,7 @@
     }
 
     const ticketsHeading = document.createElement('h2');
-    ticketsHeading.textContent = 'Billets';
+    ticketsHeading.textContent = window.intaheT('event.tickets_heading');
     container.appendChild(ticketsHeading);
 
     const ticketList = document.createElement('div');
@@ -91,7 +91,7 @@
       const price = document.createElement('p');
       price.className = 'small text-secondary';
       price.textContent =
-        formatPrice(type.price_cents, type.currency) + ' · ' + remaining + ' restant(s)';
+        formatPrice(type.price_cents, type.currency) + ' · ' + window.intaheT('event.remaining', { n: remaining });
       card.appendChild(price);
 
       card.addEventListener('click', function () {
@@ -107,7 +107,7 @@
     if (ticketTypes.length === 0) {
       const p = document.createElement('p');
       p.className = 'text-secondary';
-      p.textContent = 'Aucun billet disponible pour cet événement.';
+      p.textContent = window.intaheT('event.tickets_empty');
       container.appendChild(p);
       return;
     }
@@ -115,15 +115,15 @@
     const form = document.createElement('div');
     form.innerHTML = `
       <div class="field">
-        <label for="buyer-email">E-mail</label>
+        <label for="buyer-email">${window.intaheT('event.email_label')}</label>
         <input id="buyer-email" type="email" required />
       </div>
       <div class="field">
-        <label for="quantity">Quantité</label>
+        <label for="quantity">${window.intaheT('event.quantity_label')}</label>
         <input id="quantity" type="number" min="1" value="1" required />
       </div>
       <div id="checkout-error"></div>
-      <button id="order-btn" type="button">Commander</button>
+      <button id="order-btn" type="button">${window.intaheT('event.order_button')}</button>
       <div id="payment-container" style="margin-top: 16px;"></div>
     `;
     container.appendChild(form);
@@ -137,12 +137,12 @@
       const buyerEmail = form.querySelector('#buyer-email').value.trim();
       const quantity = parseInt(form.querySelector('#quantity').value, 10);
       if (!buyerEmail || !selectedTicketTypeId || !quantity || quantity < 1) {
-        errorContainer.appendChild(showError('Renseigne ton e-mail et une quantité valide.'));
+        errorContainer.appendChild(showError(window.intaheT('event.missing_fields')));
         return;
       }
 
       orderBtn.disabled = true;
-      orderBtn.textContent = 'Un instant…';
+      orderBtn.textContent = window.intaheT('event.order_button_wait');
 
       let checkoutResult;
       try {
@@ -159,15 +159,15 @@
         });
       } catch (err) {
         orderBtn.disabled = false;
-        orderBtn.textContent = 'Commander';
+        orderBtn.textContent = window.intaheT('event.order_button');
         errorContainer.appendChild(showError(err.message));
         return;
       }
 
       if (!checkoutResult.client_secret) {
-        errorContainer.appendChild(showError('Le paiement n’a pas pu être initialisé.'));
+        errorContainer.appendChild(showError(window.intaheT('event.payment_not_ready')));
         orderBtn.disabled = false;
-        orderBtn.textContent = 'Commander';
+        orderBtn.textContent = window.intaheT('event.order_button');
         return;
       }
 
@@ -181,13 +181,13 @@
       paymentElement.mount(paymentContainer);
 
       const payBtn = document.createElement('button');
-      payBtn.textContent = 'Payer';
+      payBtn.textContent = window.intaheT('event.pay_button');
       payBtn.style.marginTop = '16px';
       paymentContainer.after(payBtn);
 
       payBtn.addEventListener('click', async function () {
         payBtn.disabled = true;
-        payBtn.textContent = 'Paiement en cours…';
+        payBtn.textContent = window.intaheT('event.pay_button_wait');
         errorContainer.textContent = '';
 
         const ticketsUrl =
@@ -197,7 +197,9 @@
           '/orders/' +
           checkoutResult.order.id +
           '/tickets?buyer_email=' +
-          encodeURIComponent(buyerEmail);
+          encodeURIComponent(buyerEmail) +
+          '&lang=' +
+          window.intaheLocale();
 
         const { error } = await stripe.confirmPayment({
           elements,
@@ -206,9 +208,9 @@
         });
 
         if (error) {
-          errorContainer.appendChild(showError(error.message || 'Le paiement a échoué.'));
+          errorContainer.appendChild(showError(error.message || window.intaheT('event.payment_failed')));
           payBtn.disabled = false;
-          payBtn.textContent = 'Payer';
+          payBtn.textContent = window.intaheT('event.pay_button');
           return;
         }
 

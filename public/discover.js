@@ -4,7 +4,7 @@
   const locateBtn = document.getElementById('locate-btn');
 
   function formatDate(iso) {
-    return new Date(iso).toLocaleString('fr-CA', {
+    return new Date(iso).toLocaleString(window.intaheLocaleTag(), {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
@@ -15,7 +15,7 @@
     if (events.length === 0) {
       const p = document.createElement('p');
       p.className = 'text-secondary';
-      p.textContent = 'Aucun événement découvrable pour le moment.';
+      p.textContent = window.intaheT('discover.empty');
       resultsEl.appendChild(p);
       return;
     }
@@ -52,29 +52,29 @@
   }
 
   async function load(params) {
-    resultsEl.innerHTML = '<div class="loader">Chargement…</div>';
+    resultsEl.innerHTML = '<div class="loader">' + window.intaheT('discover.loading') + '</div>';
     try {
       const query = params ? '?' + new URLSearchParams(params).toString() : '';
       const res = await fetch('/v1/discover/events' + query);
       const body = await res.json();
-      if (!res.ok) throw new Error((body.error && body.error.message) || 'Erreur inconnue.');
+      if (!res.ok) throw new Error((body.error && body.error.message) || window.intaheT('common.unknown_error'));
       renderEvents(body.items);
     } catch (err) {
       resultsEl.textContent = '';
       const p = document.createElement('p');
       p.className = 'error';
-      p.textContent = 'Impossible de charger les événements. ' + err.message;
+      p.textContent = window.intaheT('discover.load_error') + err.message;
       resultsEl.appendChild(p);
     }
   }
 
   locateBtn.addEventListener('click', function () {
     if (!('geolocation' in navigator)) {
-      statusEl.innerHTML = '<p class="error">La géolocalisation n’est pas disponible sur cet appareil.</p>';
+      statusEl.innerHTML = '<p class="error">' + window.intaheT('discover.geo_unavailable') + '</p>';
       return;
     }
     locateBtn.disabled = true;
-    statusEl.innerHTML = '<p class="text-secondary small">Localisation en cours…</p>';
+    statusEl.innerHTML = '<p class="text-secondary small">' + window.intaheT('discover.locating') + '</p>';
     navigator.geolocation.getCurrentPosition(
       function (position) {
         statusEl.textContent = '';
@@ -82,8 +82,7 @@
         load({ latitude: position.coords.latitude, longitude: position.coords.longitude });
       },
       function () {
-        statusEl.innerHTML =
-          '<p class="text-secondary small">Position refusée — affichage de tous les événements à venir.</p>';
+        statusEl.innerHTML = '<p class="text-secondary small">' + window.intaheT('discover.location_denied') + '</p>';
         locateBtn.disabled = false;
       },
       { timeout: 10000 },

@@ -41,14 +41,24 @@ header.site-header {
   padding: 16px;
   border-bottom: 1px solid var(--border);
   background: var(--background-element);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-header.site-header a {
+header.site-header a.brand {
   color: var(--primary-strong);
   font-weight: 800;
   font-size: 20px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  text-decoration: none;
+}
+
+header.site-header a.lang-toggle {
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
   text-decoration: none;
 }
 

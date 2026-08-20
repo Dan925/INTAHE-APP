@@ -1,5 +1,6 @@
 import path from 'node:path';
 import express, { Router } from 'express';
+import { resolveLocale, serverStrings } from './i18n';
 import { renderPage } from './layout';
 import { privacyPolicyHtml } from './privacyContent';
 
@@ -9,16 +10,22 @@ router.use(express.static(path.join(__dirname, '../../public')));
 
 router.get(
   '/discover',
-  (_req, res) => {
+  (req, res) => {
+    const locale = resolveLocale(req, res);
+    const strings = serverStrings[locale];
     res.type('html').send(
       renderPage({
-        title: 'Découvrir des événements — Intahe',
+        title: `${strings.discover.title} — Intahe`,
         scriptSrc: '/discover.js',
+        locale,
+        currentPath: req.path,
+        brand: strings.brand,
+        toggleLabel: strings.toggle_label,
         bodyHtml: `
-    <h1>Découvrir des événements</h1>
-    <p class="text-secondary">Trouve des événements près de chez toi.</p>
+    <h1>${strings.discover.title}</h1>
+    <p class="text-secondary">${strings.discover.intro}</p>
     <div class="row" style="margin-bottom: 16px;">
-      <button id="locate-btn" type="button">Utiliser ma position</button>
+      <button id="locate-btn" type="button">${strings.discover.use_location}</button>
     </div>
     <div id="status"></div>
     <div id="results"></div>`,
@@ -29,14 +36,20 @@ router.get(
 
 router.get(
   '/events/:eventId',
-  (_req, res) => {
+  (req, res) => {
+    const locale = resolveLocale(req, res);
+    const strings = serverStrings[locale];
     res.type('html').send(
       renderPage({
-        title: 'Événement — Intahe',
+        title: strings.event.title,
         scriptSrc: '/event.js',
+        locale,
+        currentPath: req.path,
+        brand: strings.brand,
+        toggleLabel: strings.toggle_label,
         bodyHtml: `
     <div id="event-container">
-      <div class="loader">Chargement…</div>
+      <div class="loader">${strings.event.loading}</div>
     </div>`,
       }),
     );
@@ -45,14 +58,20 @@ router.get(
 
 router.get(
   '/events/:eventId/orders/:orderId/tickets',
-  (_req, res) => {
+  (req, res) => {
+    const locale = resolveLocale(req, res);
+    const strings = serverStrings[locale];
     res.type('html').send(
       renderPage({
-        title: 'Mes billets — Intahe',
+        title: strings.tickets.title,
         scriptSrc: '/tickets.js',
+        locale,
+        currentPath: req.path,
+        brand: strings.brand,
+        toggleLabel: strings.toggle_label,
         bodyHtml: `
     <div id="tickets-container">
-      <div class="loader">Chargement…</div>
+      <div class="loader">${strings.tickets.loading}</div>
     </div>`,
       }),
     );
@@ -61,11 +80,17 @@ router.get(
 
 router.get(
   '/privacy',
-  (_req, res) => {
+  (req, res) => {
+    const locale = resolveLocale(req, res);
+    const strings = serverStrings[locale];
     res.type('html').send(
       renderPage({
-        title: 'Politique de confidentialité — Intahe',
-        bodyHtml: privacyPolicyHtml,
+        title: strings.privacy.title,
+        locale,
+        currentPath: req.path,
+        brand: strings.brand,
+        toggleLabel: strings.toggle_label,
+        bodyHtml: privacyPolicyHtml(locale),
       }),
     );
   },

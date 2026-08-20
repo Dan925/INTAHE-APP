@@ -1,4 +1,5 @@
 import { env } from '../config/env';
+import type { Locale } from './i18n';
 
 function escapeHtmlAttribute(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
@@ -12,19 +13,33 @@ function escapeHtmlAttribute(value: string): string {
  * Stripe publishable key below is server config, not user input, but is
  * escaped anyway since it's cheap to do correctly.
  */
-export function renderPage(options: { title: string; bodyHtml: string; scriptSrc?: string }): string {
+export function renderPage(options: {
+  title: string;
+  bodyHtml: string;
+  scriptSrc?: string;
+  locale: Locale;
+  currentPath: string;
+  brand: string;
+  toggleLabel: string;
+}): string {
+  const otherLocale = options.locale === 'fr' ? 'en' : 'fr';
+  const separator = options.currentPath.includes('?') ? '&' : '?';
+  const toggleHref = `${options.currentPath}${separator}lang=${otherLocale}`;
+
   return `<!doctype html>
-<html lang="fr-CA">
+<html lang="${options.locale}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${options.title}</title>
   <link rel="stylesheet" href="/styles.css" />
+  <script src="/i18n.js"></script>
   <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body data-stripe-pk="${escapeHtmlAttribute(env.STRIPE_PUBLISHABLE_KEY)}">
   <header class="site-header">
-    <a href="/discover">Intahe</a>
+    <a href="/discover" class="brand">${options.brand}</a>
+    <a href="${toggleHref}" class="lang-toggle">${options.toggleLabel}</a>
   </header>
   <main class="page">
 ${options.bodyHtml}
