@@ -10,7 +10,12 @@ export interface OrgEventFixture {
 
 export async function createOrgAndPublishedEvent(
   app: Express,
-  overrides: { fees_absorbed_by_organizer?: boolean } = {},
+  overrides: {
+    fees_absorbed_by_organizer?: boolean;
+    is_public_discoverable?: boolean;
+    latitude?: number;
+    longitude?: number;
+  } = {},
 ): Promise<OrgEventFixture> {
   const owner = await signupTestUser(app);
 
@@ -29,6 +34,9 @@ export async function createOrgAndPublishedEvent(
       end_at: '2026-09-01T23:00:00.000Z',
       address: '1 Main St',
       fees_absorbed_by_organizer: overrides.fees_absorbed_by_organizer ?? false,
+      is_public_discoverable: overrides.is_public_discoverable ?? false,
+      ...(overrides.latitude !== undefined ? { latitude: overrides.latitude } : {}),
+      ...(overrides.longitude !== undefined ? { longitude: overrides.longitude } : {}),
     });
   const event = eventRes.body.event;
 

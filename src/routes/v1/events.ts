@@ -23,6 +23,7 @@ const createEventSchema = z
     cover_image_url: z.string().url().optional(),
     capacity: z.number().int().min(0).optional(),
     fees_absorbed_by_organizer: z.boolean().optional(),
+    is_public_discoverable: z.boolean().optional(),
   })
   .refine((data) => new Date(data.end_at) > new Date(data.start_at), {
     message: 'end_at must be after start_at.',
@@ -71,6 +72,7 @@ const updateEventSchema = z
     cover_image_url: z.string().url().nullable().optional(),
     capacity: z.number().int().min(0).nullable().optional(),
     fees_absorbed_by_organizer: z.boolean().optional(),
+    is_public_discoverable: z.boolean().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: 'At least one field must be provided.' })
   .refine(

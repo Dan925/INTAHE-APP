@@ -6,6 +6,7 @@ import { notFoundHandler } from './middleware/notFoundHandler';
 import authRouter from './routes/v1/auth';
 import checkInRouter from './routes/v1/checkin';
 import checkoutRouter from './routes/v1/checkout';
+import discoverRouter from './routes/v1/discover';
 import eventsRouter from './routes/v1/events';
 import meRouter from './routes/v1/me';
 import organizationMembersRouter from './routes/v1/organizationMembers';
@@ -33,6 +34,7 @@ export function createApp() {
   });
 
   app.use('/v1/auth', authRouter);
+  app.use('/v1/discover', discoverRouter);
   app.use('/v1/me', meRouter);
   app.use('/v1/organizations', organizationsRouter);
   app.use('/v1/organizations/:organizationId/members', organizationMembersRouter);

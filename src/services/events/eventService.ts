@@ -14,6 +14,7 @@ export interface CreateEventInput {
   cover_image_url?: string | undefined;
   capacity?: number | undefined;
   fees_absorbed_by_organizer?: boolean | undefined;
+  is_public_discoverable?: boolean | undefined;
 }
 
 export interface UpdateEventInput {
@@ -27,6 +28,7 @@ export interface UpdateEventInput {
   cover_image_url?: string | null | undefined;
   capacity?: number | null | undefined;
   fees_absorbed_by_organizer?: boolean | undefined;
+  is_public_discoverable?: boolean | undefined;
 }
 
 export interface PublicEvent {
@@ -44,6 +46,7 @@ export interface PublicEvent {
   status: EventStatus;
   capacity: number | null;
   fees_absorbed_by_organizer: boolean;
+  is_public_discoverable: boolean;
   created_at: string;
 }
 
@@ -63,6 +66,7 @@ function toPublicEvent(row: EventRow): PublicEvent {
     status: row.status,
     capacity: row.capacity,
     fees_absorbed_by_organizer: row.fees_absorbed_by_organizer,
+    is_public_discoverable: row.is_public_discoverable,
     created_at: row.created_at.toISOString(),
   };
 }
@@ -75,9 +79,10 @@ export async function createEvent(organizationId: string, input: CreateEventInpu
   const result = await pool.query<EventRow>(
     `INSERT INTO events (
        organization_id, name, description, start_at, end_at, address,
-       latitude, longitude, cover_image_url, capacity, fees_absorbed_by_organizer
+       latitude, longitude, cover_image_url, capacity, fees_absorbed_by_organizer,
+       is_public_discoverable
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      RETURNING *`,
     [
       organizationId,
@@ -91,6 +96,7 @@ export async function createEvent(organizationId: string, input: CreateEventInpu
       input.cover_image_url ?? null,
       input.capacity ?? null,
       input.fees_absorbed_by_organizer ?? false,
+      input.is_public_discoverable ?? false,
     ],
   );
   const event = result.rows[0];
@@ -129,6 +135,9 @@ export async function updateEvent(
   if ('capacity' in patch) fields.push(['capacity', patch.capacity]);
   if ('fees_absorbed_by_organizer' in patch) {
     fields.push(['fees_absorbed_by_organizer', patch.fees_absorbed_by_organizer]);
+  }
+  if ('is_public_discoverable' in patch) {
+    fields.push(['is_public_discoverable', patch.is_public_discoverable]);
   }
 
   if (fields.length === 0) {
@@ -246,6 +255,85 @@ export async function completeEvent(organizationId: string, eventId: string): Pr
     throw notFound();
   }
   return toPublicEvent(completed);
+}
+
+/**
+ * Public detail lookup by event id alone, no organization scope: used by
+ * the unauthenticated discovery surface (web + mobile) so a direct link to
+ * a published event works even when the organizer didn't opt it into the
+ * "near me" browse list — only `is_public_discoverable` gates whether an
+ * event appears in `listDiscoverableEvents`, not whether it's viewable.
+ */
+export async function getPublicEvent(eventId: string): Promise<PublicEvent> {
+  const result = await pool.query<EventRow>(
+    `SELECT * FROM events WHERE id = $1 AND status = 'published' AND deleted_at IS NULL`,
+    [eventId],
+  );
+  const event = result.rows[0];
+  if (!event) {
+    throw notFound();
+  }
+  return toPublicEvent(event);
+}
+
+export interface DiscoverEventsParams {
+  latitude?: number | undefined;
+  longitude?: number | undefined;
+  limit: number;
+}
+
+export interface DiscoverableEvent extends PublicEvent {
+  distance_km: number | null;
+}
+
+/**
+ * Published, opted-in, not-yet-over events. When a location is given,
+ * results are sorted by great-circle distance (plain haversine in SQL — no
+ * PostGIS extension available), events without coordinates are still
+ * included but sorted last; otherwise sorted soonest-first. No cursor
+ * pagination yet (deliberately out of scope for the first version) — just
+ * a flat, capped list.
+ */
+export async function listDiscoverableEvents(
+  params: DiscoverEventsParams,
+): Promise<DiscoverableEvent[]> {
+  const hasLocation = params.latitude !== undefined && params.longitude !== undefined;
+
+  // The distance expression can't be referenced by its SELECT alias from
+  // inside a CASE in ORDER BY (Postgres only resolves bare-identifier
+  // ORDER BY items to output columns, not sub-expressions) — computed in a
+  // subquery instead, then ordered from the outer query where the alias is
+  // just a normal column.
+  const result = await pool.query<EventRow & { distance_km: string | null }>(
+    `SELECT * FROM (
+       SELECT *,
+         CASE
+           WHEN $1::double precision IS NULL OR latitude IS NULL OR longitude IS NULL THEN NULL
+           ELSE 6371 * acos(
+             LEAST(1, GREATEST(-1,
+               cos(radians($1::double precision)) * cos(radians(latitude::double precision)) *
+                 cos(radians(longitude::double precision) - radians($2::double precision)) +
+               sin(radians($1::double precision)) * sin(radians(latitude::double precision))
+             ))
+           )
+         END AS distance_km
+       FROM events
+       WHERE status = 'published'
+         AND is_public_discoverable = true
+         AND deleted_at IS NULL
+         AND end_at >= now()
+     ) AS discoverable_events
+     ORDER BY
+       CASE WHEN $1::double precision IS NULL THEN start_at END ASC,
+       CASE WHEN $1::double precision IS NOT NULL THEN distance_km END ASC NULLS LAST
+     LIMIT $3`,
+    [hasLocation ? params.latitude : null, hasLocation ? params.longitude : null, params.limit],
+  );
+
+  return result.rows.map((row) => ({
+    ...toPublicEvent(row),
+    distance_km: row.distance_km === null ? null : Number(row.distance_km),
+  }));
 }
 
 export async function listEvents(

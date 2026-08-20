@@ -63,6 +63,7 @@ export interface EventRow {
   status: EventStatus;
   capacity: number | null;
   fees_absorbed_by_organizer: boolean;
+  is_public_discoverable: boolean;
   created_at: Date;
   deleted_at: Date | null;
 }
