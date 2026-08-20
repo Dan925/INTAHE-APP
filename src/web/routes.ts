@@ -1,6 +1,7 @@
 import path from 'node:path';
 import express, { Router } from 'express';
 import { renderPage } from './layout';
+import { privacyPolicyHtml } from './privacyContent';
 
 const router = Router();
 
@@ -53,6 +54,18 @@ router.get(
     <div id="tickets-container">
       <div class="loader">Chargement…</div>
     </div>`,
+      }),
+    );
+  },
+);
+
+router.get(
+  '/privacy',
+  (_req, res) => {
+    res.type('html').send(
+      renderPage({
+        title: 'Politique de confidentialité — Intahe',
+        bodyHtml: privacyPolicyHtml,
       }),
     );
   },

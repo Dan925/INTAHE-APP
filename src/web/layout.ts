@@ -12,7 +12,7 @@ function escapeHtmlAttribute(value: string): string {
  * Stripe publishable key below is server config, not user input, but is
  * escaped anyway since it's cheap to do correctly.
  */
-export function renderPage(options: { title: string; bodyHtml: string; scriptSrc: string }): string {
+export function renderPage(options: { title: string; bodyHtml: string; scriptSrc?: string }): string {
   return `<!doctype html>
 <html lang="fr-CA">
 <head>
@@ -29,7 +29,7 @@ export function renderPage(options: { title: string; bodyHtml: string; scriptSrc
   <main class="page">
 ${options.bodyHtml}
   </main>
-  <script src="${options.scriptSrc}" defer></script>
+${options.scriptSrc ? `  <script src="${options.scriptSrc}" defer></script>` : ''}
 </body>
 </html>`;
 }
