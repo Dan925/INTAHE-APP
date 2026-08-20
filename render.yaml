@@ -53,6 +53,8 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
       - key: STRIPE_CONNECT_REFRESH_URL
         sync: false
       - key: STRIPE_CONNECT_RETURN_URL
@@ -92,6 +94,8 @@ services:
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
         sync: false
       - key: STRIPE_CONNECT_REFRESH_URL
         sync: false

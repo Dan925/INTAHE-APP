@@ -15,11 +15,29 @@ import ordersRouter from './routes/v1/orders';
 import stripeConnectRouter from './routes/v1/stripeConnect';
 import stripeWebhookRouter from './routes/v1/stripeWebhook';
 import ticketTypesRouter from './routes/v1/ticketTypes';
+import webRouter from './web/routes';
 
 export function createApp() {
   const app = express();
 
-  app.use(helmet());
+  // Default CSP (script-src/connect-src/frame-src 'self' only) blocks
+  // Stripe.js entirely — the public checkout pages need it loaded from
+  // Stripe's CDN, talking to Stripe's API, and opening its 3DS iframe.
+  // Directives per Stripe's documented CSP requirements:
+  // https://docs.stripe.com/security/guide#content-security-policy
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          'script-src': ["'self'", 'https://js.stripe.com'],
+          'connect-src': ["'self'", 'https://api.stripe.com'],
+          'frame-src': ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com'],
+          'img-src': ["'self'", 'data:'],
+        },
+      },
+    }),
+  );
   app.use(cors());
 
   // Must be registered before express.json(): Stripe verifies the webhook
@@ -44,6 +62,8 @@ export function createApp() {
   app.use('/v1/organizations/:organizationId/events/:eventId/orders', ordersRouter);
   app.use('/v1/organizations/:organizationId/events/:eventId', checkInRouter);
   app.use('/v1/events/:eventId/orders', checkoutRouter);
+
+  app.use(webRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

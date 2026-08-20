@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type Stripe from 'stripe';
+import { env } from '../../config/env';
 import { pool } from '../../config/database';
 import { sendEmail } from '../email/emailClient';
 import { retrieveAccount } from '../stripe/stripeConnect';
@@ -57,7 +58,7 @@ async function syncConnectedAccountChargesEnabled(
 
 async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<void> {
   const client = await pool.connect();
-  let confirmedOrder: { id: string; buyerEmail: string } | null = null;
+  let confirmedOrder: { id: string; eventId: string; buyerEmail: string } | null = null;
   try {
     await client.query('BEGIN');
 
@@ -101,7 +102,7 @@ async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<vo
     );
 
     await client.query('COMMIT');
-    confirmedOrder = { id: order.id, buyerEmail: order.buyer_email };
+    confirmedOrder = { id: order.id, eventId: order.event_id, buyerEmail: order.buyer_email };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -117,18 +118,19 @@ async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<vo
   // early without ever re-attempting the email — so a thrown error here
   // wouldn't even get the retry it seemed to be asking for.
   if (confirmedOrder) {
-    await deliverOrderConfirmationEmail(confirmedOrder.buyerEmail, confirmedOrder.id);
+    await deliverOrderConfirmationEmail(confirmedOrder.buyerEmail, confirmedOrder.eventId, confirmedOrder.id);
   }
 }
 
-async function deliverOrderConfirmationEmail(email: string, orderId: string): Promise<void> {
+async function deliverOrderConfirmationEmail(email: string, eventId: string, orderId: string): Promise<void> {
+  const ticketsUrl = `${env.APP_BASE_URL}/events/${eventId}/orders/${orderId}/tickets?buyer_email=${encodeURIComponent(email)}`;
   try {
     await sendEmail({
       to: email,
       subject: 'Your Intahe order is confirmed',
       html: `<p>Thanks for your purchase! Your order is confirmed.</p>
 <p>Order reference: <strong>${orderId}</strong></p>
-<p>Your tickets have been generated and are ready.</p>`,
+<p><a href="${ticketsUrl}">View your tickets</a></p>`,
     });
   } catch (err) {
     console.error('Failed to send order confirmation email:', err);

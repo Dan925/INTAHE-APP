@@ -13,6 +13,11 @@ const envSchema = z.object({
   // until a genuine sk_test_/whsec_ value is configured.
   STRIPE_SECRET_KEY: z.string().min(1).default('sk_test_placeholder'),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).default('whsec_placeholder'),
+  // Safe to expose client-side (used by the public web checkout pages'
+  // Stripe.js Payment Element) — publishable keys can only create
+  // PaymentMethods, never charge anything. Must be the publishable key from
+  // the same Stripe account as STRIPE_SECRET_KEY above.
+  STRIPE_PUBLISHABLE_KEY: z.string().min(1).default('pk_test_placeholder'),
   // Where Stripe redirects the organizer after Connect onboarding. These
   // are frontend routes — placeholders until a frontend exists to own them.
   STRIPE_CONNECT_REFRESH_URL: z.string().url().default('http://localhost:3000/stripe/connect/refresh'),
@@ -29,6 +34,11 @@ const envSchema = z.object({
   // Frontend route the password reset email's link points to — a
   // placeholder until a frontend exists to own it.
   PASSWORD_RESET_URL: z.string().url().default('http://localhost:3000/reset-password'),
+  // Used to build absolute links (e.g. the order confirmation email's
+  // "view your tickets" link) to this service's own public web pages.
+  // Render sets RENDER_EXTERNAL_URL automatically on every web service, so
+  // this only needs to be set explicitly for local dev or non-Render hosts.
+  APP_BASE_URL: z.string().url().default(process.env['RENDER_EXTERNAL_URL'] ?? 'http://localhost:3000'),
 });
 
 export const env = envSchema.parse(process.env);

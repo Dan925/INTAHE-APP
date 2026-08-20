@@ -1,0 +1,191 @@
+/* Same kraft/paper/teal design system as the mobile app
+   (mobile/src/constants/theme.ts) — deep teal as the only primary/
+   interactive color, red/orange reserved strictly for destructive states. */
+:root {
+  --text: #2a231c;
+  --text-secondary: #6b5d4c;
+  --background: #f3ead9;
+  --background-element: #fbf6ec;
+  --background-selected: #e4eeea;
+  --border: #d9c7a6;
+  --primary: #0e5b54;
+  --primary-strong: #08403b;
+  --destructive: #b23a18;
+  --destructive-soft: #f6e3da;
+  --success: #2f7a4f;
+  --success-soft: #e2eee4;
+  --radius-small: 6px;
+  --radius-medium: 10px;
+  --radius-large: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+}
+
+.page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+header.site-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--background-element);
+}
+
+header.site-header a {
+  color: var(--primary-strong);
+  font-weight: 800;
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  text-decoration: none;
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  margin: 0 0 8px;
+}
+
+h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+p {
+  margin: 0 0 12px;
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.small {
+  font-size: 14px;
+}
+
+a {
+  color: var(--primary);
+}
+
+button,
+.button {
+  display: inline-block;
+  font: inherit;
+  font-weight: 700;
+  border-radius: var(--radius-small);
+  border: 1px solid transparent;
+  padding: 12px 20px;
+  cursor: pointer;
+  background: var(--primary);
+  color: #fff;
+  text-decoration: none;
+  text-align: center;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button.ghost {
+  background: transparent;
+  color: var(--primary-strong);
+  border-color: var(--border);
+}
+
+input,
+select {
+  font: inherit;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-small);
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text);
+}
+
+label {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.card {
+  background: var(--background-element);
+  border-radius: var(--radius-medium);
+  border: 1px solid var(--border);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card.selected {
+  background: var(--background-selected);
+  border-color: var(--primary);
+}
+
+.card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.error {
+  color: var(--destructive);
+  background: var(--destructive-soft);
+  border-radius: var(--radius-small);
+  padding: 8px 12px;
+  margin: 12px 0;
+}
+
+.success-box {
+  background: var(--success-soft);
+  border-radius: var(--radius-medium);
+  padding: 16px;
+  text-align: center;
+}
+
+.loader {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 32px 0;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+}
+
+.row > * {
+  flex: 1;
+}
