@@ -18,7 +18,7 @@ import type { Locale } from './i18n';
 
 const fr = `
 <h1>Politique de confidentialité</h1>
-<p class="text-secondary small">Dernière mise à jour : [À COMPLÉTER — date]</p>
+<p class="text-secondary small">Dernière mise à jour : 20 août 2026</p>
 
 <p><strong>Brouillon — non révisé par un avocat.</strong> Ce document décrit fidèlement ce que l'application Intahe fait réellement avec les renseignements personnels, mais n'a pas encore été révisé par un professionnel du droit de la protection des renseignements personnels. Comme Intahe sert des utilisateurs au Canada et aux États-Unis, plusieurs cadres légaux différents peuvent s'appliquer selon où tu habites (voir section 7) — ce brouillon vise à respecter l'esprit des principaux d'entre eux, mais ne remplace pas une révision juridique propre à chaque marché où l'app est réellement offerte. Les sections marquées [À COMPLÉTER] doivent être remplies avant publication officielle.</p>
 
@@ -65,7 +65,7 @@ const fr = `
 <p>Nos serveurs et bases de données sont hébergés chez Render, aux États-Unis (Oregon). Si tu résides au Canada, cela signifie que tes renseignements personnels sont traités et conservés à l'extérieur du pays. [À COMPLÉTER — confirmer qu'une évaluation des facteurs relatifs à la vie privée (EFVP) a été complétée pour ce transfert hors Québec, tel que requis par la Loi 25 pour les résidents du Québec, et résumer ici les mesures de protection contractuelles en place avec Render.]</p>
 
 <h2>6. Combien de temps nous conservons tes renseignements</h2>
-<p>[À COMPLÉTER — durée de conservation précise pour chaque catégorie : compte actif, compte supprimé, historique de commandes/billets à des fins comptables et fiscales, etc.]</p>
+<p>Les renseignements de ton compte (nom, courriel, mot de passe, position géographique fournie) sont conservés tant que ton compte est actif. Si tu supprimes ton compte, ces renseignements personnels sont effacés immédiatement de notre base de données active. L'historique de tes commandes et billets est conservé séparément pendant 7 ans après la transaction, à des fins de comptabilité et d'obligations fiscales — même après la suppression de ton compte, cet historique demeure visible aux organisateurs concernés. Comme pour la plupart des services infonuagiques, tes renseignements peuvent aussi subsister temporairement (jusqu'à 30 jours) dans nos copies de sauvegarde de routine après une suppression, le temps que le cycle normal de sauvegarde les remplace.</p>
 
 <h2>7. Tes droits selon où tu habites</h2>
 <p>Intahe sert des utilisateurs au Canada et aux États-Unis; les droits ci-dessous varient selon ta province, ton État, et la loi qui s'applique à toi. En général, tu peux :</p>
@@ -101,7 +101,7 @@ const fr = `
 
 const en = `
 <h1>Privacy policy</h1>
-<p class="text-secondary small">Last updated: [TO COMPLETE — date]</p>
+<p class="text-secondary small">Last updated: August 20, 2026</p>
 
 <p><strong>Draft — not reviewed by a lawyer.</strong> This document accurately describes what the Intahe app actually does with personal information, but has not yet been reviewed by a privacy law professional. Since Intahe serves users in both Canada and the United States, several different legal frameworks may apply depending on where you live (see section 7) — this draft aims to respect the spirit of the main ones, but does not replace a legal review specific to each market the app is actually offered in. Sections marked [TO COMPLETE] must be filled in before official publication.</p>
 
@@ -148,7 +148,7 @@ const en = `
 <p>Our servers and databases are hosted with Render, in the United States (Oregon). If you reside in Canada, this means your personal information is processed and stored outside the country. [TO COMPLETE — confirm that a privacy impact assessment has been completed for this transfer outside Quebec, as required by Loi 25 for Quebec residents, and summarize the contractual safeguards in place with Render.]</p>
 
 <h2>6. How long we keep your information</h2>
-<p>[TO COMPLETE — precise retention period for each category: active account, deleted account, order/ticket history for accounting and tax purposes, etc.]</p>
+<p>Your account information (name, email, password, any location you provide) is kept for as long as your account is active. If you delete your account, that personal information is erased immediately from our active database. Your order and ticket history is kept separately for 7 years after the transaction, for accounting and tax purposes — even after your account is deleted, this history remains visible to the relevant organizers. As with most cloud services, your information may also persist temporarily (up to 30 days) in our routine backup copies after a deletion, until the normal backup cycle replaces them.</p>
 
 <h2>7. Your rights depending on where you live</h2>
 <p>Intahe serves users in Canada and the United States; the rights below vary depending on your province, state, and which law applies to you. In general, you can:</p>

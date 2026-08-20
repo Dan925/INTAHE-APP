@@ -14,7 +14,7 @@ import type { Locale } from './i18n';
 
 const fr = `
 <h1>Politique de remboursement</h1>
-<p class="text-secondary small">Dernière mise à jour : [À COMPLÉTER — date]</p>
+<p class="text-secondary small">Dernière mise à jour : 20 août 2026</p>
 
 <h2>1. Principe général : ventes finales</h2>
 <p>Sauf indication contraire de l'organisateur pour un événement précis, les ventes de billets sur Intahe sont finales. Cela reflète la pratique courante en billetterie d'événements : une fois un billet acheté, une place a été retenue pour toi et retirée de l'inventaire disponible.</p>
@@ -43,7 +43,7 @@ const fr = `
 
 const en = `
 <h1>Refund policy</h1>
-<p class="text-secondary small">Last updated: [TO COMPLETE — date]</p>
+<p class="text-secondary small">Last updated: August 20, 2026</p>
 
 <h2>1. General rule: sales are final</h2>
 <p>Unless an organizer states otherwise for a specific event, ticket sales on Intahe are final. This reflects standard practice for event ticketing: once a ticket is purchased, a spot has been held for you and removed from available inventory.</p>
