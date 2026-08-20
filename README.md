@@ -65,10 +65,14 @@ database, not just different env vars on a shared one.
 2. Set the secrets `render.yaml` deliberately leaves out (marked
    `sync: false`, so they're never committed to git) on **each**
    environment separately, in the Render dashboard:
-   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
-   `STRIPE_CONNECT_REFRESH_URL`, `STRIPE_CONNECT_RETURN_URL`,
-   `GOOGLE_OAUTH_CLIENT_IDS`. `JWT_SECRET` is auto-generated per
-   environment by Render itself — staging and production never share one.
+   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PUBLISHABLE_KEY`
+   (safe client-side, but still per-environment since it must match the
+   secret key's account/mode), `STRIPE_CONNECT_REFRESH_URL`,
+   `STRIPE_CONNECT_RETURN_URL`, `GOOGLE_OAUTH_CLIENT_IDS`. `JWT_SECRET` is
+   auto-generated per environment by Render itself — staging and
+   production never share one. `APP_BASE_URL` doesn't need setting on
+   Render — it defaults to the `RENDER_EXTERNAL_URL` Render injects
+   automatically on every web service.
 3. Migrations run via `startCommand` (`npm run migrate:up && npm start`),
    not `preDeployCommand` — that's a paid-plan-only feature on Render and
    staging runs on the free tier. `node-pg-migrate` tracks what's already
@@ -115,6 +119,8 @@ src/
   services/     business logic, one folder per domain
   types/        shared TS types (DB rows, etc.)
   utils/        errors, validation, password hashing, JWT
+  web/          server-rendered public web pages (discovery, checkout, tickets)
+public/         static assets for src/web/ (CSS, client-side JS)
 tests/          jest + supertest, hits a real Postgres instance
 .github/workflows/ci.yml   typecheck + lint + test + build, on every push/PR
 render.yaml                 Render Blueprint: staging + production, each with its own DB
@@ -292,6 +298,42 @@ Organizations + Events → Ticket Types + Checkout + Stripe → Check-in +
 Orders + Guest List → Dashboard. Beyond that roadmap, this repo also adds
 organization member management, refunds, and Stripe Connect onboarding
 (below) — all real functional gaps once the MVP is actually being used.
+
+## Public discovery + web pages (implemented)
+
+Unauthenticated, per the differentiation goal of not requiring organizers
+to pay for marketing to be found and not requiring buyers to have an
+account:
+
+- `GET /v1/discover/events` — published events the organizer opted into
+  discovery (`is_public_discoverable`, defaults to `false` — independent
+  from `status = 'published'`, an event can be live and sellable via a
+  direct link without showing up in search). Sorted by great-circle
+  distance in SQL (plain haversine, no PostGIS) when `?latitude=&longitude=`
+  are given, otherwise soonest-first. No cursor pagination yet — a capped
+  flat list, deliberate scope cut for a first version.
+- `GET /v1/discover/events/:eventId` — a single published event by id
+  alone, regardless of the discoverable flag (direct-link access).
+- `GET /v1/discover/events/:eventId/ticket-types` — public ticket types
+  for a published event.
+
+`src/web/` + `public/` serve three server-rendered pages from this same
+service (no separate frontend to deploy): `/discover` (browse, browser
+geolocation), `/events/:eventId` (detail + real payment via Stripe.js
+Payment Element — the web equivalent of the mobile app's PaymentSheet,
+against the same guest-checkout endpoint), and
+`/events/:eventId/orders/:orderId/tickets` (QR codes for a paid order —
+the order confirmation email links here now instead of just citing an
+order id with nowhere to go). Every dynamic value on these pages is
+fetched client-side and written with `textContent`/DOM APIs, never
+interpolated into server-rendered HTML, so there's no user-controlled
+data in the templates to escape.
+
+Helmet's default CSP blocks Stripe.js entirely (`script-src`/`connect-src`/
+`frame-src` all default to `'self'`) — `src/app.ts` allowlists Stripe's
+documented CSP requirements instead of disabling CSP. Caught by testing
+with an actual headless browser instead of just `curl`; would have made
+web checkout completely non-functional in production otherwise.
 
 ## Stripe Connect onboarding (implemented)
 

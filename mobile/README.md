@@ -20,7 +20,8 @@ npx expo start        # or: npm run web / npm run ios / npm run android
 - `src/app/` — Expo Router file-based routes.
   - `(auth)/` — login, signup. Shown when signed out.
   - `(app)/` — the main tab navigator. Shown when signed in.
-  - `_layout.tsx` — wraps everything in `AuthProvider` and uses `Stack.Protected` to gate the two groups above on session state.
+  - `(public)/` — discovery + guest checkout + guest ticket view. Shown regardless of session state (reachable from a link on the login screen, or a button on the Organisations screen when signed in).
+  - `_layout.tsx` — wraps everything in `AuthProvider` and uses `Stack.Protected` to gate `(app)`/`(auth)` on session state; `(public)` sits outside both, always reachable.
 - `src/lib/api.ts` — fetch wrapper matching the backend's error envelope (`{ error: { code, message, field } }`); callers branch on `code`, never `message`.
 - `src/lib/auth-context.tsx` — session state (token + user), persisted via `expo-secure-store` (native only — web falls back to in-memory, since web isn't a real target).
 - `src/components/` — shared primitives (`Button`, `TextField`, `ThemedText`, `ThemedView`) styled from `src/constants/theme.ts`, the same kraft/paper/teal design system as the backend's web test console.
@@ -28,8 +29,8 @@ npx expo start        # or: npm run web / npm run ios / npm run android
 ## Implemented
 
 - **Auth**: signup, login, logout, route protection (`/v1/auth/signup`, `/v1/auth/login`), tested end-to-end against a local instance of the backend.
-- **Organizations + Events**: create/list organizations, create/list events (custom date/time fields, since `@react-native-community/datetimepicker` has no web implementation), publish/cancel transitions.
-- **Ticket types + checkout + payment**: create/list ticket types on an event, a checkout form that creates a real order (`POST /v1/events/:eventId/orders`), and a real Stripe `PaymentSheet` step (`useStripe()`'s `initPaymentSheet`/`presentPaymentSheet`) to actually pay for it with a test card.
+- **Organizations + Events**: create/list organizations, create/list events (real native date/calendar and time pickers via `@react-native-community/datetimepicker`, forced to `locale="fr-CA"` on iOS so it doesn't follow the device's system language), publish/cancel transitions, an address field, a "use my current location" button (`expo-location`), and an "Événement découvrable" switch (see Discover below).
+- **Ticket types + checkout + payment**: create/list ticket types on an event, a checkout form that creates a real order (`POST /v1/events/:eventId/orders`), and a real Stripe `PaymentSheet` step (`useStripe()`'s `initPaymentSheet`/`presentPaymentSheet`) to actually pay for it with a test card. Prices are in CAD.
 - **Tickets (QR codes)**: a "Voir mes billets" screen that fetches the buyer's tickets for an order (`GET /v1/events/:eventId/orders/:orderId/tickets`, a new buyer-facing endpoint — ownership is checked via the session or the `buyer_email` used at checkout, never orderId alone) and renders each ticket's QR code (generated server-side as a PNG data URI via the `qrcode` package).
 - **Check-in + Orders + Guest List** (from the event detail screen's "Gestion" section): a manual QR-code entry screen for check-in (`POST .../check-in`, shows French messages for "not found" / "already checked in"), a guest list (`GET .../guest-list`, scanned/pending status per ticket), and an admin orders list (`GET .../orders`, buyer email + total + status).
 - **Organization members** (from the org detail screen's "Membres" button): invite by email + role (admin/staff/volunteer — the invitee must already have an Intahe account), list members with role and pending/accepted status, cycle a member's role, remove a member. The Organizations list screen also shows the current user's own pending invites (via the new `GET /v1/me/invites` endpoint, since `listOrganizationsForUser` only returns *accepted* memberships and gives an invitee no other way to discover a pending invite) with an "Accepter" button per invite.
@@ -41,7 +42,15 @@ Check-in uses manual code entry rather than a camera scanner: real QR scanning w
 
 ### Stripe payment
 
-`@stripe/stripe-react-native` is now wired in (`StripeProvider` in `src/app/_layout.tsx`, `useStripe()` in the event detail screen's checkout section). **This retired the Playwright/web-based testing method used for every earlier milestone**: the package breaks Metro's entire web bundle the moment it's imported anywhere in the app — not just the payment screen — because its barrel file re-exports native-only components that import React Native internals Metro refuses to bundle for web (confirmed via `npx expo export --platform web`). `npx expo export --platform ios` still bundles cleanly, so the JS graph itself is sound, but the payment flow's actual behavior (does `initPaymentSheet` succeed with a real client secret, does the sheet render, does a test card get accepted, does the order end up `paid`) has **only been verified by static bundling and type-checking, never by running it** — that verification has to happen on a real device or simulator.
+`@stripe/stripe-react-native` is wired in (`StripeProvider` in `src/app/_layout.tsx`, `useStripe()` in both the org-scoped and public event checkout screens). **This retired the Playwright/web-based testing method used for every earlier milestone**: the package breaks Metro's entire web bundle the moment it's imported anywhere in the app (confirmed via `npx expo export --platform web`) — so `npm run web` no longer works at all, on purpose, permanently.
+
+**Verified working end-to-end on a real iPhone**, including a full order → `initPaymentSheet` → `presentPaymentSheet` → webhook → ticket-issuance → check-in loop with a real test card. Getting there needed Expo SDK 54 (see "Testing on a physical device" below) and a couple of fixes only a real device run could have caught: the date picker defaulting to the device's English system locale instead of French, and the ticket screen showing only a QR image with no text fallback for manual check-in testing.
+
+### Discover (public, no account)
+
+`(public)/discover` browses events other organizers opted into public discovery (`is_public_discoverable` on the event, opt-in, defaults off) — sorted by distance via `expo-location`'s current position when granted, otherwise soonest-first. Tapping an event opens `(public)/events/[eventId]`, a guest checkout screen against the new unauthenticated `/v1/discover/*` endpoints (as opposed to the org-scoped, authenticated ones the management screens use) — same real Stripe `PaymentSheet` flow as the rest of the app, no login required. `(public)/events/[eventId]/tickets/[orderId]` shows the resulting QR codes.
+
+No account needed anywhere in this flow: `createOrder`/`listTicketsForOrder` were already guest-capable (`optionalAuth` on the backend) from the original checkout milestone — only the "browse an event that isn't mine" read side was missing, which is what `/v1/discover/*` adds. The same web pages exist server-rendered from the backend directly (`/discover`, `/events/:eventId`, ...) for buyers who don't want to install the app at all — see the backend README's "Public discovery + web pages" section.
 
 ### Testing on a physical device
 
@@ -56,4 +65,6 @@ The project is pinned to **Expo SDK 54** (see `AGENTS.md`) instead of a newer SD
 
 ## Not yet built
 
-Nothing from the project brief's MVP build order. The Stripe payment step above is wired but unverified on a real device — that's the one piece of this app that hasn't actually been run.
+Nothing from the project brief's MVP build order — everything, including the Stripe payment step, has now been verified end-to-end on a real device.
+
+Discover is reachable via a link/button on existing screens rather than an always-visible tab: making it a proper tab that works whether or not there's a session would mean restructuring the `(app)` group's `Tabs` layout itself (currently only rendered when signed in), which was a bigger change than a first version needed.
