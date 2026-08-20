@@ -73,6 +73,12 @@ export default function LoginScreen() {
               Pas encore de compte ? Inscris-toi
             </ThemedText>
           </Link>
+
+          <Link href="/discover" style={styles.link}>
+            <ThemedText type="link" themeColor="textSecondary">
+              Découvrir des événements sans compte
+            </ThemedText>
+          </Link>
         </ScrollView>
       </ThemedView>
     </KeyboardAvoidingView>

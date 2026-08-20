@@ -87,6 +87,13 @@ export default function OrganizationsScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.content}>
+        <Button
+          title="Découvrir des événements"
+          variant="ghost"
+          onPress={() => router.push('/discover')}
+          style={styles.discoverButton}
+        />
+
         {error ? (
           <ThemedText type="small" themeColor="destructive" style={styles.error}>
             {error}
@@ -174,6 +181,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: Spacing.four,
+  },
+  discoverButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.three,
+    marginBottom: Spacing.four,
   },
   error: {
     marginBottom: Spacing.three,

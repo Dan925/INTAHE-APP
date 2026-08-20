@@ -10,10 +10,13 @@ export interface Event {
   start_at: string;
   end_at: string;
   address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   cover_image_url: string | null;
   status: EventStatus;
   capacity: number | null;
   fees_absorbed_by_organizer: boolean;
+  is_public_discoverable: boolean;
   created_at: string;
 }
 
@@ -37,7 +40,16 @@ export function getEvent(
 export function createEvent(
   token: string,
   organizationId: string,
-  input: { name: string; start_at: string; end_at: string; description?: string },
+  input: {
+    name: string;
+    start_at: string;
+    end_at: string;
+    description?: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    is_public_discoverable?: boolean;
+  },
 ): Promise<{ event: Event }> {
   return apiRequest(`/v1/organizations/${organizationId}/events`, { method: 'POST', body: input, token });
 }
