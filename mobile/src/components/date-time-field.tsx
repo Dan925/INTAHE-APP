@@ -94,6 +94,7 @@ export function DateTimeField({ label, onChange }: DateTimeFieldProps) {
             value={value ?? new Date()}
             mode={iosPicker}
             display={iosPicker === 'date' ? 'inline' : 'spinner'}
+            locale="fr-CA"
             onChange={(event, picked) => onIosChange(iosPicker, event, picked)}
           />
           <Button title="Terminé" variant="ghost" onPress={() => setIosPicker(null)} />

@@ -62,6 +62,9 @@ export default function OrderTicketsScreen() {
             <ThemedView key={ticket.id} type="backgroundElement" style={styles.card}>
               <ThemedText type="smallBold">{ticket.ticket_type_name}</ThemedText>
               <Image source={{ uri: ticket.qr_code_image }} style={styles.qr} contentFit="contain" />
+              <ThemedText type="code" themeColor="textSecondary" selectable style={styles.code}>
+                {ticket.qr_code}
+              </ThemedText>
               <View style={styles.statusRow}>
                 <ThemedText
                   type="small"
@@ -97,6 +100,9 @@ const styles = StyleSheet.create({
   qr: {
     width: 200,
     height: 200,
+  },
+  code: {
+    textAlign: 'center',
   },
   statusRow: {
     marginTop: Spacing.one,
