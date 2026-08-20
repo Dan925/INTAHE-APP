@@ -58,6 +58,26 @@ export interface Translations {
     scanned: string;
     not_scanned: string;
   };
+  profile: {
+    title: string;
+    logout: string;
+    delete_account_link: string;
+  };
+  delete_account: {
+    title: string;
+    warning: string;
+    password_label: string;
+    password_required: string;
+    confirm_button: string;
+    cancel_button: string;
+    invalid_password: string;
+    owns_organizations: string;
+    error_generic: string;
+    confirm_dialog_title: string;
+    confirm_dialog_message: string;
+    confirm_dialog_confirm: string;
+    confirm_dialog_cancel: string;
+  };
 }
 
 export const fr: Translations = {
@@ -121,6 +141,28 @@ export const fr: Translations = {
     scanned: 'Scanné',
     not_scanned: 'Pas encore scanné',
   },
+  profile: {
+    title: 'Profil',
+    logout: 'Se déconnecter',
+    delete_account_link: 'Supprimer mon compte',
+  },
+  delete_account: {
+    title: 'Supprimer mon compte',
+    warning:
+      'Cette action est irréversible. Ton profil sera supprimé définitivement. Tes commandes et billets passés restent visibles aux organisateurs concernés, comme l’exige la tenue de registres.',
+    password_label: 'Mot de passe',
+    password_required: 'Entre ton mot de passe pour confirmer.',
+    confirm_button: 'Supprimer définitivement mon compte',
+    cancel_button: 'Annuler',
+    invalid_password: 'Mot de passe incorrect.',
+    owns_organizations:
+      'Transfère ou supprime ton (tes) organisation(s) avant de supprimer ton compte.',
+    error_generic: 'Une erreur est survenue. Réessaie.',
+    confirm_dialog_title: 'Supprimer ton compte ?',
+    confirm_dialog_message: 'Cette action est définitive et ne peut pas être annulée.',
+    confirm_dialog_confirm: 'Supprimer',
+    confirm_dialog_cancel: 'Annuler',
+  },
 };
 
 export const en: Translations = {
@@ -182,6 +224,27 @@ export const en: Translations = {
     empty: 'No tickets for this order yet.',
     scanned: 'Scanned',
     not_scanned: 'Not scanned yet',
+  },
+  profile: {
+    title: 'Profile',
+    logout: 'Log out',
+    delete_account_link: 'Delete my account',
+  },
+  delete_account: {
+    title: 'Delete my account',
+    warning:
+      "This can't be undone. Your profile will be permanently deleted. Your past orders and tickets stay visible to the relevant organizers, as required for record-keeping.",
+    password_label: 'Password',
+    password_required: 'Enter your password to confirm.',
+    confirm_button: 'Permanently delete my account',
+    cancel_button: 'Cancel',
+    invalid_password: 'Incorrect password.',
+    owns_organizations: 'Transfer or delete your organization(s) before deleting your account.',
+    error_generic: 'Something went wrong. Try again.',
+    confirm_dialog_title: 'Delete your account?',
+    confirm_dialog_message: "This is permanent and can't be undone.",
+    confirm_dialog_confirm: 'Delete',
+    confirm_dialog_cancel: 'Cancel',
   },
 };
 

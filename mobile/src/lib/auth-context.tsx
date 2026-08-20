@@ -16,6 +16,7 @@ export interface User {
   full_name: string;
   phone: string | null;
   avatar_url: string | null;
+  has_password: boolean;
 }
 
 interface AuthResult {
@@ -36,6 +37,7 @@ interface AuthContextValue {
   login: (input: { email: string; password: string }) => Promise<void>;
   loginWithApple: (input: { identityToken: string; fullName?: string }) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: (password?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -103,9 +105,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await persistSession(null);
   }, []);
 
+  const deleteAccount = useCallback(
+    async (password?: string) => {
+      if (!session) throw new Error('deleteAccount called with no active session.');
+      await apiRequest('/v1/me', {
+        method: 'DELETE',
+        token: session.token,
+        body: password ? { password } : {},
+      });
+      setSession(null);
+      await persistSession(null);
+    },
+    [session],
+  );
+
   const value = useMemo(
-    () => ({ session, isRestoring, signup, login, loginWithApple, logout }),
-    [session, isRestoring, signup, login, loginWithApple, logout],
+    () => ({ session, isRestoring, signup, login, loginWithApple, logout, deleteAccount }),
+    [session, isRestoring, signup, login, loginWithApple, logout, deleteAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
