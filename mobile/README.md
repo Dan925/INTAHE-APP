@@ -63,6 +63,18 @@ The project is pinned to **Expo SDK 54** (see `AGENTS.md`) instead of a newer SD
 4. Sign up, create an org + published event + ticket type, then go through checkout with a [Stripe test card](https://docs.stripe.com/testing) (e.g. `4242 4242 4242 4242`, any future expiry, any CVC) on the "Payer maintenant" button.
 5. Confirm: payment sheet shows "Paiement réussi", then "Voir mes billets" shows a QR code once the webhook has issued the ticket (may take a couple of seconds).
 
+### Testing Sign in with Apple (requires an EAS development build)
+
+`expo-apple-authentication` is a native module — it is **not** included in the plain Expo Go app, so the steps above can verify everything else but not this one flow. Testing it for real needs a custom **EAS development build** instead:
+
+1. Requires an [Expo account](https://expo.dev/signup) (free) and an [Apple Developer Program](https://developer.apple.com/programs/) membership (paid, ~$99 USD/year) — the latter is required specifically because Sign in with Apple is a capability that must be enabled on the App ID in Apple's developer portal, which EAS can only do against a real paid account. `sign.expo.dev`'s free ad-hoc signing (used above for the plain Expo Go compatibility issue) does not cover this.
+2. `npx eas login`, then `npx eas build:configure` if it hasn't been linked to an Expo project yet (this repo's `eas.json` already has `development`/`preview`/`production` profiles).
+3. `npx eas build --profile development --platform ios` — EAS will prompt to create/select an Apple Developer account, generate the App ID with the Sign in with Apple capability, and produce an installable dev-client build (either as a simulator build or a real-device build via ad-hoc registration).
+4. Install the resulting build on the device, then `npx expo start --dev-client` and open the project from there instead of Expo Go.
+5. On the login screen, the native "Sign in with Apple" button only renders where `AppleAuthentication.isAvailableAsync()` resolves `true` — iOS only, and only inside a build that actually has the entitlement (so it will correctly stay hidden in the plain Expo Go app).
+
+The same paid Apple Developer account is also what's needed for the eventual real App Store submission (`eas submit`), so this isn't a throwaway step just for this one feature.
+
 ## Not yet built
 
 Nothing from the project brief's MVP build order — everything, including the Stripe payment step, has now been verified end-to-end on a real device.
