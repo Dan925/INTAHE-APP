@@ -42,9 +42,15 @@
   // token, parses the JSON body either way, and throws { code, message }
   // (matching the shape the mobile app's ApiError carries) on a non-2xx
   // response so callers can branch on err.code like they already do
-  // elsewhere in this codebase. A 401 means the token is no longer valid
-  // (expired, or the account was deleted) — clear it and bounce to
-  // /login rather than leaving the page stuck on a confusing error.
+  // elsewhere in this codebase.
+  //
+  // A 401 with code 'unauthorized' means the token itself is bad (missing,
+  // expired, or the account was deleted) — that one clears the session and
+  // bounces to /login. Other 401s are endpoint-specific and must NOT do
+  // that: DELETE /v1/me also answers 401 with code 'invalid_password' for
+  // a wrong password, and treating that as "your session is gone" would
+  // silently log the user out instead of letting them see the error and
+  // retry.
   function apiRequest(path, options) {
     options = options || {};
     var session = get();
@@ -58,19 +64,21 @@
       headers: headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     }).then(function (res) {
-      if (res.status === 401) {
-        clear();
-        location.href = '/login?next=' + encodeURIComponent(location.pathname + location.search);
-        // Never resolves — the redirect above is already underway, and
-        // nothing downstream should run against a session that's gone.
-        return new Promise(function () {});
-      }
       if (res.status === 204) return null;
       return res.text().then(function (text) {
         var body = text ? JSON.parse(text) : null;
+        var code = body && body.error && body.error.code;
         if (!res.ok) {
+          if (res.status === 401 && code === 'unauthorized') {
+            clear();
+            location.href = '/login?next=' + encodeURIComponent(location.pathname + location.search);
+            // Never resolves — the redirect above is already underway,
+            // and nothing downstream should run against a session that's
+            // gone.
+            return new Promise(function () {});
+          }
           var err = new Error((body && body.error && body.error.message) || window.intaheT('common.unknown_error'));
-          err.code = body && body.error && body.error.code;
+          err.code = code;
           err.field = body && body.error && body.error.field;
           throw err;
         }
