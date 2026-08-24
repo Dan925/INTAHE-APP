@@ -24,9 +24,9 @@ const fr = `
 
 <h2>1. Qui nous sommes</h2>
 <p>Intahe (« nous », « notre ») est une plateforme de billetterie et de gestion d'événements. Le responsable du traitement des renseignements personnels décrits ci-dessous est :</p>
-<p>[À COMPLÉTER — raison sociale de l'entreprise]<br/>
-[À COMPLÉTER — adresse]<br/>
-[À COMPLÉTER — courriel de contact général]</p>
+<p>Syncera Digital LLC<br/>
+1309 Coffeen Avenue, Ste 1200, Sheridan, WY 82801, États-Unis<br/>
+privacy@syncerainc.com</p>
 
 <h2>2. Renseignements personnels que nous recueillons</h2>
 <p>Nous recueillons uniquement ce qui est nécessaire au fonctionnement du service :</p>
@@ -78,7 +78,7 @@ const fr = `
 </ul>
 <p><strong>Canada :</strong> la Loi sur la protection des renseignements personnels et les documents électroniques (LPRPDE) encadre ces droits au niveau fédéral. Si tu résides au Québec, la Loi 25 s'applique en plus et te donne des droits et recours additionnels, y compris auprès de la Commission d'accès à l'information du Québec (voir section 11).</p>
 <p><strong>États-Unis :</strong> si tu résides en Californie, le California Consumer Privacy Act (CCPA/CPRA) te donne le droit de savoir quels renseignements sont recueillis, de les faire supprimer, et de refuser leur « vente » ou leur « partage » (nous ne vendons ni ne partageons de renseignements personnels à des fins publicitaires, voir section 3). D'autres États américains ont des lois similaires; si la tienne t'accorde des droits additionnels, ils s'appliquent aussi. [À COMPLÉTER — confirmer avec un avocat si des mécanismes spécifiques supplémentaires sont requis selon les États où l'app est réellement offerte, par exemple un lien dédié « Do Not Sell or Share My Personal Information ».]</p>
-<p>Pour exercer un de ces droits, peu importe où tu habites, écris-nous à [À COMPLÉTER — courriel dédié aux demandes de confidentialité].</p>
+<p>Pour exercer un de ces droits, peu importe où tu habites, écris-nous à privacy@syncerainc.com.</p>
 
 <h2>8. Sécurité</h2>
 <p>Les mots de passe sont hachés (jamais stockés en clair). Les communications entre l'application et nos serveurs sont chiffrées (HTTPS). L'accès aux renseignements d'une organisation est restreint à ses membres selon leur rôle. Aucun système n'est parfaitement sécurisé; en cas d'incident de confidentialité présentant un risque de préjudice sérieux, nous aviserons les personnes concernées ainsi que les autorités compétentes (par exemple la Commission d'accès à l'information du Québec pour les résidents du Québec) conformément aux lois applicables.</p>
@@ -87,16 +87,18 @@ const fr = `
 <p>Ce service ne s'adresse pas aux personnes de moins de 14 ans (13 ans aux États-Unis, selon le COPPA) et nous ne recueillons pas sciemment de renseignements personnels auprès d'elles.</p>
 
 <h2>10. Responsable de la protection des renseignements personnels</h2>
-<p>[À COMPLÉTER — nom et coordonnées de la personne désignée, tel que requis par la Loi 25 pour les résidents du Québec. À défaut de désignation explicite, cette fonction est exercée par la personne ayant la plus haute autorité au sein de l'entreprise.]</p>
+<p>Aucune personne n'a été formellement désignée à ce rôle. Conformément à la Loi 25, cette fonction est donc exercée par défaut par la personne ayant la plus haute autorité au sein de Syncera Digital LLC. Pour joindre le responsable de la protection des renseignements personnels, écris à privacy@syncerainc.com.</p>
 
 <h2>11. Plaintes</h2>
-<p>Si tu as une préoccupation quant au traitement de tes renseignements personnels, communique d'abord avec nous à [À COMPLÉTER]. Selon où tu habites, tu peux aussi porter plainte auprès de l'autorité compétente — par exemple la <a href="https://www.cai.gouv.qc.ca/" target="_blank" rel="noopener">Commission d'accès à l'information du Québec</a> pour les résidents du Québec, ou le <a href="https://www.priv.gc.ca/" target="_blank" rel="noopener">Commissariat à la protection de la vie privée du Canada</a> pour les autres résidents canadiens.</p>
+<p>Si tu as une préoccupation quant au traitement de tes renseignements personnels, communique d'abord avec nous à privacy@syncerainc.com. Selon où tu habites, tu peux aussi porter plainte auprès de l'autorité compétente — par exemple la <a href="https://www.cai.gouv.qc.ca/" target="_blank" rel="noopener">Commission d'accès à l'information du Québec</a> pour les résidents du Québec, ou le <a href="https://www.priv.gc.ca/" target="_blank" rel="noopener">Commissariat à la protection de la vie privée du Canada</a> pour les autres résidents canadiens.</p>
 
 <h2>12. Modifications</h2>
 <p>Nous pouvons mettre à jour cette politique de temps à autre. La date de la dernière mise à jour est indiquée en haut de cette page.</p>
 
 <h2>13. Nous joindre</h2>
-<p>[À COMPLÉTER — courriel de contact général]</p>
+<p>Syncera Digital LLC<br/>
+1309 Coffeen Avenue, Ste 1200, Sheridan, WY 82801, États-Unis<br/>
+privacy@syncerainc.com</p>
 `;
 
 const en = `
@@ -107,9 +109,9 @@ const en = `
 
 <h2>1. Who we are</h2>
 <p>Intahe ("we", "our") is a ticketing and event management platform. The party responsible for the personal information described below is:</p>
-<p>[TO COMPLETE — legal business name]<br/>
-[TO COMPLETE — address]<br/>
-[TO COMPLETE — general contact email]</p>
+<p>Syncera Digital LLC<br/>
+1309 Coffeen Avenue, Ste 1200, Sheridan, WY 82801, USA<br/>
+privacy@syncerainc.com</p>
 
 <h2>2. Personal information we collect</h2>
 <p>We only collect what's necessary for the service to work:</p>
@@ -161,7 +163,7 @@ const en = `
 </ul>
 <p><strong>Canada:</strong> the Personal Information Protection and Electronic Documents Act (PIPEDA) governs these rights federally. If you reside in Quebec, Loi 25 also applies and gives you additional rights and recourse, including with the Commission d'accès à l'information du Québec (see section 11).</p>
 <p><strong>United States:</strong> if you reside in California, the California Consumer Privacy Act (CCPA/CPRA) gives you the right to know what information is collected, to have it deleted, and to opt out of its "sale" or "sharing" (we don't sell or share personal information for advertising purposes, see section 3). Other U.S. states have similar laws; if yours grants you additional rights, those apply too. [TO COMPLETE — confirm with a lawyer whether additional specific mechanisms are required depending on the states the app is actually offered in, e.g. a dedicated "Do Not Sell or Share My Personal Information" link.]</p>
-<p>To exercise any of these rights, no matter where you live, write to us at [TO COMPLETE — dedicated privacy request email].</p>
+<p>To exercise any of these rights, no matter where you live, write to us at privacy@syncerainc.com.</p>
 
 <h2>8. Security</h2>
 <p>Passwords are hashed (never stored in plain text). Communication between the app and our servers is encrypted (HTTPS). Access to an organization's information is restricted to its members based on their role. No system is perfectly secure; in the event of a privacy incident presenting a real risk of significant harm, we will notify affected individuals as well as the relevant authorities (e.g. the Commission d'accès à l'information du Québec for Quebec residents) in accordance with applicable law.</p>
@@ -170,16 +172,18 @@ const en = `
 <p>This service is not directed at anyone under 14 (13 in the United States, per COPPA) and we do not knowingly collect personal information from them.</p>
 
 <h2>10. Privacy officer</h2>
-<p>[TO COMPLETE — name and contact information of the designated person, as required by Loi 25 for Quebec residents. Absent an explicit designation, this role is filled by the person with the highest authority within the company.]</p>
+<p>No one has been formally designated to this role. In accordance with Loi 25, this function is therefore filled by default by the person with the highest authority within Syncera Digital LLC. To reach the privacy officer, write to privacy@syncerainc.com.</p>
 
 <h2>11. Complaints</h2>
-<p>If you have a concern about how your personal information is handled, contact us first at [TO COMPLETE]. Depending on where you live, you may also file a complaint with the relevant authority — for example the <a href="https://www.cai.gouv.qc.ca/" target="_blank" rel="noopener">Commission d'accès à l'information du Québec</a> for Quebec residents, or the <a href="https://www.priv.gc.ca/" target="_blank" rel="noopener">Office of the Privacy Commissioner of Canada</a> for other Canadian residents.</p>
+<p>If you have a concern about how your personal information is handled, contact us first at privacy@syncerainc.com. Depending on where you live, you may also file a complaint with the relevant authority — for example the <a href="https://www.cai.gouv.qc.ca/" target="_blank" rel="noopener">Commission d'accès à l'information du Québec</a> for Quebec residents, or the <a href="https://www.priv.gc.ca/" target="_blank" rel="noopener">Office of the Privacy Commissioner of Canada</a> for other Canadian residents.</p>
 
 <h2>12. Changes</h2>
 <p>We may update this policy from time to time. The date of the last update is shown at the top of this page.</p>
 
 <h2>13. Contact us</h2>
-<p>[TO COMPLETE — general contact email]</p>
+<p>Syncera Digital LLC<br/>
+1309 Coffeen Avenue, Ste 1200, Sheridan, WY 82801, USA<br/>
+privacy@syncerainc.com</p>
 `;
 
 const versions: Record<Locale, string> = { fr, en };
