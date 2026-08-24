@@ -179,6 +179,16 @@ label {
   color: var(--success);
 }
 
+.badge-neutral {
+  background: var(--background-selected);
+  color: var(--text-secondary);
+}
+
+.badge-destructive {
+  background: var(--destructive-soft);
+  color: var(--destructive);
+}
+
 .error {
   color: var(--destructive);
   background: var(--destructive-soft);

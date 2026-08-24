@@ -67,6 +67,12 @@ window.__INTAHE_I18N__ = {
       staff: 'Staff',
       volunteer: 'Bénévole',
     },
+    event_status: {
+      draft: 'Brouillon',
+      published: 'Publié',
+      cancelled: 'Annulé',
+      completed: 'Terminé',
+    },
     organizations_list: {
       title: 'Organisations',
       discover_button: 'Découvrir des événements',
@@ -262,6 +268,12 @@ window.__INTAHE_I18N__ = {
       admin: 'Admin',
       staff: 'Staff',
       volunteer: 'Volunteer',
+    },
+    event_status: {
+      draft: 'Draft',
+      published: 'Published',
+      cancelled: 'Cancelled',
+      completed: 'Completed',
     },
     organizations_list: {
       title: 'Organizations',
