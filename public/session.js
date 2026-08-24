@@ -69,7 +69,7 @@
       return res.text().then(function (text) {
         var body = text ? JSON.parse(text) : null;
         if (!res.ok) {
-          var err = new Error((body && body.error && body.error.message) || 'Unknown error.');
+          var err = new Error((body && body.error && body.error.message) || window.intaheT('common.unknown_error'));
           err.code = body && body.error && body.error.code;
           err.field = body && body.error && body.error.field;
           throw err;
