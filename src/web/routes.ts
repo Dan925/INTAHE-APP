@@ -1,6 +1,7 @@
 import path from 'node:path';
 import express, { Router } from 'express';
-import { resolveLocale, serverStrings } from './i18n';
+import type { Request, Response } from 'express';
+import { resolveLocale, serverStrings, type Locale, type ServerStrings } from './i18n';
 import { renderPage } from './layout';
 import { privacyPolicyHtml } from './privacyContent';
 import { refundPolicyHtml } from './refundContent';
@@ -9,120 +10,211 @@ const router = Router();
 
 router.use(express.static(path.join(__dirname, '../../public')));
 
-router.get(
-  '/discover',
-  (req, res) => {
-    const locale = resolveLocale(req, res);
-    const strings = serverStrings[locale];
-    res.type('html').send(
-      renderPage({
-        title: `${strings.discover.title} — Intahe`,
-        scriptSrc: '/discover.js',
-        locale,
-        currentPath: req.path,
-        brand: strings.brand,
-        toggleLabel: strings.toggle_label,
-        footerPrivacyLabel: strings.footer.privacy_link,
-        footerRefundLabel: strings.footer.refund_link,
-        bodyHtml: `
-    <h1>${strings.discover.title}</h1>
-    <p class="text-secondary">${strings.discover.intro}</p>
+/**
+ * Shared plumbing for every route below: resolve locale, look up its
+ * strings, and render the shell. Organizer pages (requireAuth: true) keep
+ * bodyHtml to a single container div — all their actual text is rendered
+ * client-side via window.intaheT(), same as the mobile app's t(), rather
+ * than mixing server- and client-rendered strings. The 5 pre-existing
+ * public pages keep their server-rendered static chrome as-is.
+ */
+function page(
+  req: Request,
+  res: Response,
+  opts: {
+    title: (strings: ServerStrings) => string;
+    scriptSrc?: string | string[];
+    requireAuth?: boolean;
+    needsSession?: boolean;
+    bodyHtml: (strings: ServerStrings, locale: Locale) => string;
+  },
+): void {
+  const locale = resolveLocale(req, res);
+  const strings = serverStrings[locale];
+  res.type('html').send(
+    renderPage({
+      title: opts.title(strings),
+      ...(opts.scriptSrc !== undefined ? { scriptSrc: opts.scriptSrc } : {}),
+      ...(opts.requireAuth !== undefined ? { requireAuth: opts.requireAuth } : {}),
+      ...(opts.needsSession !== undefined ? { needsSession: opts.needsSession } : {}),
+      locale,
+      currentPath: req.path,
+      strings,
+      bodyHtml: opts.bodyHtml(strings, locale),
+    }),
+  );
+}
+
+const containerBody = (id: string) => `<div id="${id}"><div class="loader"></div></div>`;
+
+router.get('/discover', (req, res) => {
+  page(req, res, {
+    title: (s) => `${s.discover.title} — Intahe`,
+    scriptSrc: '/discover.js',
+    bodyHtml: (s) => `
+    <h1>${s.discover.title}</h1>
+    <p class="text-secondary">${s.discover.intro}</p>
     <div class="row" style="margin-bottom: 16px;">
-      <button id="locate-btn" type="button">${strings.discover.use_location}</button>
+      <button id="locate-btn" type="button">${s.discover.use_location}</button>
     </div>
     <div id="status"></div>
     <div id="results"></div>`,
-      }),
-    );
-  },
-);
+  });
+});
 
-router.get(
-  '/events/:eventId',
-  (req, res) => {
-    const locale = resolveLocale(req, res);
-    const strings = serverStrings[locale];
-    res.type('html').send(
-      renderPage({
-        title: strings.event.title,
-        scriptSrc: '/event.js',
-        locale,
-        currentPath: req.path,
-        brand: strings.brand,
-        toggleLabel: strings.toggle_label,
-        footerPrivacyLabel: strings.footer.privacy_link,
-        footerRefundLabel: strings.footer.refund_link,
-        bodyHtml: `
+router.get('/events/:eventId', (req, res) => {
+  page(req, res, {
+    title: (s) => s.event.title,
+    scriptSrc: '/event.js',
+    bodyHtml: (s) => `
     <div id="event-container">
-      <div class="loader">${strings.event.loading}</div>
+      <div class="loader">${s.event.loading}</div>
     </div>`,
-      }),
-    );
-  },
-);
+  });
+});
 
-router.get(
-  '/events/:eventId/orders/:orderId/tickets',
-  (req, res) => {
-    const locale = resolveLocale(req, res);
-    const strings = serverStrings[locale];
-    res.type('html').send(
-      renderPage({
-        title: strings.tickets.title,
-        scriptSrc: '/tickets.js',
-        locale,
-        currentPath: req.path,
-        brand: strings.brand,
-        toggleLabel: strings.toggle_label,
-        footerPrivacyLabel: strings.footer.privacy_link,
-        footerRefundLabel: strings.footer.refund_link,
-        bodyHtml: `
+router.get('/events/:eventId/orders/:orderId/tickets', (req, res) => {
+  page(req, res, {
+    title: (s) => s.tickets.title,
+    scriptSrc: '/tickets.js',
+    bodyHtml: (s) => `
     <div id="tickets-container">
-      <div class="loader">${strings.tickets.loading}</div>
+      <div class="loader">${s.tickets.loading}</div>
     </div>`,
-      }),
-    );
-  },
-);
+  });
+});
 
-router.get(
-  '/privacy',
-  (req, res) => {
-    const locale = resolveLocale(req, res);
-    const strings = serverStrings[locale];
-    res.type('html').send(
-      renderPage({
-        title: strings.privacy.title,
-        locale,
-        currentPath: req.path,
-        brand: strings.brand,
-        toggleLabel: strings.toggle_label,
-        footerPrivacyLabel: strings.footer.privacy_link,
-        footerRefundLabel: strings.footer.refund_link,
-        bodyHtml: privacyPolicyHtml(locale),
-      }),
-    );
-  },
-);
+router.get('/privacy', (req, res) => {
+  page(req, res, {
+    title: (s) => s.privacy.title,
+    bodyHtml: (_s, locale) => privacyPolicyHtml(locale),
+  });
+});
 
-router.get(
-  '/refunds',
-  (req, res) => {
-    const locale = resolveLocale(req, res);
-    const strings = serverStrings[locale];
-    res.type('html').send(
-      renderPage({
-        title: strings.refund.title,
-        locale,
-        currentPath: req.path,
-        brand: strings.brand,
-        toggleLabel: strings.toggle_label,
-        footerPrivacyLabel: strings.footer.privacy_link,
-        footerRefundLabel: strings.footer.refund_link,
-        bodyHtml: refundPolicyHtml(locale),
-      }),
-    );
-  },
-);
+router.get('/refunds', (req, res) => {
+  page(req, res, {
+    title: (s) => s.refund.title,
+    bodyHtml: (_s, locale) => refundPolicyHtml(locale),
+  });
+});
+
+// --- Organizer app (authenticated) ---------------------------------------
+
+router.get('/login', (req, res) => {
+  page(req, res, {
+    title: (s) => s.login.title,
+    scriptSrc: '/loginPage.js',
+    needsSession: true,
+    bodyHtml: () => containerBody('login-container'),
+  });
+});
+
+router.get('/signup', (req, res) => {
+  page(req, res, {
+    title: (s) => s.signup.title,
+    scriptSrc: '/signupPage.js',
+    needsSession: true,
+    bodyHtml: () => containerBody('signup-container'),
+  });
+});
+
+router.get('/organizations', (req, res) => {
+  page(req, res, {
+    title: (s) => s.organizations_page.title,
+    scriptSrc: '/organizationsPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('organizations-container'),
+  });
+});
+
+router.get('/organizations/:orgId', (req, res) => {
+  page(req, res, {
+    title: (s) => s.organization_detail.title,
+    scriptSrc: '/organizationDetailPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('organization-container'),
+  });
+});
+
+router.get('/organizations/:orgId/members', (req, res) => {
+  page(req, res, {
+    title: (s) => s.org_members.title,
+    scriptSrc: '/orgMembersPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('members-container'),
+  });
+});
+
+router.get('/organizations/:orgId/dashboard', (req, res) => {
+  page(req, res, {
+    title: (s) => s.org_dashboard.title,
+    scriptSrc: '/orgDashboardPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('dashboard-container'),
+  });
+});
+
+router.get('/organizations/:orgId/events/:eventId', (req, res) => {
+  page(req, res, {
+    title: (s) => s.manage_event.title,
+    scriptSrc: '/manageEventPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('manage-event-container'),
+  });
+});
+
+router.get('/organizations/:orgId/events/:eventId/check-in', (req, res) => {
+  page(req, res, {
+    title: (s) => s.check_in.title,
+    scriptSrc: '/checkInPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('check-in-container'),
+  });
+});
+
+router.get('/organizations/:orgId/events/:eventId/guest-list', (req, res) => {
+  page(req, res, {
+    title: (s) => s.guest_list.title,
+    scriptSrc: '/guestListPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('guest-list-container'),
+  });
+});
+
+router.get('/organizations/:orgId/events/:eventId/orders', (req, res) => {
+  page(req, res, {
+    title: (s) => s.org_orders.title,
+    scriptSrc: '/orgOrdersPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('orders-container'),
+  });
+});
+
+router.get('/organizations/:orgId/events/:eventId/tickets/:orderId', (req, res) => {
+  page(req, res, {
+    title: (s) => s.order_tickets.title,
+    scriptSrc: '/orderTicketsPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('order-tickets-container'),
+  });
+});
+
+router.get('/profile', (req, res) => {
+  page(req, res, {
+    title: (s) => s.profile.title,
+    scriptSrc: '/profilePage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('profile-container'),
+  });
+});
+
+router.get('/profile/delete-account', (req, res) => {
+  page(req, res, {
+    title: (s) => s.delete_account.title,
+    scriptSrc: '/deleteAccountPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('delete-account-container'),
+  });
+});
 
 export default router;

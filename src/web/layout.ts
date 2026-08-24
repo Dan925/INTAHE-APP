@@ -1,5 +1,5 @@
 import { env } from '../config/env';
-import type { Locale } from './i18n';
+import type { Locale, ServerStrings } from './i18n';
 
 function escapeHtmlAttribute(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
@@ -16,17 +16,34 @@ function escapeHtmlAttribute(value: string): string {
 export function renderPage(options: {
   title: string;
   bodyHtml: string;
-  scriptSrc?: string;
+  scriptSrc?: string | string[];
   locale: Locale;
   currentPath: string;
-  brand: string;
-  toggleLabel: string;
-  footerPrivacyLabel: string;
-  footerRefundLabel: string;
+  strings: ServerStrings;
+  /** Renders the organizer nav (Organizations / Profile / logout) and makes session.js redirect to /login when no session is stored. */
+  requireAuth?: boolean;
+  /** Pulls in session.js (for window.intaheSession) without the auth-guard redirect or the nav bar — for /login and /signup, which need to read/write the session but must never redirect an anonymous visitor away from themselves. */
+  needsSession?: boolean;
 }): string {
   const otherLocale = options.locale === 'fr' ? 'en' : 'fr';
   const separator = options.currentPath.includes('?') ? '&' : '?';
   const toggleHref = `${options.currentPath}${separator}lang=${otherLocale}`;
+
+  const scriptSrcs = Array.isArray(options.scriptSrc)
+    ? options.scriptSrc
+    : options.scriptSrc
+      ? [options.scriptSrc]
+      : [];
+  const allScripts = options.requireAuth || options.needsSession ? ['/session.js', ...scriptSrcs] : scriptSrcs;
+
+  const appNavHtml = options.requireAuth
+    ? `
+  <nav class="app-nav">
+    <a href="/organizations">${options.strings.nav.organizations}</a>
+    <a href="/profile">${options.strings.nav.profile}</a>
+    <button id="logout-btn" type="button" class="ghost small-btn">${options.strings.nav.logout}</button>
+  </nav>`
+    : '';
 
   return `<!doctype html>
 <html lang="${options.locale}">
@@ -38,19 +55,19 @@ export function renderPage(options: {
   <script src="/i18n.js"></script>
   <script src="https://js.stripe.com/v3/"></script>
 </head>
-<body data-stripe-pk="${escapeHtmlAttribute(env.STRIPE_PUBLISHABLE_KEY)}">
+<body data-stripe-pk="${escapeHtmlAttribute(env.STRIPE_PUBLISHABLE_KEY)}"${options.requireAuth ? ' data-require-auth="true"' : ''}>
   <header class="site-header">
-    <a href="/discover" class="brand">${options.brand}</a>
-    <a href="${toggleHref}" class="lang-toggle">${options.toggleLabel}</a>
-  </header>
+    <a href="/discover" class="brand">${options.strings.brand}</a>
+    <a href="${toggleHref}" class="lang-toggle">${options.strings.toggle_label}</a>
+  </header>${appNavHtml}
   <main class="page">
 ${options.bodyHtml}
   </main>
   <footer class="site-footer">
-    <a href="/privacy">${options.footerPrivacyLabel}</a>
-    <a href="/refunds">${options.footerRefundLabel}</a>
+    <a href="/privacy">${options.strings.footer.privacy_link}</a>
+    <a href="/refunds">${options.strings.footer.refund_link}</a>
   </footer>
-${options.scriptSrc ? `  <script src="${options.scriptSrc}" defer></script>` : ''}
+${allScripts.map((src) => `  <script src="${src}" defer></script>`).join('\n')}
 </body>
 </html>`;
 }

@@ -117,6 +117,15 @@ button.ghost {
   border-color: var(--border);
 }
 
+button.destructive {
+  background: var(--destructive);
+}
+
+button.small-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
 input,
 select {
   font: inherit;
@@ -198,6 +207,88 @@ label {
 
 .row > * {
   flex: 1;
+}
+
+nav.app-nav {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--background-element);
+}
+
+nav.app-nav a {
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--text-secondary);
+}
+
+nav.app-nav a:hover {
+  color: var(--primary);
+}
+
+nav.app-nav button {
+  margin-left: auto;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.switch-row .switch-text {
+  flex: 1;
+}
+
+.switch-row input[type='checkbox'] {
+  width: auto;
+  flex: none;
+  transform: scale(1.3);
+}
+
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+table.data-table th,
+table.data-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+table.data-table th {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat {
+  flex-grow: 1;
+  min-width: 140px;
+}
+
+.stat .value {
+  font-size: 22px;
+  font-weight: 800;
 }
 
 footer.site-footer {

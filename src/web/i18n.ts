@@ -42,7 +42,7 @@ export function resolveLocale(req: Request, res: Response): Locale {
   return acceptLanguage.toLowerCase().startsWith('en') ? 'en' : 'fr';
 }
 
-interface ServerStrings {
+export interface ServerStrings {
   brand: string;
   toggle_label: string;
   discover: {
@@ -67,6 +67,50 @@ interface ServerStrings {
   footer: {
     privacy_link: string;
     refund_link: string;
+  };
+  nav: {
+    organizations: string;
+    profile: string;
+    logout: string;
+  };
+  login: {
+    title: string;
+  };
+  signup: {
+    title: string;
+  };
+  organizations_page: {
+    title: string;
+  };
+  organization_detail: {
+    title: string;
+  };
+  org_members: {
+    title: string;
+  };
+  org_dashboard: {
+    title: string;
+  };
+  manage_event: {
+    title: string;
+  };
+  check_in: {
+    title: string;
+  };
+  guest_list: {
+    title: string;
+  };
+  org_orders: {
+    title: string;
+  };
+  order_tickets: {
+    title: string;
+  };
+  profile: {
+    title: string;
+  };
+  delete_account: {
+    title: string;
   };
 }
 
@@ -96,6 +140,24 @@ const fr: ServerStrings = {
     privacy_link: 'Confidentialité',
     refund_link: 'Remboursements',
   },
+  nav: {
+    organizations: 'Organisations',
+    profile: 'Profil',
+    logout: 'Se déconnecter',
+  },
+  login: { title: 'Connexion — Intahe' },
+  signup: { title: 'Créer un compte — Intahe' },
+  organizations_page: { title: 'Organisations — Intahe' },
+  organization_detail: { title: 'Organisation — Intahe' },
+  org_members: { title: 'Membres — Intahe' },
+  org_dashboard: { title: 'Tableau de bord — Intahe' },
+  manage_event: { title: 'Événement — Intahe' },
+  check_in: { title: 'Check-in — Intahe' },
+  guest_list: { title: 'Liste des invités — Intahe' },
+  org_orders: { title: 'Commandes — Intahe' },
+  order_tickets: { title: 'Billets — Intahe' },
+  profile: { title: 'Profil — Intahe' },
+  delete_account: { title: 'Supprimer mon compte — Intahe' },
 };
 
 const en: ServerStrings = {
@@ -124,6 +186,24 @@ const en: ServerStrings = {
     privacy_link: 'Privacy',
     refund_link: 'Refunds',
   },
+  nav: {
+    organizations: 'Organizations',
+    profile: 'Profile',
+    logout: 'Log out',
+  },
+  login: { title: 'Log in — Intahe' },
+  signup: { title: 'Create an account — Intahe' },
+  organizations_page: { title: 'Organizations — Intahe' },
+  organization_detail: { title: 'Organization — Intahe' },
+  org_members: { title: 'Members — Intahe' },
+  org_dashboard: { title: 'Dashboard — Intahe' },
+  manage_event: { title: 'Event — Intahe' },
+  check_in: { title: 'Check-in — Intahe' },
+  guest_list: { title: 'Guest list — Intahe' },
+  org_orders: { title: 'Orders — Intahe' },
+  order_tickets: { title: 'Tickets — Intahe' },
+  profile: { title: 'Profile — Intahe' },
+  delete_account: { title: 'Delete my account — Intahe' },
 };
 
 export const serverStrings: Record<Locale, ServerStrings> = { fr, en };
