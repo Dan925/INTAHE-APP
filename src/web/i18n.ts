@@ -72,6 +72,7 @@ export interface ServerStrings {
     organizations: string;
     profile: string;
     logout: string;
+    login_link: string;
   };
   login: {
     title: string;
@@ -144,6 +145,7 @@ const fr: ServerStrings = {
     organizations: 'Organisations',
     profile: 'Profil',
     logout: 'Se déconnecter',
+    login_link: 'Se connecter',
   },
   login: { title: 'Connexion — Intahe' },
   signup: { title: 'Créer un compte — Intahe' },
@@ -190,6 +192,7 @@ const en: ServerStrings = {
     organizations: 'Organizations',
     profile: 'Profile',
     logout: 'Log out',
+    login_link: 'Log in',
   },
   login: { title: 'Log in — Intahe' },
   signup: { title: 'Create an account — Intahe' },

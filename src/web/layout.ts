@@ -58,7 +58,13 @@ export function renderPage(options: {
 <body data-stripe-pk="${escapeHtmlAttribute(env.STRIPE_PUBLISHABLE_KEY)}"${options.requireAuth ? ' data-require-auth="true"' : ''}>
   <header class="site-header">
     <a href="/discover" class="brand">${options.strings.brand}</a>
-    <a href="${toggleHref}" class="lang-toggle">${options.strings.toggle_label}</a>
+    <div class="header-links">${
+      !options.requireAuth && !options.currentPath.startsWith('/login')
+        ? `<a href="/login" class="login-link">${options.strings.nav.login_link}</a>`
+        : ''
+    }
+      <a href="${toggleHref}" class="lang-toggle">${options.strings.toggle_label}</a>
+    </div>
   </header>${appNavHtml}
   <main class="page">
 ${options.bodyHtml}

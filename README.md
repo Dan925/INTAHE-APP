@@ -119,7 +119,7 @@ src/
   services/     business logic, one folder per domain
   types/        shared TS types (DB rows, etc.)
   utils/        errors, validation, password hashing, JWT
-  web/          server-rendered public web pages (discovery, checkout, tickets)
+  web/          server-rendered web pages: public (discovery, checkout, tickets) + organizer app (login, orgs, events, dashboard...)
 public/         static assets for src/web/ (CSS, client-side JS)
 tests/          jest + supertest, hits a real Postgres instance
 .github/workflows/ci.yml   typecheck + lint + test + build, on every push/PR
@@ -334,6 +334,41 @@ Helmet's default CSP blocks Stripe.js entirely (`script-src`/`connect-src`/
 documented CSP requirements instead of disabling CSP. Caught by testing
 with an actual headless browser instead of just `curl`; would have made
 web checkout completely non-functional in production otherwise.
+
+## Organizer web app (implemented)
+
+The same server (`src/web/routes.ts`, `public/`) also serves a full
+organizer-facing app — login/signup, organizations, events, ticket types,
+members, dashboard, check-in, guest list, orders — so organizer
+functionality isn't mobile-only. No separate frontend framework: every
+route renders the same minimal HTML shell (`renderPage()` in
+`src/web/layout.ts`) with a page-specific `<script>` that builds the UI via
+`window.intaheT()`/DOM APIs, same pattern as the public pages above.
+
+Auth is a JWT in `localStorage` (`public/session.js`), not a cookie —
+matching the mobile app's bearer-token model rather than introducing a
+second auth mechanism. `session.js` self-guards any page `layout.ts` marks
+`requireAuth: true` (redirects to `/login?next=...` if nothing's stored)
+and exposes a shared `apiRequest()` every organizer page script uses
+instead of repeating fetch/auth-header/error-parsing boilerplate. One real
+bug caught while building this: `apiRequest()` originally treated *any*
+401 response as "the token is dead, log out" — but `DELETE /v1/me` also
+answers 401 with `invalid_password` for a wrong password on the
+account-deletion page, which would have silently logged a user out
+instead of just showing the error. Fixed to only auto-logout on
+`code === 'unauthorized'`.
+
+Verified end-to-end with headless-browser tests (signup → create org →
+create event → publish → create ticket type → invite/accept/role-change/
+remove a member → check-in error paths → account deletion, including the
+wrong-password case above) across both languages. The one thing that
+can't be exercised from this sandbox is an actual Stripe payment — the
+sandbox's network egress policy blocks `api.stripe.com` outright, which
+also means it would block the already-shipped public checkout flow above,
+not something specific to this page; the checkout code here reuses the
+exact same Stripe Elements pattern verified in production on the public
+event page, just via the authenticated organizer's own token instead of a
+guest.
 
 ## Stripe Connect onboarding (implemented)
 

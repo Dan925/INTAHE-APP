@@ -55,7 +55,14 @@ header.site-header a.brand {
   text-decoration: none;
 }
 
-header.site-header a.lang-toggle {
+header.site-header .header-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+header.site-header a.lang-toggle,
+header.site-header a.login-link {
   color: var(--primary);
   font-size: 14px;
   font-weight: 600;
