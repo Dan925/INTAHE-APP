@@ -8,7 +8,7 @@ See the project brief for full context; this README only covers running the code
 - Node.js + TypeScript (strict mode)
 - PostgreSQL, migrated with [`node-pg-migrate`](https://github.com/salsita/node-pg-migrate) (plain SQL migrations)
 - Express, versioned REST API under `/v1`
-- Stripe Connect (destination charges), one connected account per organization
+- Stripe Connect (direct charges, Express accounts), one connected account per organization
 - Money is always integer cents, never floats; fees are computed once at
   purchase time and stored, never recalculated at display
 
@@ -223,33 +223,44 @@ covers every route.
   header — blocking, not optional, per the brief. Body:
   `{ buyer_email, line_items: [{ ticket_type_id, quantity }] }`. Returns
   `{ order, client_secret }`; the order starts `pending` and a Stripe
-  `PaymentIntent` is created in the same request (destination charge to the
-  organization's connected account with `application_fee_amount` set to
-  `intahe_fee_cents`, or a plain platform charge if the organization hasn't
-  connected Stripe yet).
+  `PaymentIntent` is created in the same request as a **direct charge**:
+  created in the connected organization's own Stripe context (the
+  `stripeAccount` request option) with `application_fee_amount` set to
+  `intahe_fee_cents`, so the charge belongs to the organizer from the
+  moment it exists and Intahe's balance is never touched. See "Direct
+  charges, not destination charges" below for why, and for what happens
+  when there's no working connected account.
 - `POST /v1/stripe/webhook` — Stripe calls this on `payment_intent.succeeded`;
   marks the order `paid`, generates one `tickets` row (with QR code) per
   unit purchased, and records a `transactions` row. QR codes are generated
   here, at payment confirmation, never at checkout initiation. Idempotent
-  against Stripe's at-least-once delivery.
+  against Stripe's at-least-once delivery. Under direct charges these events
+  arrive scoped to the *connected* account (Stripe sets a top-level
+  `account` field on the event) rather than the platform — the handler
+  doesn't need to care, since it looks orders up by `stripe_payment_intent_id`
+  alone, but the Stripe Dashboard/Event Destination has to actually be
+  configured to deliver connected-account-scoped `payment_intent.*` events
+  for this to fire in production. See `docs/stripe-connect-runbook.md`.
 - `GET /v1/organizations/:organizationId/events/:eventId/orders`,
   `GET .../orders/:orderId` — owner/admin only ("voir les rapports
   financiers"); order detail includes its tickets.
 - `POST .../orders/:orderId/refund` — owner/admin only ("émettre des
-  remboursements"). Body `{ amount_cents? }`; omit for a full refund of
-  whatever balance remains. Partial refunds can stack (e.g. refund half,
-  then refund the rest later) — the refundable balance is derived from
+  remboursements"). Body `{ amount_cents?, reason }` — `reason` is
+  **required**, one of `organizer_cancellation` / `buyer_request` /
+  `event_postponed`. It is never inferred from event status or anything
+  else: whoever calls this endpoint records, at the moment they call it,
+  why the refund is happening — see "Refunds and the application-fee rule"
+  below for what that reason actually decides and why it's recorded this
+  way. Omit `amount_cents` for a full refund of whatever balance remains.
+  Partial refunds can stack (e.g. refund half, then refund the rest later)
+  — the refundable balance is derived from
   `SUM(transactions.amount_cents) WHERE type = 'refund'` rather than stored
   redundantly on the order, so it can't drift out of sync. The order moves
   to `partial_refund` while a balance remains, or `refunded` once it hits
   zero; either way it leaves `status = 'paid'`, which is what makes it drop
   out of the dashboard's revenue sums automatically. `409
   order_not_refundable` for a `pending` or already-fully-refunded order;
-  `400 invalid_refund_amount` for a request over the remaining balance. On
-  a Connect destination charge (organization has `stripe_account_id`), the
-  refund also sets `reverse_transfer` + `refund_application_fee` so the
-  money actually comes back from the connected account and Intahe's own
-  cut, instead of the platform silently eating the loss.
+  `400 invalid_refund_amount` for a request over the remaining balance.
 
 Reserving inventory (`ticket_types.quantity_sold`), inserting the order, and
 creating the Stripe PaymentIntent all happen inside one DB transaction — if
@@ -257,6 +268,229 @@ the Stripe call fails, the reservation is rolled back, so no capacity is
 ever held for an order that never got a PaymentIntent. `ticket_sold_out` is
 returned when demand exceeds supply, matching the brief's exact error format
 example.
+
+### Direct charges, not destination charges (implemented)
+
+This app migrated from Connect **destination charges** to **direct
+charges**. Under destination charges, the `PaymentIntent` was created on
+the *platform's* Stripe account (`transfer_data.destination` pointing at
+the connected account) — funds touched Intahe's own balance before being
+transferred out. Under direct charges, the `PaymentIntent` is created
+directly inside the connected account's own Stripe context from the
+start; Intahe's balance is never involved, only `application_fee_amount`
+moves anything back to the platform.
+
+- **`orders.stripe_charge_mode`** (`'platform' | 'destination' | 'direct'`)
+  is written once at order creation and never changed afterwards. It is
+  not inferrable after the fact — a destination charge and a direct charge
+  both just look like "a PaymentIntent with an application fee" once
+  you're looking at historical data, and the two need different API call
+  shapes for every future operation on that PaymentIntent (retrieval,
+  refunds): a direct charge needs the `stripeAccount` request option, a
+  destination charge needs the platform context plus `reverse_transfer`.
+  `'destination'` only appears on orders created before this migration
+  shipped, backfilled at migration time — refunding one of those orders
+  still uses the old shape, indefinitely, regardless of what the
+  organization's Connect status looks like today. `'platform'` is the
+  plain-charge fallback for an organization with no Connect involvement at
+  all — see below, it's now only reachable for a genuinely free ($0)
+  order.
+- **No silent platform fallback for a paid order.** Two independent gates
+  now exist, because paid ticket sales landing on Intahe's own Stripe
+  balance is exactly the funds-custodian role this migration exists to
+  eliminate:
+  1. `ticketTypeService.assertOrganizationCanSellPaidTickets` refuses to
+     create — or raise an existing ticket type above $0 — unless the
+     organization has a connected, `charges_enabled` Stripe account,
+     checked fresh on every such write (not just once). A fully free event
+     (every ticket type at $0) never needs Stripe at all, at creation or
+     at publish.
+  2. `checkoutService.createOrder` is a defense-in-depth backstop behind
+     that: if a paid order (`total_cents > 0`) somehow reaches checkout
+     without a working connected account — e.g. `charges_enabled`
+     regressed via a compliance hold synced through `account.updated`
+     *after* the ticket type was created and put on sale — it fails
+     explicitly with `409 stripe_not_connected` rather than falling back
+     to a plain platform charge.
+  A genuinely $0 order (every line item free) still goes through
+  `createPaymentIntent` with `amountCents: 0` today, which real Stripe
+  will reject as below its minimum charge amount — building a proper
+  "skip Stripe, issue tickets immediately" path for $0 orders is flagged
+  as follow-up work, not yet implemented.
+
+### Commission grid (implemented)
+
+Intahe's per-ticket commission — separate from Stripe's own processing
+fee — is a single reusable calculator (`src/utils/commissionGrid.ts`):
+**3% of the ticket price, floored at $0.49, capped at $4.99 per ticket,
+and $0 for a free ticket.** Applied per line item in `computeOrderFees`
+(`src/utils/fees.ts`), not once against the order subtotal, because the
+floor and cap are per-ticket: an order mixing a $5 ticket type with a
+$250 one must charge the $5 ticket its $0.49 floor and the $250 ticket
+its $4.99 cap independently. Boundary-tested at exactly the prices where
+the floor/cap start binding ($16.33 and $166.33) as well as $5 and $250
+(`tests/commissionGrid.test.ts`). This is the same calculator meant to
+back a future public-facing fee estimator, so it's deliberately
+config-driven (`INTAHE_COMMISSION_GRID`) rather than inlined.
+
+### Refunds and the application-fee rule (implemented)
+
+Whether a refund reverses Intahe's application fee back to the buyer
+depends only on the required `reason` field above, never on the refund
+amount or the order's charge mode:
+
+| Reason | Application fee reversed? |
+| --- | --- |
+| `organizer_cancellation` | Yes |
+| `event_postponed` | Yes — treated identically to a cancellation |
+| `buyer_request`, full refund | No |
+| `buyer_request`, partial refund | No |
+
+The reasoning: an organizer cancelling (or postponing) means the service
+Intahe was paid for didn't happen, so its fee goes back too. A refund the
+*buyer* asked for, full or partial, means the service (running checkout,
+holding the seat) was rendered — the fee stands regardless of how much of
+the order is refunded. `createRefund` (`src/services/stripe/stripeRefunds.ts`)
+branches on the order's recorded `stripe_charge_mode`: `'direct'` refunds
+inside the connected account's own context with no transfer to reverse
+(there isn't one under direct charges); legacy `'destination'` orders keep
+using `reverse_transfer` + `refund_application_fee`. Each refund's outcome
+— whether the fee was actually reversed — is recorded on the
+`transactions` row itself (`application_fee_refunded`), and the order's
+`refund_reason` is set from the request, so future accounting can
+reconcile exactly why a given commission was or wasn't refunded without
+guessing from event status or anything else.
+
+**Interface requirement, not yet built**: before an organizer confirms a
+cancellation, the UI must show that Stripe's own processing fee is never
+refunded by Stripe and comes out of the organizer's account regardless of
+the reason. This is a policy fact independent of the reason above (which
+only concerns Intahe's commission, not Stripe's cut) — see the refund
+policy content in `src/web/refundContent.ts` §5 for the existing written
+version of this same fact.
+
+### Statement descriptor and 3D Secure (implemented)
+
+`statement_descriptor_suffix` on the `PaymentIntent` is built from the
+event's name (`src/utils/statementDescriptor.ts`): accents stripped to
+their base letters, characters Stripe forbids in a descriptor removed,
+truncated to 12 characters, uppercased. An anti-chargeback measure — a
+buyer who doesn't recognize a charge on their bank statement is far more
+likely to dispute it than refund-request it. Falls back to the connected
+account's own default descriptor (no suffix sent at all) when nothing
+usable survives sanitization (an event name that's pure punctuation or
+digits).
+
+Orders at or above `THREE_D_SECURE_THRESHOLD_CENTS` (default $150)
+explicitly request 3D Secure step-up authentication
+(`payment_method_options.card.request_three_d_secure: 'any'`) instead of
+leaving it to Stripe's automatic, risk-based decision — a higher-value
+order is a more attractive chargeback target, worth the extra buyer
+friction. Below the threshold, the option is omitted entirely so Stripe's
+own regulatorily-required automatic behavior (e.g. EU/UK SCA) is
+untouched.
+
+## Deferred payout (implemented)
+
+Funds for a direct charge land on the organizer's own Stripe balance
+immediately — deferred payout controls when Stripe actually moves that
+balance to their bank, not when the money becomes theirs.
+
+- Every connected account is created with `settings.payouts.schedule.interval:
+  'manual'` (`stripeConnect.createConnectedAccount`) — Stripe never pays
+  out on its own default cadence; only this platform triggers a payout,
+  explicitly.
+- `src/services/payouts/payoutService.ts`'s `runDuePayouts` finds events
+  whose `end_at` is at least `PAYOUT_DELAY_HOURS` (default 48) in the
+  past, have at least one `paid`/`partial_refund` order, and have no
+  *successful* payout logged yet. For each, it checks the connected
+  account's available Stripe balance (`stripeClient.balance.retrieve`,
+  scoped to that account) and triggers a `Payout` for whatever's
+  available.
+- **`organizer_payouts`** is an insert-only ledger, one row per attempt —
+  not one row updated in place — so a failed or no-balance attempt stays
+  visible in its own right rather than being overwritten by the next
+  retry's outcome. A partial unique index (`status = 'succeeded'`) is the
+  only thing preventing a duplicate real payout for the same event; a
+  no-balance skip (funds may still be in Stripe's own ~2-day "pending"
+  bucket) or a Stripe API failure both leave the event eligible to retry
+  on the next worker run, with the error preserved on the failed row.
+- An in-process worker (`src/index.ts`, `PAYOUT_WORKER_INTERVAL_MS`,
+  default hourly) calls `runDuePayouts` on an interval — deliberately not
+  wired into `createApp()`, so the test suite never starts a live timer
+  against a mocked Stripe client.
+- **`npm run backfill:payout-schedule`** (`src/scripts/backfillManualPayoutSchedule.ts`)
+  — a one-time backfill for accounts connected *before* the manual
+  schedule became the default at account creation. Dry-run by default
+  (lists what it would change, touches nothing); only acts with an
+  explicit `--apply` flag, since it modifies live organizer Stripe
+  accounts. Run it once per environment as part of deploying this
+  migration — see `docs/stripe-connect-runbook.md`.
+
+Organizer-facing balance/payout-date display, payout history, and an
+admin view of due/failed payouts are UI work tracked separately and not
+yet built — the backend ledger and worker above are what they'll read
+from.
+
+## Stripe Connect onboarding (implemented)
+
+- `POST /v1/organizations/:organizationId/stripe/onboarding-link` — owner
+  only ("gérer facturation / Stripe" is the one row in the brief's
+  permission table with no admin access at all). Creates the organization's
+  Connect Express account on first call (idempotent — a second call reuses
+  the existing `stripe_account_id` instead of creating another one, so
+  re-clicking "Connect Stripe" after abandoning onboarding resumes the same
+  account) and returns `{ url }`, a Stripe-hosted onboarding link to
+  redirect the owner to.
+- `GET /v1/organizations/:organizationId/stripe/status` — owner only.
+  Returns `{ connected, charges_enabled }`, both read straight from the
+  organization row — no live Stripe API call needed.
+- `stripe_charges_enabled` (new column on `organizations`) is kept in sync
+  by the `account.updated` webhook rather than polled, per Stripe's own
+  guidance. Having a connected account isn't the same as being able to
+  accept charges on it — onboarding can be started and abandoned — so both
+  the paid-ticket-type gate and checkout's own backstop (above) gate on
+  `stripe_account_id AND stripe_charges_enabled`.
+
+### Account model and who is legally on the hook (read this before assuming anything)
+
+- **Connect model**: Express accounts, **direct charges** (migrated from
+  destination charges — see above).
+- **Why Express, not Standard**: Stripe confirmed converting existing
+  accounts from Express to Standard is not a settings change — it requires
+  recreating every connected account from scratch and every organizer
+  redoing onboarding in full. Given organizers are already connected under
+  Express, that cost is why this stays on Express rather than moving to
+  Standard.
+- **`controller.fees.payer: 'application'`** (v1 Accounts API — this
+  integration does not use the v2 Core Accounts API, so v2's
+  `fees_collector` field doesn't apply here at all). Explicitly set,
+  overriding the API default of `'account'`: **Intahe pays Stripe's own
+  processing fees**, not the organizer, regardless of charge type.
+- **`controller.losses.payments: 'application'`** — required by Stripe for
+  an Express account's `stripe_dashboard`, not optional. **Intahe, not the
+  organizer, is financially liable for chargeback/dispute losses.** This
+  is independent of the destination-vs-direct-charge migration — it was
+  true before and stays true after; charge type controls *where the money
+  sits*, not *who eats a dispute*. This is a decision to revisit, not a
+  fact to design around indefinitely: it means every organizer's dispute
+  exposure currently sits on Intahe's own Stripe balance.
+- **`debit_negative_balances`** is not explicitly set anywhere in this
+  codebase. Per Stripe's own account API documentation, its default is
+  `false` only when `controller.requirement_collection` is `'application'`;
+  Express accounts implicitly get `'stripe'` for that field, so the
+  *effective default here is `true`* — Stripe will attempt to reclaim a
+  negative balance from a connected account's own bank account if one
+  occurs. How that default interacts with `losses.payments: 'application'`
+  above (which is meant to keep the *platform* liable, not the organizer)
+  has not been confirmed directly with Stripe and should be before this
+  is treated as settled — the two settings are documented somewhat
+  independently and their interaction under this specific combination
+  isn't fully verifiable from the API reference alone.
+- **Dispute/litigation webhooks (`charge.dispute.created`,
+  `dispute.closed`) and refunds issued outside this application
+  (`charge.refunded`) are explicitly out of scope for this migration** —
+  see "Out of scope for this MVP" below.
 
 ### Reservation expiry (implemented)
 
@@ -669,27 +903,6 @@ exact same Stripe Elements pattern verified in production on the public
 event page, just via the authenticated organizer's own token instead of a
 guest.
 
-## Stripe Connect onboarding (implemented)
-
-- `POST /v1/organizations/:organizationId/stripe/onboarding-link` — owner
-  only ("gérer facturation / Stripe" is the one row in the brief's
-  permission table with no admin access at all). Creates the organization's
-  Connect Express account on first call (idempotent — a second call reuses
-  the existing `stripe_account_id` instead of creating another one, so
-  re-clicking "Connect Stripe" after abandoning onboarding resumes the same
-  account) and returns `{ url }`, a Stripe-hosted onboarding link to
-  redirect the owner to.
-- `GET /v1/organizations/:organizationId/stripe/status` — owner only.
-  Returns `{ connected, charges_enabled }`, both read straight from the
-  organization row — no live Stripe API call needed.
-- `stripe_charges_enabled` (new column on `organizations`) is kept in sync
-  by the `account.updated` webhook rather than polled, per Stripe's own
-  guidance. Having a connected account isn't the same as being able to
-  accept charges on it — onboarding can be started and abandoned — so
-  checkout and refunds both gate on `stripe_account_id AND
-  stripe_charges_enabled` before attempting a destination charge /
-  `reverse_transfer`, falling back to a plain platform charge otherwise.
-
 ## Transactional email (implemented)
 
 Password reset and order confirmation emails go through
@@ -720,3 +933,22 @@ rather than allowed to propagate:
 
 Per the brief: promo codes, global capacity, guest list export, and push
 notifications.
+
+Deliberately deferred from the destination-to-direct-charge migration,
+to be picked up once it's stable:
+
+- Dispute/litigation webhooks (`charge.dispute.created`, `dispute.closed`)
+  — nothing in this codebase currently reacts to a dispute being opened or
+  resolved.
+- Refunds issued outside this application (`charge.refunded` webhook,
+  e.g. an organizer refunding directly from their Stripe Express
+  dashboard) — only refunds issued through `POST .../orders/:orderId/refund`
+  are reflected in `transactions`/`orders.status` today.
+- A proper $0-order checkout path (see "Direct charges, not destination
+  charges" above) — a fully free order still attempts a Stripe
+  `PaymentIntent` for `amountCents: 0`, which real Stripe will reject.
+- Organizer-facing UI for payout balance/date, payout history, event fee
+  breakdown, and the cancellation fee warning — the backend (ledger,
+  worker, commission grid, refund-reason recording) is built and tested;
+  the screens that read from it are not.
+- An admin view of due/failed payouts with a manual-trigger button.
