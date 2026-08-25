@@ -9,6 +9,7 @@ import checkInRouter from './routes/v1/checkin';
 import checkoutRouter from './routes/v1/checkout';
 import discoverRouter from './routes/v1/discover';
 import eventsRouter from './routes/v1/events';
+import feeBreakdownRouter from './routes/v1/feeBreakdown';
 import meRouter from './routes/v1/me';
 import organizationMembersRouter from './routes/v1/organizationMembers';
 import organizationsRouter from './routes/v1/organizations';
@@ -73,6 +74,7 @@ export function createApp() {
   app.use('/v1/organizations/:organizationId/events/:eventId/ticket-types', ticketTypesRouter);
   app.use('/v1/organizations/:organizationId/events/:eventId/orders', ordersRouter);
   app.use('/v1/organizations/:organizationId/events/:eventId/capacity-incidents', capacityIncidentsRouter);
+  app.use('/v1/organizations/:organizationId/events/:eventId/fee-breakdown', feeBreakdownRouter);
   app.use('/v1/organizations/:organizationId/events/:eventId', checkInRouter);
   app.use('/v1/events/:eventId/orders', checkoutRouter);
 

@@ -1,4 +1,5 @@
 import { pool } from '../../config/database';
+import { computeTicketCommissionCents } from '../../utils/commissionGrid';
 
 export interface EventDashboardEntry {
   event_id: string;
@@ -127,4 +128,102 @@ export async function getOrganizationDashboard(organizationId: string): Promise<
   );
 
   return { organization_id: organizationId, totals, events };
+}
+
+export interface TicketTypeFeeBreakdown {
+  ticket_type_id: string;
+  ticket_type_name: string;
+  price_cents: number;
+  // Per single ticket, via the shared commission grid — a pure function of
+  // price, so this is computed here rather than read back from any stored
+  // per-order value (orders.intahe_fee_cents is an order-level sum across
+  // possibly several ticket types, not broken out per type).
+  intahe_commission_cents: number;
+  tickets_sold: number;
+  gross_cents: number;
+  intahe_commission_total_cents: number;
+}
+
+export interface EventFeeBreakdownTotals {
+  tickets_sold: number;
+  gross_ticket_revenue_cents: number;
+  stripe_fees_cents: number;
+  intahe_fees_cents: number;
+  net_revenue_cents: number;
+}
+
+export interface EventFeeBreakdown {
+  event_id: string;
+  ticket_types: TicketTypeFeeBreakdown[];
+  totals: EventFeeBreakdownTotals;
+}
+
+/**
+ * The per-ticket half of "prix du billet, commission Intahe, frais
+ * Stripe, net pour l'organisateur — par billet et en cumulé": ticket-type
+ * rows carry price + Intahe's commission, both exact and per-unit; Stripe's
+ * processing fee has no per-ticket structure (charged once per order, not
+ * per ticket), so it only appears in `totals`, which mirrors
+ * getOrganizationDashboard's cumulative math scoped to this one event.
+ */
+export async function getEventFeeBreakdown(eventId: string): Promise<EventFeeBreakdown> {
+  const ticketTypesResult = await pool.query<{
+    id: string;
+    name: string;
+    price_cents: number;
+    tickets_sold: string;
+  }>(
+    `SELECT tt.id, tt.name, tt.price_cents, COALESCE(SUM(oli.quantity), 0) AS tickets_sold
+     FROM ticket_types tt
+     LEFT JOIN order_line_items oli ON oli.ticket_type_id = tt.id
+     LEFT JOIN orders o ON o.id = oli.order_id AND o.status = 'paid'
+     WHERE tt.event_id = $1
+     GROUP BY tt.id, tt.name, tt.price_cents
+     ORDER BY tt.created_at ASC`,
+    [eventId],
+  );
+
+  const ticketTypes: TicketTypeFeeBreakdown[] = ticketTypesResult.rows.map((row) => {
+    const ticketsSold = Number(row.tickets_sold);
+    const intaheCommissionCents = computeTicketCommissionCents(row.price_cents);
+    return {
+      ticket_type_id: row.id,
+      ticket_type_name: row.name,
+      price_cents: row.price_cents,
+      intahe_commission_cents: intaheCommissionCents,
+      tickets_sold: ticketsSold,
+      gross_cents: row.price_cents * ticketsSold,
+      intahe_commission_total_cents: intaheCommissionCents * ticketsSold,
+    };
+  });
+
+  const totalsResult = await pool.query<{
+    tickets_sold: string;
+    gross_ticket_revenue_cents: string;
+    stripe_fees_cents: string;
+    intahe_fees_cents: string;
+    net_revenue_cents: string;
+  }>(
+    `WITH paid_orders AS (
+       SELECT * FROM orders WHERE event_id = $1 AND status = 'paid'
+     )
+     SELECT
+       COALESCE((SELECT SUM(oli.quantity) FROM order_line_items oli JOIN paid_orders po ON po.id = oli.order_id), 0) AS tickets_sold,
+       COALESCE(SUM(po.subtotal_cents), 0) AS gross_ticket_revenue_cents,
+       COALESCE(SUM(po.stripe_fee_cents), 0) AS stripe_fees_cents,
+       COALESCE(SUM(po.intahe_fee_cents), 0) AS intahe_fees_cents,
+       COALESCE(SUM(po.total_cents - po.stripe_fee_cents - po.intahe_fee_cents), 0) AS net_revenue_cents
+     FROM paid_orders po`,
+    [eventId],
+  );
+  const totalsRow = totalsResult.rows[0]!;
+  const totals: EventFeeBreakdownTotals = {
+    tickets_sold: Number(totalsRow.tickets_sold),
+    gross_ticket_revenue_cents: Number(totalsRow.gross_ticket_revenue_cents),
+    stripe_fees_cents: Number(totalsRow.stripe_fees_cents),
+    intahe_fees_cents: Number(totalsRow.intahe_fees_cents),
+    net_revenue_cents: Number(totalsRow.net_revenue_cents),
+  };
+
+  return { event_id: eventId, ticket_types: ticketTypes, totals };
 }
