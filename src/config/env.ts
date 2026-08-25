@@ -13,6 +13,18 @@ const envSchema = z.object({
   // a buyer to enter card details, short enough that abandoned checkouts
   // don't hold real capacity hostage.
   ORDER_RESERVATION_TTL_MINUTES: z.coerce.number().default(20),
+  // Rate limiting (brute force / enumeration protection) on auth endpoints
+  // (login, signup, password-reset request) and on public ticket lookup by
+  // buyer_email. Each guarded route runs two independent limiters sharing
+  // this same window/max: one keyed by client IP, one keyed by the target
+  // identifier (email / buyer_email) — so an attack spread across many IPs
+  // against one account is still caught, and one IP hitting many accounts
+  // is still caught too. Defaults are generous enough for legitimate bursts
+  // (a shared office IP, a user mistyping a password a few times).
+  AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().default(20),
+  TICKET_LOOKUP_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
+  TICKET_LOOKUP_RATE_LIMIT_MAX: z.coerce.number().default(20),
   // Placeholders let the app boot without real Stripe credentials; the
   // Stripe SDK requires a non-empty string but nothing calls the real API
   // until a genuine sk_test_/whsec_ value is configured.
@@ -50,4 +62,20 @@ const envSchema = z.object({
   APP_BASE_URL: z.string().url().default(process.env['RENDER_EXTERNAL_URL'] ?? 'http://localhost:3000'),
 });
 
-export const env = envSchema.parse(process.env);
+const parsedEnv = envSchema.parse(process.env);
+
+export const env = {
+  ...parsedEnv,
+  // Rate limiting is on by default everywhere except automated tests: the
+  // existing test suite (and its shared fixture helpers) makes many rapid
+  // requests from one fixed, un-forwarded IP with no attempt to vary it,
+  // which isn't a real attack pattern — it would trip the IP-keyed limiter
+  // constantly and for reasons unrelated to whatever a given test is
+  // actually checking. The rate-limiting middleware itself is still fully
+  // exercised in tests/rateLimit.test.ts, which opts back in explicitly via
+  // RATE_LIMIT_ENABLED=true. z.coerce.boolean() isn't used here because it
+  // treats the *string* "false" as truthy (Boolean("false") === true).
+  RATE_LIMIT_ENABLED: process.env['RATE_LIMIT_ENABLED']
+    ? process.env['RATE_LIMIT_ENABLED'] === 'true'
+    : parsedEnv.NODE_ENV !== 'test',
+};

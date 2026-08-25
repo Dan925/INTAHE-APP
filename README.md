@@ -283,6 +283,42 @@ above work: `password_reset_tokens` (auth) and `order_line_items`, which
 records what was purchased before any `tickets` row exists (needed because
 ticket/QR generation is deferred to payment confirmation).
 
+### Rate limiting (implemented)
+
+`POST /v1/auth/login`, `POST /v1/auth/signup`, `POST
+/v1/auth/password-reset/request`, and `GET
+/v1/events/:eventId/orders/:orderId/tickets` (buyer ticket lookup) each run
+two independent limiters (`src/middleware/rateLimit.ts`, `express-rate-limit`):
+one keyed by client IP, one keyed by the target identifier in the request
+(`email`, or `buyer_email` for ticket lookup). Either tripping returns `429`
+with a stable `{ error: { code: 'rate_limited', ... } }` body and a
+`Retry-After` header (set automatically by the library). Keying by target
+identifier as well as IP matters because an attack spread across many IPs
+against one account, or one IP hitting many accounts, are both still caught.
+Limits/windows are configurable via `AUTH_RATE_LIMIT_*` and
+`TICKET_LOOKUP_RATE_LIMIT_*` env vars (see `.env.example`).
+
+This service runs behind Render's reverse proxy, which adds exactly one
+`X-Forwarded-For` hop. `app.set('trust proxy', 1)` in `app.ts` tells Express
+to trust exactly that one hop when resolving `req.ip` — required for the
+IP-keyed limiter to actually see each client's real IP. **Do not** set this
+to `true`: that trusts the *entire* `X-Forwarded-For` chain, which lets a
+client prepend any IP it wants to that header and have Express believe it —
+defeating IP-based rate limiting entirely. Leaving `trust proxy` unset would
+have the opposite failure mode: every request resolves to Render's proxy
+address, so all callers share one bucket and rate limiting blocks everyone
+at once. `express-rate-limit` validates this itself at request time and
+throws on either misconfiguration.
+
+Rate limiting is disabled by default under `NODE_ENV=test`
+(`RATE_LIMIT_ENABLED` in `config/env.ts`) — the rest of the test suite hits
+these routes many times from one fixed, un-forwarded IP via shared fixture
+helpers, which isn't a real attack pattern and isn't what those tests are
+checking. `tests/rateLimit.test.ts` opts back in explicitly (setting
+`RATE_LIMIT_ENABLED=true` for just that file) to exercise the real, wired-up
+routes end to end, in addition to unit-testing the limiter factories
+directly with small explicit limits.
+
 ## Check-in + Guest List (implemented)
 
 - `POST /v1/organizations/:organizationId/events/:eventId/check-in` — any

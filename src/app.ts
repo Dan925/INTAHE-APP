@@ -20,6 +20,17 @@ import webRouter from './web/routes';
 export function createApp() {
   const app = express();
 
+  // Render puts exactly one reverse proxy in front of this service, which
+  // sets X-Forwarded-For to the real client IP. `1` trusts exactly that one
+  // hop. Deliberately NOT `true` (trust the whole X-Forwarded-For chain) —
+  // with `true`, a client can prepend any IP it wants to that header and
+  // have it trusted, which is exactly what would let it fake its way past
+  // IP-based rate limiting below. Without this set at all, req.ip resolves
+  // to Render's proxy for every request, so every client would share one
+  // apparent IP and rate limiting would block everyone at once instead of
+  // just abusive callers.
+  app.set('trust proxy', 1);
+
   // Default CSP (script-src/connect-src/frame-src 'self' only) blocks
   // Stripe.js entirely — the public checkout pages need it loaded from
   // Stripe's CDN, talking to Stripe's API, and opening its 3DS iframe.

@@ -51,6 +51,14 @@ services:
         value: '30'
       - key: ORDER_RESERVATION_TTL_MINUTES
         value: '20'
+      - key: AUTH_RATE_LIMIT_WINDOW_MS
+        value: '900000'
+      - key: AUTH_RATE_LIMIT_MAX
+        value: '20'
+      - key: TICKET_LOOKUP_RATE_LIMIT_WINDOW_MS
+        value: '900000'
+      - key: TICKET_LOOKUP_RATE_LIMIT_MAX
+        value: '20'
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
@@ -96,6 +104,14 @@ services:
       - key: PASSWORD_RESET_TOKEN_TTL_MINUTES
         value: '30'
       - key: ORDER_RESERVATION_TTL_MINUTES
+        value: '20'
+      - key: AUTH_RATE_LIMIT_WINDOW_MS
+        value: '900000'
+      - key: AUTH_RATE_LIMIT_MAX
+        value: '20'
+      - key: TICKET_LOOKUP_RATE_LIMIT_WINDOW_MS
+        value: '900000'
+      - key: TICKET_LOOKUP_RATE_LIMIT_MAX
         value: '20'
       - key: STRIPE_SECRET_KEY
         sync: false

@@ -1,6 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import * as authService from '../../services/auth/authService';
+import {
+  loginRateLimitByEmail,
+  loginRateLimitByIp,
+  passwordResetRequestRateLimitByEmail,
+  passwordResetRequestRateLimitByIp,
+  signupRateLimitByEmail,
+  signupRateLimitByIp,
+} from '../../middleware/rateLimit';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { validateBody } from '../../utils/validate';
 
@@ -39,6 +47,8 @@ const passwordResetConfirmSchema = z.object({
 
 router.post(
   '/signup',
+  signupRateLimitByIp,
+  signupRateLimitByEmail,
   validateBody(signupSchema),
   asyncHandler(async (req, res) => {
     const result = await authService.signup(req.body as z.infer<typeof signupSchema>);
@@ -48,6 +58,8 @@ router.post(
 
 router.post(
   '/login',
+  loginRateLimitByIp,
+  loginRateLimitByEmail,
   validateBody(loginSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body as z.infer<typeof loginSchema>;
@@ -78,6 +90,8 @@ router.post(
 
 router.post(
   '/password-reset/request',
+  passwordResetRequestRateLimitByIp,
+  passwordResetRequestRateLimitByEmail,
   validateBody(passwordResetRequestSchema),
   asyncHandler(async (req, res) => {
     const { email } = req.body as z.infer<typeof passwordResetRequestSchema>;
