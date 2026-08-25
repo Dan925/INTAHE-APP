@@ -427,10 +427,63 @@ balance to their bank, not when the money becomes theirs.
   accounts. Run it once per environment as part of deploying this
   migration — see `docs/stripe-connect-runbook.md`.
 
-Organizer-facing balance/payout-date display, payout history, and an
-admin view of due/failed payouts are UI work tracked separately and not
-yet built — the backend ledger and worker above are what they'll read
-from.
+Two read-only endpoints back the organizer-facing UI (screens not yet
+built — see below): `GET /v1/organizations/:organizationId/stripe/payouts`
+(owner only) returns the live Stripe balance
+("solde encaissé"/"pending" and "solde disponible"/"available"), events
+still waiting on their 48h delay with the computed payout date, and the
+full attempt history; `GET /v1/organizations/:organizationId/events/:eventId/fee-breakdown`
+(owner/admin) returns, per ticket type, price + Intahe's exact commission
+(via the commission grid) + tickets sold, plus the event's cumulative
+gross/Stripe-fee/Intahe-fee/net totals.
+
+## Admin console (backend implemented, UI not built)
+
+A platform-wide, cross-organization view — deliberately separate from the
+per-organization `owner`/`admin`/`staff`/`volunteer` roles, which have no
+concept of "Intahe staff" at all.
+
+- **`users.is_platform_admin`** — the only thing that grants access.
+  **No API route, script, or admin action of any kind can set or clear
+  this column, including for a user who already has it.** It is changed
+  by a direct SQL statement only, run by whoever operates the database.
+  `tests/adminConsole.test.ts` pins this down: every admin write endpoint
+  is probed with `is_platform_admin: true` in its request body, and none
+  of them touch the column.
+- **`platform_admin_access_log`** — insert-only (same convention as
+  `organizer_payouts`): every authorized admin request logs who, when,
+  which organization, which resource, and what kind of access — at the
+  moment access is granted, not conditioned on what the handler goes on
+  to do. A platform admin reading or changing a client organization's
+  financial data leaves a permanent trace by construction, not by
+  discipline.
+- **Read-only by default.** The only write actions the admin console has
+  *at this stage*:
+  - `POST /v1/admin/organizations/:organizationId/approve` — sets
+    `organizations.platform_approved_at`. Data only: nothing in the
+    application currently gates anything on this value (no enforcement
+    is wired to it yet — a deliberate scope boundary, not an oversight).
+  - `POST /v1/admin/events/:eventId/unpublish` — `published` → `draft`
+    only; a distinct, reversible action from the organizer's own
+    `cancelEvent`.
+  - `POST` / `DELETE /v1/admin/events/:eventId/payouts/hold` — excludes
+    an event from `payoutService.findDueEvents` regardless of its 48h
+    delay, and restores it.
+  - `POST /v1/admin/events/:eventId/payouts/trigger` — forces an
+    immediate payout attempt for one event, bypassing both the 48h delay
+    and any hold, through the exact same `attemptPayout` logic the
+    scheduled worker uses (same in-flight guard, same ledger row) — a
+    manual trigger can no more double-pay an event than the worker can.
+  - `GET /v1/admin/payouts/overview` — everything else is this: `due`
+    (exactly what the worker would attempt next, including held events
+    so an admin can see and clear a hold, each with `hours_overdue` —
+    this list being non-empty *is* the "a payout wasn't executed in time"
+    alert, rather than a separate notification pipeline), `executed`,
+    and `failed`, across every organization.
+- **No buyer personal data.** Nothing here returns an attendee list,
+  guest emails, or anything beyond what supervising organizations and
+  payouts requires — no export, no plaintext buyer email in any admin
+  screen or response.
 
 ## Stripe Connect onboarding (implemented)
 
@@ -948,7 +1001,9 @@ to be picked up once it's stable:
   charges" above) — a fully free order still attempts a Stripe
   `PaymentIntent` for `amountCents: 0`, which real Stripe will reject.
 - Organizer-facing UI for payout balance/date, payout history, event fee
-  breakdown, and the cancellation fee warning — the backend (ledger,
-  worker, commission grid, refund-reason recording) is built and tested;
-  the screens that read from it are not.
-- An admin view of due/failed payouts with a manual-trigger button.
+  breakdown, the onboarding flow's blocked-publish messaging, and the
+  cancellation fee warning — the backend (ledger, worker, commission
+  grid, refund-reason recording, the two read endpoints above) is built
+  and tested; the screens that read from it are not.
+- Admin console UI — the backend (`is_platform_admin`, the access log,
+  the five admin endpoints) is built and tested; the screens are not.

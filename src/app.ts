@@ -3,6 +3,7 @@ import express from 'express';
 import helmet from 'helmet';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
+import adminRouter from './routes/v1/admin';
 import authRouter from './routes/v1/auth';
 import capacityIncidentsRouter from './routes/v1/capacityIncidents';
 import checkInRouter from './routes/v1/checkin';
@@ -64,6 +65,7 @@ export function createApp() {
     res.status(200).json({ status: 'ok' });
   });
 
+  app.use('/v1/admin', adminRouter);
   app.use('/v1/auth', authRouter);
   app.use('/v1/discover', discoverRouter);
   app.use('/v1/me', meRouter);

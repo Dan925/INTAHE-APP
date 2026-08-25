@@ -12,6 +12,9 @@ export interface UserRow {
   avatar_url: string | null;
   google_sub: string | null;
   apple_sub: string | null;
+  // Only ever set by a direct SQL statement — no application route writes
+  // this column. See 1787680400000_add-platform-admin-and-payout-holds.sql.
+  is_platform_admin: boolean;
   created_at: Date;
   deleted_at: Date | null;
 }
@@ -33,6 +36,9 @@ export interface OrganizationRow {
   contact_email: string | null;
   stripe_account_id: string | null;
   stripe_charges_enabled: boolean;
+  // Set only by the admin console's "approve an organizer" action. No
+  // enforcement is wired to this anywhere yet — see the migration.
+  platform_approved_at: Date | null;
   created_at: Date;
   deleted_at: Date | null;
 }
@@ -65,6 +71,10 @@ export interface EventRow {
   capacity: number | null;
   fees_absorbed_by_organizer: boolean;
   is_public_discoverable: boolean;
+  // Set by the admin console's "hold a payout" action — excludes this
+  // event from payoutService.findDueEvents regardless of its 48h delay.
+  payout_held_at: Date | null;
+  payout_held_by: string | null;
   created_at: Date;
   deleted_at: Date | null;
 }
@@ -162,4 +172,13 @@ export interface OrganizerPayoutRow {
   error_message: string | null;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface PlatformAdminAccessLogRow {
+  id: string;
+  admin_user_id: string;
+  organization_id: string | null;
+  resource: string;
+  action: string;
+  occurred_at: Date;
 }

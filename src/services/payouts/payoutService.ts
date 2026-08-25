@@ -1,6 +1,7 @@
 import { pool } from '../../config/database';
 import { env } from '../../config/env';
 import { retrieveBalance, createPayout } from '../stripe/stripePayouts';
+import { ApiError } from '../../utils/errors';
 
 interface DuePayoutEvent {
   eventId: string;
@@ -10,10 +11,23 @@ interface DuePayoutEvent {
   currency: string;
 }
 
+/** ticket_types.currency, not orders — orders don't carry their own
+ * currency column; checkout already enforces one currency per order (see
+ * checkoutService.reserveInventory), and in practice an organization runs
+ * one currency across its ticket types, so any one row here is
+ * representative. */
+async function primaryCurrencyForEvent(eventId: string): Promise<string> {
+  const result = await pool.query<{ currency: string }>(`SELECT currency FROM ticket_types WHERE event_id = $1 LIMIT 1`, [
+    eventId,
+  ]);
+  return result.rows[0]?.currency ?? 'usd';
+}
+
 /**
  * Events whose organizer's Stripe balance has been sitting untouched for
- * PAYOUT_DELAY_HOURS since the event ended, has at least one real sale, and
- * has never had a *successful* payout logged for it. Deliberately checks
+ * PAYOUT_DELAY_HOURS since the event ended, has at least one real sale,
+ * hasn't been placed on hold by a platform admin, and has never had a
+ * *successful* payout logged for it. Deliberately checks
  * `organizer_payouts` for a 'succeeded' row rather than "any row" — a
  * previous 'failed' or 'skipped_no_balance' attempt must not block retrying
  * on the next run.
@@ -29,6 +43,7 @@ async function findDueEvents(now: Date): Promise<DuePayoutEvent[]> {
      FROM events e
      JOIN organizations org ON org.id = e.organization_id
      WHERE e.deleted_at IS NULL
+       AND e.payout_held_at IS NULL
        AND org.stripe_account_id IS NOT NULL
        AND e.end_at <= $1::timestamptz - ($2 * interval '1 hour')
        AND EXISTS (
@@ -43,27 +58,18 @@ async function findDueEvents(now: Date): Promise<DuePayoutEvent[]> {
 
   const due: DuePayoutEvent[] = [];
   for (const row of result.rows) {
-    // ticket_types.currency, not orders — orders don't carry their own
-    // currency column; checkout already enforces one currency per order
-    // (see checkoutService.reserveInventory), and in practice an
-    // organization runs one currency across its ticket types, so any one
-    // row here is representative.
-    const currencyResult = await pool.query<{ currency: string }>(
-      `SELECT currency FROM ticket_types WHERE event_id = $1 LIMIT 1`,
-      [row.event_id],
-    );
     due.push({
       eventId: row.event_id,
       organizationId: row.organization_id,
       stripeAccountId: row.stripe_account_id,
       scheduledFor: new Date(row.end_at.getTime() + env.PAYOUT_DELAY_HOURS * 3_600_000),
-      currency: currencyResult.rows[0]?.currency ?? 'usd',
+      currency: await primaryCurrencyForEvent(row.event_id),
     });
   }
   return due;
 }
 
-type PayoutOutcome = 'succeeded' | 'skipped_no_balance' | 'failed' | 'already_in_flight';
+export type PayoutOutcome = 'succeeded' | 'skipped_no_balance' | 'failed' | 'already_in_flight';
 
 /**
  * One row per attempt, insert-then-update rather than insert-only: the row
@@ -127,6 +133,39 @@ async function attemptPayout(due: DuePayoutEvent): Promise<PayoutOutcome> {
     );
     return 'failed';
   }
+}
+
+/**
+ * The admin console's manual-trigger button: forces an immediate attempt
+ * for one specific event, ignoring both the 48h delay and any hold placed
+ * on it (an admin override is exactly for bypassing those). Still runs
+ * through the exact same attemptPayout logic — same in-flight guard, same
+ * ledger row, same no-balance/failure handling — so a manual trigger can
+ * never double-pay an event any more than the worker can.
+ */
+export async function triggerPayoutForEvent(eventId: string): Promise<PayoutOutcome> {
+  const result = await pool.query<{ organization_id: string; stripe_account_id: string | null; end_at: Date }>(
+    `SELECT e.organization_id, org.stripe_account_id, e.end_at
+     FROM events e
+     JOIN organizations org ON org.id = e.organization_id
+     WHERE e.id = $1 AND e.deleted_at IS NULL`,
+    [eventId],
+  );
+  const row = result.rows[0];
+  if (!row) {
+    throw new ApiError(404, 'event_not_found', 'Event not found.', null);
+  }
+  if (!row.stripe_account_id) {
+    throw new ApiError(409, 'stripe_not_connected', 'This event has no connected Stripe account to pay out to.', null);
+  }
+
+  return attemptPayout({
+    eventId,
+    organizationId: row.organization_id,
+    stripeAccountId: row.stripe_account_id,
+    scheduledFor: new Date(row.end_at.getTime() + env.PAYOUT_DELAY_HOURS * 3_600_000),
+    currency: await primaryCurrencyForEvent(eventId),
+  });
 }
 
 export interface PayoutRunSummary {
