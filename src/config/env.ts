@@ -25,6 +25,19 @@ const envSchema = z.object({
   AUTH_RATE_LIMIT_MAX: z.coerce.number().default(20),
   TICKET_LOOKUP_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
   TICKET_LOOKUP_RATE_LIMIT_MAX: z.coerce.number().default(20),
+  // GET .../orders/:orderId/confirmation is meant to be polled repeatedly
+  // by a buyer's own browser/app right after paying (every few seconds,
+  // for up to a couple of minutes) while waiting for the webhook to issue
+  // tickets — a much higher legitimate request rate than the other
+  // rate-limited routes, so it gets its own, more generous limit.
+  CONFIRMATION_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(5 * 60 * 1000),
+  CONFIRMATION_RATE_LIMIT_MAX: z.coerce.number().default(100),
+  // How long GET .../confirmation keeps handing out a fresh access token
+  // after tickets are issued, before falling back to "check your email"
+  // (which never expires). Bounds how long a one-time credential can sit
+  // unclaimed rather than tying its life to some fixed multiple of poll
+  // intervals on the client.
+  CONFIRMATION_TOKEN_WINDOW_MINUTES: z.coerce.number().default(10),
   // Placeholders let the app boot without real Stripe credentials; the
   // Stripe SDK requires a non-empty string but nothing calls the real API
   // until a genuine sk_test_/whsec_ value is configured.

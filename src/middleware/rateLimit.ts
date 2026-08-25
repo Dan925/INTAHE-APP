@@ -108,3 +108,10 @@ export const ticketLookupRateLimitByIp = wired(
 export const ticketLookupRateLimitByOrder = wired(
   createTargetRateLimiter(env.TICKET_LOOKUP_RATE_LIMIT_WINDOW_MS, env.TICKET_LOOKUP_RATE_LIMIT_MAX, paramsOrderId),
 );
+
+export const confirmationRateLimitByIp = wired(
+  createIpRateLimiter(env.CONFIRMATION_RATE_LIMIT_WINDOW_MS, env.CONFIRMATION_RATE_LIMIT_MAX),
+);
+export const confirmationRateLimitByOrder = wired(
+  createTargetRateLimiter(env.CONFIRMATION_RATE_LIMIT_WINDOW_MS, env.CONFIRMATION_RATE_LIMIT_MAX, paramsOrderId),
+);

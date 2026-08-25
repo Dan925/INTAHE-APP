@@ -113,10 +113,13 @@ async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<vo
     // request, until it's handed to deliverOrderConfirmationEmail below.
     const ticketAccessToken = generateTicketAccessToken();
 
-    await client.query(`UPDATE orders SET status = 'paid', ticket_access_token_hash = $2 WHERE id = $1`, [
-      order.id,
-      hashTicketAccessToken(ticketAccessToken),
-    ]);
+    // tickets_issued_at anchors the confirmation-polling route's retrieval
+    // window (orderConfirmationService.ts) — it's payment-confirmation
+    // time, not order-creation time (orders.created_at).
+    await client.query(
+      `UPDATE orders SET status = 'paid', ticket_access_token_hash = $2, tickets_issued_at = now() WHERE id = $1`,
+      [order.id, hashTicketAccessToken(ticketAccessToken)],
+    );
 
     const lineItemsResult = await client.query<OrderLineItemRow>(
       `SELECT * FROM order_line_items WHERE order_id = $1`,

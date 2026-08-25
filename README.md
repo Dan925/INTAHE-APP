@@ -273,6 +273,22 @@ expired (the sweep or a `payment_failed` on a retried PaymentIntent beat it),
 it paid — a confirmed payment is never refused because its reservation
 lapsed in the meantime. See `src/services/checkout/orderReleaseService.ts`.
 
+**Known gap: this re-increment (`reReserveAfterLatePayment`) doesn't
+re-check capacity, so `quantity_sold` can end up above `quantity_total`.**
+Concretely: a ticket type at full capacity releases (reservation expires),
+someone else immediately buys the now-free capacity, and *then* the
+original PaymentIntent's late `payment_intent.succeeded` arrives — that
+order is honored regardless (by design: a confirmed payment must never be
+refused), pushing `quantity_sold` over `quantity_total` for as long as both
+orders' tickets are valid. There's currently no code path that checks for
+or surfaces this — no log line, no dashboard flag, nothing sent to the
+organizer. It's a real, if narrow, way to oversell that only becomes
+visible operationally (more valid tickets scanned at the door than
+`quantity_total` allows for), not before. Flagged here rather than fixed:
+whether to reject the late payment (impossible — money already moved),
+cap the organizer's *visible* capacity below the real limit, or add
+oversell detection/alerting is a product decision, not made yet.
+
 Operational note: `payment_intent.canceled` and `payment_intent.payment_failed`
 need to actually be subscribed to on the Stripe Dashboard's Event
 Destination(s) for this to fire in production — same step as when
@@ -290,7 +306,35 @@ closes this by subtracting still-`pending`-but-expired reservations from
 `quantity_sold` at read time (a `LEFT JOIN LATERAL` mirroring the same
 condition `releaseExpiredReservations` uses) rather than triggering a write
 from a GET request. The stored counter stays stale until someone actually
-buys — only the number shown is corrected.
+buys — only the number shown is corrected. The same correction (a
+single-row version of the same query, `getExpiredPendingQuantity`) is
+applied to `getTicketType`/`updateTicketType` too, even though no current
+UI reads the singular ticket-type endpoint — kept consistent rather than
+leaving an asymmetric "raw here, corrected there" trap for whatever reads
+it next.
+
+Every place that computes ticket-type availability, and whether it's
+corrected:
+- `ticketTypeService.listTicketTypes` — corrected. Feeds both
+  `GET /v1/discover/events/:eventId/ticket-types` (public event page, web
+  + mobile) and the organizer's own ticket-types list
+  (`GET /v1/organizations/.../ticket-types`, `manageEventPage.js` +
+  mobile) — it's the same function either way.
+- `ticketTypeService.getTicketType`/`updateTicketType` — corrected (see
+  above), though currently unused by any web/mobile UI.
+- `checkoutService.reserveInventory`'s atomic
+  `UPDATE ... WHERE quantity_sold + $n <= quantity_total` — the actual
+  purchase-time gate, not a display read. Always live and correct by
+  construction (row-locked, single statement), preceded by the lazy sweep;
+  staleness can't apply to it the way it can to a separate SELECT.
+- The organizer dashboard (`dashboardService.getOrganizationDashboard`,
+  `orgDashboardPage.js`, mobile `dashboard.tsx`) — not applicable. It
+  computes `tickets_sold` from `SUM(order_line_items.quantity)` joined only
+  to `status = 'paid'` orders, never touching `ticket_types.quantity_sold`
+  at all, so pending/expired reservations were never counted here in the
+  first place.
+- Guest list, check-in, orders list — don't reference ticket-type capacity
+  at all.
 
 Two tables exist beyond the brief's core schema, both required to make the
 above work: `password_reset_tokens` (auth) and `order_line_items`, which
@@ -372,21 +416,49 @@ the token is generated, hashed into `orders.ticket_access_token_hash`, and
 handed to `deliverOrderConfirmationEmail` all within the same function call,
 so the raw value only ever exists in memory for the life of that request.
 
-One consequence: the public checkout pages (`public/event.js`, the mobile
-app's guest checkout) can no longer redirect straight to a working tickets
-link right after `stripe.confirmPayment()` resolves, since the token
-doesn't exist at that point — payment confirmation and ticket issuance are
-two different moments now. Both show a "check your email" message instead;
-the confirmation email (sent once the token exists) is the reliable way to
-reach an anonymous buyer. A logged-in buyer's session still works
-immediately, before or after payment, since that path was never token-based.
-
 Also worth flagging: orders created before this change have no token, and
 their confirmation emails linked with `?buyer_email=...`, which this
 endpoint no longer honors — those old links are now dead. Given this app
 hasn't shipped to real customers yet, that one-time transition cost was
 judged acceptable rather than keeping the old mechanism around as a
 fallback.
+
+#### Confirmation polling (implemented)
+
+The token not existing until the webhook runs means the checkout page
+can't build a working tickets link the instant `stripe.confirmPayment()`
+resolves — but just telling the buyer to "check your email" isn't
+acceptable as the end of a purchase: someone standing at the door on a bad
+connection needs to see their ticket now, or they'll believe the payment
+failed and dispute the charge. `GET /v1/events/:eventId/orders/:orderId/confirmation`
+(`orderConfirmationService.ts`) exists for that gap — the client polls it
+with the `orderId` it already has from the checkout response (no token
+needed to ask "is it ready yet") every few seconds:
+
+- `{ status: 'pending' }` while `payment_intent.succeeded` hasn't run yet.
+- `{ status: 'ready', access_token }` the first time it's polled after
+  tickets exist — this route mints and hashes its *own* token
+  (`orders.confirmation_token_hash`), independent of the one emailed by the
+  webhook, rather than trying to recover a value that was only ever hashed.
+  Either token works for `GET .../tickets`.
+- `{ status: 'already_retrieved' }` on every poll after that — the token is
+  handed out exactly once. The `UPDATE ... WHERE confirmation_token_hash IS NULL`
+  that sets it is the atomicity guarantee: Postgres serializes concurrent
+  UPDATEs to the same row, so two requests racing each other can't both
+  come away with a (different) valid token.
+- `{ status: 'expired' }` if nobody successfully polled within
+  `CONFIRMATION_TOKEN_WINDOW_MINUTES` (default 10) of the tickets being
+  issued — the confirmation email, which never expires, is the fallback
+  from here on.
+
+Both public checkout pages (`public/event.js`, the mobile app's guest
+checkout) poll this every 3 seconds for up to 2 minutes after payment
+succeeds, and navigate straight to the tickets page the moment they get a
+token. If polling times out or comes back `already_retrieved`/`expired`,
+they fall back to the "check your email" message. Rate limited like the
+other public routes, but with a higher default (`CONFIRMATION_RATE_LIMIT_MAX`,
+100 per 5 minutes) — this route is *meant* to be hit repeatedly by one
+legitimate buyer in a short window, unlike login/signup/ticket-lookup.
 
 ## Check-in + Guest List (implemented)
 

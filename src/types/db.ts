@@ -99,6 +99,8 @@ export interface OrderRow {
   idempotency_request_hash: string | null;
   reservation_expires_at: Date | null;
   ticket_access_token_hash: string | null;
+  tickets_issued_at: Date | null;
+  confirmation_token_hash: string | null;
   created_at: Date;
 }
 

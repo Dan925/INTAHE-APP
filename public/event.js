@@ -30,6 +30,46 @@
     return p;
   }
 
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  const CONFIRMATION_POLL_INTERVAL_MS = 3000;
+  const CONFIRMATION_POLL_TIMEOUT_MS = 2 * 60 * 1000;
+
+  // Polls the confirmation route rather than redirecting straight to a
+  // tickets link: the access token doesn't exist until the
+  // payment_intent.succeeded webhook issues the tickets, which is
+  // asynchronous and usually — but not always — done well within a couple
+  // of seconds of the payment resolving here. A buyer standing at the door
+  // on a bad connection needs to see their ticket now, not be told to go
+  // check their email, which was the previous (rejected) behavior here.
+  async function pollForTickets(eventId, orderId) {
+    const deadline = Date.now() + CONFIRMATION_POLL_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      let confirmation;
+      try {
+        confirmation = await fetchJson('/v1/events/' + eventId + '/orders/' + orderId + '/confirmation');
+      } catch {
+        // Transient network hiccup or rate limit — keep trying rather than
+        // giving up on the first blip; the loop's own deadline bounds this.
+        await sleep(CONFIRMATION_POLL_INTERVAL_MS);
+        continue;
+      }
+      if (confirmation.status === 'ready') {
+        return confirmation.access_token;
+      }
+      if (confirmation.status !== 'pending') {
+        // 'already_retrieved' or 'expired' — the one-time token is gone
+        // either way; the email (sent the moment tickets existed) is the
+        // remaining path to them.
+        return null;
+      }
+      await sleep(CONFIRMATION_POLL_INTERVAL_MS);
+    }
+    return null;
+  }
+
   async function main() {
     let event;
     let ticketTypes;
@@ -192,12 +232,7 @@
 
         // Only used if Stripe actually has to leave the page (e.g. an
         // off-site 3DS step) — redirect: 'if_required' resolves in place
-        // otherwise. There's no tickets link to send the buyer to here:
-        // the access token doesn't exist until the payment_intent.succeeded
-        // webhook issues the tickets, which hasn't necessarily happened yet
-        // by the time this resolves — the confirmation email (sent from
-        // that same webhook, once the token exists) is the reliable way to
-        // reach them.
+        // otherwise, and the polling below picks up from there.
         const returnUrl = location.origin + '/events/' + eventId + '?lang=' + window.intaheLocale();
 
         const { error } = await stripe.confirmPayment({
@@ -215,10 +250,28 @@
 
         payBtn.remove();
         paymentContainer.innerHTML = '';
-        const successBox = document.createElement('div');
-        successBox.className = 'success-box';
-        successBox.textContent = window.intaheT('event.payment_succeeded');
-        paymentContainer.appendChild(successBox);
+        const waitingBox = document.createElement('div');
+        waitingBox.className = 'success-box';
+        waitingBox.textContent = window.intaheT('event.payment_confirming');
+        paymentContainer.appendChild(waitingBox);
+
+        const accessToken = await pollForTickets(eventId, checkoutResult.order.id);
+
+        if (accessToken) {
+          location.href =
+            location.origin +
+            '/events/' +
+            eventId +
+            '/orders/' +
+            checkoutResult.order.id +
+            '/tickets?token=' +
+            encodeURIComponent(accessToken) +
+            '&lang=' +
+            window.intaheLocale();
+          return;
+        }
+
+        waitingBox.textContent = window.intaheT('event.payment_succeeded');
       });
     });
   }

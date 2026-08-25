@@ -2,8 +2,14 @@ import type { RequestHandler } from 'express';
 import { Router } from 'express';
 import { z } from 'zod';
 import { optionalAuth } from '../../middleware/auth';
-import { ticketLookupRateLimitByIp, ticketLookupRateLimitByOrder } from '../../middleware/rateLimit';
+import {
+  confirmationRateLimitByIp,
+  confirmationRateLimitByOrder,
+  ticketLookupRateLimitByIp,
+  ticketLookupRateLimitByOrder,
+} from '../../middleware/rateLimit';
 import * as checkoutService from '../../services/checkout/checkoutService';
+import * as orderConfirmationService from '../../services/checkout/orderConfirmationService';
 import * as ticketService from '../../services/tickets/ticketService';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { ApiError } from '../../utils/errors';
@@ -49,6 +55,23 @@ router.post(
       req.body,
     );
     res.status(201).json(result);
+  }),
+);
+
+// Polled by the buyer's own browser/app right after paying, using only the
+// orderId from the checkout response — no token exists yet at that point.
+// Deliberately unauthenticated for the same reason optionalAuth is used
+// elsewhere in this router: guest checkout has no session to require.
+router.get(
+  '/:orderId/confirmation',
+  confirmationRateLimitByIp,
+  confirmationRateLimitByOrder,
+  asyncHandler(async (req, res) => {
+    const confirmation = await orderConfirmationService.getOrderConfirmation(
+      req.params['eventId']!,
+      req.params['orderId']!,
+    );
+    res.status(200).json(confirmation);
   }),
 );
 

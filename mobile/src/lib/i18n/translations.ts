@@ -46,6 +46,7 @@ export interface Translations {
     order_created: string;
     total: string;
     status: string;
+    payment_confirming: string;
     payment_succeeded: string;
     pay_now: string;
     view_tickets: string;
@@ -250,6 +251,7 @@ export const fr: Translations = {
     order_created: 'Commande créée',
     total: 'Total : {{amount}}',
     status: 'Statut : {{status}}',
+    payment_confirming: 'Paiement réussi. Préparation de tes billets…',
     payment_succeeded: 'Paiement réussi ! Consulte tes courriels : tes billets t’y attendent.',
     pay_now: 'Payer maintenant',
     view_tickets: 'Voir mes billets',
@@ -457,6 +459,7 @@ export const en: Translations = {
     order_created: 'Order created',
     total: 'Total: {{amount}}',
     status: 'Status: {{status}}',
+    payment_confirming: 'Payment successful. Preparing your tickets…',
     payment_succeeded: 'Payment successful! Check your email — your tickets are on their way.',
     pay_now: 'Pay now',
     view_tickets: 'View my tickets',

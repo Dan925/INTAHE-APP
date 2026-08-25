@@ -32,3 +32,15 @@ export function createOrder(
     headers: { 'Idempotency-Key': idempotencyKey },
   });
 }
+
+export type OrderConfirmationStatus = 'pending' | 'ready' | 'already_retrieved' | 'expired';
+
+export interface OrderConfirmation {
+  status: OrderConfirmationStatus;
+  access_token?: string;
+}
+
+/** Polled after payment while waiting for the webhook to issue tickets — see checkout.ts's server-side counterpart. */
+export function getOrderConfirmation(eventId: string, orderId: string): Promise<OrderConfirmation> {
+  return apiRequest(`/v1/events/${eventId}/orders/${orderId}/confirmation`);
+}

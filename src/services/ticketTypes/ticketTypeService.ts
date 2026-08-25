@@ -34,14 +34,13 @@ export interface PublicTicketType {
 }
 
 // expiredPendingQuantity subtracts reservations that have timed out but
-// haven't been swept by the lazy release yet (see listTicketTypes below) —
-// without this, a ticket type whose stock is entirely tied up by abandoned
-// carts reads as sold out forever: nobody can see it's actually available,
-// so nobody goes to checkout, so the lazy release (which only runs inside
-// checkoutService.reserveInventory) never fires. Defaults to 0 for the
-// single-row paths (create/get/update), which intentionally still show the
-// raw, uncorrected counter — those are organizer-authenticated calls, not
-// on the public availability path this fixes.
+// haven't been swept by the lazy release yet — without this, a ticket type
+// whose stock is entirely tied up by abandoned carts reads as sold out
+// forever: nobody can see it's actually available, so nobody goes to
+// checkout, so the lazy release (which only runs inside
+// checkoutService.reserveInventory) never fires. Applied everywhere a
+// ticket type is read back (get/update/list) — defaults to 0 only for
+// createTicketType, where quantity_sold is always freshly 0.
 function toPublicTicketType(row: TicketTypeRow, expiredPendingQuantity = 0): PublicTicketType {
   return {
     id: row.id,
@@ -59,6 +58,25 @@ function toPublicTicketType(row: TicketTypeRow, expiredPendingQuantity = 0): Pub
 
 function notFound(): ApiError {
   return new ApiError(404, 'ticket_type_not_found', 'Ticket type not found.', null);
+}
+
+// Single-row counterpart to listTicketTypes's LEFT JOIN LATERAL below —
+// same condition, just queried separately since there's only one ticket
+// type here rather than a page of them. Used by every read/write path in
+// this file except createTicketType (a fresh row always has
+// quantity_sold = 0, so there's nothing to subtract from).
+async function getExpiredPendingQuantity(ticketTypeId: string): Promise<number> {
+  const result = await pool.query<{ qty: string | null }>(
+    `SELECT SUM(oli.quantity) AS qty
+     FROM order_line_items oli
+     JOIN orders o ON o.id = oli.order_id
+     WHERE oli.ticket_type_id = $1
+       AND o.status = 'pending'
+       AND o.reservation_expires_at IS NOT NULL
+       AND o.reservation_expires_at < now()`,
+    [ticketTypeId],
+  );
+  return Number(result.rows[0]?.qty ?? 0);
 }
 
 export async function createTicketType(
@@ -95,7 +113,7 @@ export async function getTicketType(eventId: string, ticketTypeId: string): Prom
   if (!row) {
     throw notFound();
   }
-  return toPublicTicketType(row);
+  return toPublicTicketType(row, await getExpiredPendingQuantity(row.id));
 }
 
 export async function updateTicketType(
@@ -125,7 +143,7 @@ export async function updateTicketType(
   if (!row) {
     throw notFound();
   }
-  return toPublicTicketType(row);
+  return toPublicTicketType(row, await getExpiredPendingQuantity(row.id));
 }
 
 interface TicketTypeListRow extends TicketTypeRow {

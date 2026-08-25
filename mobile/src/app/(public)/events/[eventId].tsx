@@ -1,5 +1,5 @@
 import { useStripe } from '@stripe/stripe-react-native';
-import { useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -9,16 +9,52 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { createOrder, type CheckoutResult } from '@/lib/checkout';
+import { createOrder, getOrderConfirmation, type CheckoutResult } from '@/lib/checkout';
 import { getPublicEvent, listPublicTicketTypes } from '@/lib/discover';
 import { formatPrice } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n/context';
 import type { Event } from '@/lib/events';
 import type { TicketType } from '@/lib/ticketTypes';
 
+const CONFIRMATION_POLL_INTERVAL_MS = 3000;
+const CONFIRMATION_POLL_TIMEOUT_MS = 2 * 60 * 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Polls the confirmation route rather than just showing "check your
+// email": the access token doesn't exist until the payment_intent.succeeded
+// webhook issues the tickets, which is asynchronous and usually — but not
+// always — done well within a couple of seconds of payment resolving. A
+// buyer at the door on a bad connection needs to see their ticket now.
+async function pollForTickets(eventId: string, orderId: string): Promise<string | null> {
+  const deadline = Date.now() + CONFIRMATION_POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    let confirmation;
+    try {
+      confirmation = await getOrderConfirmation(eventId, orderId);
+    } catch {
+      await sleep(CONFIRMATION_POLL_INTERVAL_MS);
+      continue;
+    }
+    if (confirmation.status === 'ready') {
+      return confirmation.access_token ?? null;
+    }
+    if (confirmation.status !== 'pending') {
+      // 'already_retrieved' or 'expired' — the one-time token is gone
+      // either way; the confirmation email is the remaining path to it.
+      return null;
+    }
+    await sleep(CONFIRMATION_POLL_INTERVAL_MS);
+  }
+  return null;
+}
+
 export default function PublicEventScreen() {
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
   const navigation = useNavigation();
+  const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { t, localeTag } = useTranslation();
 
@@ -37,6 +73,7 @@ export default function PublicEventScreen() {
   const [isPaying, setIsPaying] = useState(false);
   const [paymentSucceeded, setPaymentSucceeded] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [isConfirmingTickets, setIsConfirmingTickets] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -103,8 +140,19 @@ export default function PublicEventScreen() {
       const { error: presentError } = await presentPaymentSheet();
       if (presentError) {
         setPaymentError(presentError.message);
-      } else {
-        setPaymentSucceeded(true);
+        return;
+      }
+      setPaymentSucceeded(true);
+      if (!checkoutResult) return;
+
+      setIsConfirmingTickets(true);
+      const accessToken = await pollForTickets(eventId, checkoutResult.order.id);
+      setIsConfirmingTickets(false);
+      if (accessToken) {
+        router.push({
+          pathname: '/events/[eventId]/tickets/[orderId]',
+          params: { eventId, orderId: checkoutResult.order.id, accessToken },
+        });
       }
     } finally {
       setIsPaying(false);
@@ -220,15 +268,14 @@ export default function PublicEventScreen() {
                 ) : null}
 
                 {paymentSucceeded ? (
-                  // No "view tickets" link here: the access token doesn't
-                  // exist until the payment_intent.succeeded webhook issues
-                  // the tickets, which hasn't necessarily happened by the
-                  // time this resolves. The confirmation email (sent from
-                  // that same webhook, once the token exists) is the
-                  // reliable way to reach the buyer.
-                  <ThemedText type="smallBold" themeColor="success" style={styles.paymentNote}>
-                    {t('event_detail.payment_succeeded')}
-                  </ThemedText>
+                  <>
+                    <ThemedText type="smallBold" themeColor="success" style={styles.paymentNote}>
+                      {isConfirmingTickets
+                        ? t('event_detail.payment_confirming')
+                        : t('event_detail.payment_succeeded')}
+                    </ThemedText>
+                    {isConfirmingTickets ? <ActivityIndicator style={styles.paymentNote} /> : null}
+                  </>
                 ) : isPaymentReady ? (
                   <Button
                     title={t('event_detail.pay_now')}
