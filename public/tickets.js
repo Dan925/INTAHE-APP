@@ -3,7 +3,7 @@
   const pathParts = location.pathname.split('/'); // '', events, :eventId, orders, :orderId, tickets
   const eventId = pathParts[2];
   const orderId = pathParts[4];
-  const buyerEmail = new URLSearchParams(location.search).get('buyer_email');
+  const accessToken = new URLSearchParams(location.search).get('token');
 
   async function main() {
     container.textContent = '';
@@ -14,7 +14,7 @@
 
     let items;
     try {
-      const query = buyerEmail ? '?buyer_email=' + encodeURIComponent(buyerEmail) : '';
+      const query = accessToken ? '?token=' + encodeURIComponent(accessToken) : '';
       const res = await fetch('/v1/events/' + eventId + '/orders/' + orderId + '/tickets' + query);
       const body = await res.json();
       if (!res.ok) throw new Error((body.error && body.error.message) || window.intaheT('common.unknown_error'));

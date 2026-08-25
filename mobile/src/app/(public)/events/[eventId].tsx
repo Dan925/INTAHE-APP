@@ -232,7 +232,11 @@ export default function PublicEventScreen() {
                       onPress={() =>
                         router.push({
                           pathname: '/events/[eventId]/tickets/[orderId]',
-                          params: { eventId, orderId: checkoutResult.order.id, buyerEmail },
+                          params: {
+                            eventId,
+                            orderId: checkoutResult.order.id,
+                            accessToken: checkoutResult.ticket_access_token ?? undefined,
+                          },
                         })
                       }
                     />

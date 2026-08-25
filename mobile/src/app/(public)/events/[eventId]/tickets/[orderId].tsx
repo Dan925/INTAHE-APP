@@ -10,10 +10,10 @@ import { useTranslation } from '@/lib/i18n/context';
 import { listTicketsForOrder, type BuyerTicket } from '@/lib/tickets';
 
 export default function PublicOrderTicketsScreen() {
-  const { eventId, orderId, buyerEmail } = useLocalSearchParams<{
+  const { eventId, orderId, accessToken } = useLocalSearchParams<{
     eventId: string;
     orderId: string;
-    buyerEmail?: string;
+    accessToken?: string;
   }>();
   const { t } = useTranslation();
 
@@ -25,14 +25,14 @@ export default function PublicOrderTicketsScreen() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await listTicketsForOrder(null, eventId, orderId, buyerEmail);
+      const result = await listTicketsForOrder(null, eventId, orderId, accessToken);
       setTickets(result.items);
     } catch {
       setError(t('tickets.load_error'));
     } finally {
       setIsLoading(false);
     }
-  }, [eventId, orderId, buyerEmail, t]);
+  }, [eventId, orderId, accessToken, t]);
 
   useFocusEffect(
     useCallback(() => {

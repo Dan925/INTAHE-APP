@@ -75,9 +75,14 @@ function bodyEmail(req: Request): string | undefined {
   return typeof value === 'string' ? value.trim().toLowerCase() : undefined;
 }
 
-function queryBuyerEmail(req: Request): string | undefined {
-  const value = req.query['buyer_email'];
-  return typeof value === 'string' ? value.trim().toLowerCase() : undefined;
+// Ticket lookup no longer takes buyer_email (see utils/ticketAccessToken.ts —
+// it's a 32-byte token now, not brute-forceable by rate limiting or
+// otherwise), so the "target identifier" dimension here keys on the order
+// being looked up instead — still useful defense-in-depth against one order
+// being hammered from many IPs, distinct from the IP-keyed limiter above.
+function paramsOrderId(req: Request): string | undefined {
+  const value = req.params['orderId'];
+  return typeof value === 'string' ? value : undefined;
 }
 
 export const loginRateLimitByIp = wired(createIpRateLimiter(env.AUTH_RATE_LIMIT_WINDOW_MS, env.AUTH_RATE_LIMIT_MAX));
@@ -100,6 +105,6 @@ export const passwordResetRequestRateLimitByEmail = wired(
 export const ticketLookupRateLimitByIp = wired(
   createIpRateLimiter(env.TICKET_LOOKUP_RATE_LIMIT_WINDOW_MS, env.TICKET_LOOKUP_RATE_LIMIT_MAX),
 );
-export const ticketLookupRateLimitByEmail = wired(
-  createTargetRateLimiter(env.TICKET_LOOKUP_RATE_LIMIT_WINDOW_MS, env.TICKET_LOOKUP_RATE_LIMIT_MAX, queryBuyerEmail),
+export const ticketLookupRateLimitByOrder = wired(
+  createTargetRateLimiter(env.TICKET_LOOKUP_RATE_LIMIT_WINDOW_MS, env.TICKET_LOOKUP_RATE_LIMIT_MAX, paramsOrderId),
 );

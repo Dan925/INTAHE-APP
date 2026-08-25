@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import { pool } from '../../config/database';
 import { ApiError } from '../../utils/errors';
 import { buildPage, decodeCursor, encodeCursor, type CursorPage } from '../../utils/pagination';
+import { ticketAccessTokenMatches } from '../../utils/ticketAccessToken';
 import type { OrderRow } from '../../types/db';
 
 export interface PublicTicket {
@@ -112,13 +113,18 @@ export async function checkInTicket(
 }
 
 // Buyers aren't authenticated by default (guest checkout), so ownership is
-// proven either by a matching session (buyer_user_id) or by echoing back the
-// buyer_email used at checkout — never by orderId alone, which is guessable.
+// proven either by a matching session (buyer_user_id) or by a per-order
+// access token minted at checkout (see utils/ticketAccessToken.ts) — never
+// by orderId alone, which is guessable. The token replaces echoing
+// buyer_email back in the URL: an email address is low-entropy and ends up
+// wherever this URL is logged (server access logs, Referer headers,
+// analytics), whereas the token is high-entropy, single-purpose, and
+// compared in constant time.
 export async function listTicketsForOrder(
   eventId: string,
   orderId: string,
   requesterUserId: string | null,
-  buyerEmail: string | undefined,
+  accessToken: string | undefined,
 ): Promise<BuyerTicket[]> {
   const orderResult = await pool.query<OrderRow>(`SELECT * FROM orders WHERE id = $1 AND event_id = $2`, [
     orderId,
@@ -128,7 +134,7 @@ export async function listTicketsForOrder(
   const isOwner = order
     ? requesterUserId
       ? order.buyer_user_id === requesterUserId
-      : Boolean(buyerEmail) && order.buyer_email === buyerEmail
+      : ticketAccessTokenMatches(accessToken, order.ticket_access_token_hash)
     : false;
   if (!order || !isOwner) {
     throw new ApiError(404, 'order_not_found', 'Order not found.', null);

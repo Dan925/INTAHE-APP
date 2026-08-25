@@ -18,10 +18,17 @@ interface StripeV2AccountEvent {
   related_object?: { id: string; type: string };
 }
 
+interface ConfirmedOrder {
+  id: string;
+  eventId: string;
+  buyerEmail: string;
+  ticketAccessToken: string | undefined;
+}
+
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
-    await markOrderPaidAndIssueTickets(paymentIntent.id);
+    await markOrderPaidAndIssueTickets(paymentIntent.id, paymentIntent.metadata?.['ticket_access_token']);
     return;
   }
   // Released immediately rather than waiting for the reservation to time
@@ -67,9 +74,12 @@ async function syncConnectedAccountChargesEnabled(
   ]);
 }
 
-async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<void> {
+async function markOrderPaidAndIssueTickets(
+  paymentIntentId: string,
+  ticketAccessToken: string | undefined,
+): Promise<void> {
   const client = await pool.connect();
-  let confirmedOrder: { id: string; eventId: string; buyerEmail: string } | null = null;
+  let confirmedOrder: ConfirmedOrder | null = null;
   try {
     await client.query('BEGIN');
 
@@ -122,7 +132,7 @@ async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<vo
     );
 
     await client.query('COMMIT');
-    confirmedOrder = { id: order.id, eventId: order.event_id, buyerEmail: order.buyer_email };
+    confirmedOrder = { id: order.id, eventId: order.event_id, buyerEmail: order.buyer_email, ticketAccessToken };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -138,19 +148,35 @@ async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<vo
   // early without ever re-attempting the email — so a thrown error here
   // wouldn't even get the retry it seemed to be asking for.
   if (confirmedOrder) {
-    await deliverOrderConfirmationEmail(confirmedOrder.buyerEmail, confirmedOrder.eventId, confirmedOrder.id);
+    await deliverOrderConfirmationEmail(
+      confirmedOrder.buyerEmail,
+      confirmedOrder.eventId,
+      confirmedOrder.id,
+      confirmedOrder.ticketAccessToken,
+    );
   }
 }
 
-async function deliverOrderConfirmationEmail(email: string, eventId: string, orderId: string): Promise<void> {
-  const ticketsUrl = `${env.APP_BASE_URL}/events/${eventId}/orders/${orderId}/tickets?buyer_email=${encodeURIComponent(email)}`;
+async function deliverOrderConfirmationEmail(
+  email: string,
+  eventId: string,
+  orderId: string,
+  ticketAccessToken: string | undefined,
+): Promise<void> {
+  // ticketAccessToken is only missing for an order created before this
+  // token existed (its PaymentIntent metadata predates it) — there's no
+  // buyer_email fallback left to build a working link with, so the email
+  // still confirms the purchase but omits the "View your tickets" link.
+  const ticketsUrl = ticketAccessToken
+    ? `${env.APP_BASE_URL}/events/${eventId}/orders/${orderId}/tickets?token=${encodeURIComponent(ticketAccessToken)}`
+    : null;
   try {
     await sendEmail({
       to: email,
       subject: 'Your Intahe order is confirmed',
       html: `<p>Thanks for your purchase! Your order is confirmed.</p>
 <p>Order reference: <strong>${orderId}</strong></p>
-<p><a href="${ticketsUrl}">View your tickets</a></p>`,
+${ticketsUrl ? `<p><a href="${ticketsUrl}">View your tickets</a></p>` : ''}`,
     });
   } catch (err) {
     console.error('Failed to send order confirmation email:', err);

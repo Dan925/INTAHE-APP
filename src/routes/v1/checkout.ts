@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express';
 import { Router } from 'express';
 import { z } from 'zod';
 import { optionalAuth } from '../../middleware/auth';
-import { ticketLookupRateLimitByEmail, ticketLookupRateLimitByIp } from '../../middleware/rateLimit';
+import { ticketLookupRateLimitByIp, ticketLookupRateLimitByOrder } from '../../middleware/rateLimit';
 import * as checkoutService from '../../services/checkout/checkoutService';
 import * as ticketService from '../../services/tickets/ticketService';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -56,15 +56,15 @@ router.get(
   '/:orderId/tickets',
   optionalAuth,
   ticketLookupRateLimitByIp,
-  ticketLookupRateLimitByEmail,
+  ticketLookupRateLimitByOrder,
   asyncHandler(async (req, res) => {
     const eventId = req.params['eventId']!;
-    const buyerEmail = typeof req.query['buyer_email'] === 'string' ? req.query['buyer_email'] : undefined;
+    const accessToken = typeof req.query['token'] === 'string' ? req.query['token'] : undefined;
     const tickets = await ticketService.listTicketsForOrder(
       eventId,
       req.params['orderId']!,
       req.user?.id ?? null,
-      buyerEmail,
+      accessToken,
     );
     res.status(200).json({ items: tickets });
   }),

@@ -218,7 +218,7 @@ describe('rate limiting wired onto the real routes', () => {
     expect(blocked.headers['retry-after']).toBeDefined();
   });
 
-  it('GET /v1/events/:eventId/orders/:orderId/tickets blocks repeated lookups for the same buyer_email', async () => {
+  it('GET /v1/events/:eventId/orders/:orderId/tickets blocks repeated lookups against the same order', async () => {
     const fixture = await createOrgAndPublishedEvent(app);
     const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
       price_cents: 1000,
@@ -232,19 +232,25 @@ describe('rate limiting wired onto the real routes', () => {
       .send({ buyer_email: buyerEmail, line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
     expect(orderRes.status).toBe(201);
     const orderId = orderRes.body.order.id;
+    const token = orderRes.body.ticket_access_token;
 
+    // The target-identifier dimension here keys on the order being looked
+    // up (see paramsOrderId in src/middleware/rateLimit.ts) rather than
+    // buyer_email, which this route no longer accepts at all — a wrong
+    // token is rejected by ticketService's ownership check, not by rate
+    // limiting, so these requests use the real token throughout.
     for (let i = 0; i < 20; i++) {
       const res = await request(app)
         .get(`/v1/events/${fixture.event.id}/orders/${orderId}/tickets`)
         .set('X-Forwarded-For', `10.5.0.${i}`)
-        .query({ buyer_email: buyerEmail });
+        .query({ token });
       expect(res.status).not.toBe(429);
     }
 
     const blocked = await request(app)
       .get(`/v1/events/${fixture.event.id}/orders/${orderId}/tickets`)
       .set('X-Forwarded-For', '10.5.0.250')
-      .query({ buyer_email: buyerEmail });
+      .query({ token });
     expect(blocked.status).toBe(429);
     expect(blocked.headers['retry-after']).toBeDefined();
   });

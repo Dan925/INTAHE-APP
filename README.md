@@ -319,6 +319,48 @@ checking. `tests/rateLimit.test.ts` opts back in explicitly (setting
 routes end to end, in addition to unit-testing the limiter factories
 directly with small explicit limits.
 
+### Ticket access token, not buyer_email in the URL (implemented)
+
+`GET /v1/events/:eventId/orders/:orderId/tickets` used to accept
+`?buyer_email=...` as proof the caller placed the order. That leaked the
+buyer's email address into every place this URL travels through as plain
+text — server access logs, Render's log aggregation, the `Referer` header
+of anything the tickets page itself links out to, and any analytics
+tooling — none of which should see a customer's email address as a side
+effect of a GET request.
+
+It's replaced with a per-order bearer token (`crypto.randomBytes(32)`,
+`src/utils/ticketAccessToken.ts`), passed as `?token=...` instead. Only its
+SHA-256 hash is ever persisted (`orders.ticket_access_token_hash`) — the
+same pattern already used for password reset tokens — and the ownership
+check (`ticketService.listTicketsForOrder`) compares it in constant time
+(`crypto.timingSafeEqual`) rather than the plain `===` the email comparison
+used, since this now guards a real bearer credential. An authenticated
+buyer (`buyer_user_id` on the order matching the caller's session) still
+needs no token at all, unchanged from before.
+
+The token is generated once, at order creation (`checkoutService.createOrder`),
+before payment — needed because the client-side checkout flow
+(`public/event.js`, the mobile app) navigates straight to the tickets page
+right after `stripe.confirmPayment()` resolves, well before the
+`payment_intent.succeeded` webhook necessarily runs. The confirmation email
+is sent later, from that webhook — a separate process that never sees the
+raw token (only its hash is in the database) — so the same raw value is
+carried through as Stripe PaymentIntent metadata
+(`ticket_access_token`, alongside the pre-existing `order_id`), which Stripe
+echoes back on the event the webhook receives. This trades a narrower,
+already-trusted exposure (our own Stripe platform account, which anyone
+with `STRIPE_SECRET_KEY` already has equivalent access to) for closing the
+original leak into logs, `Referer` headers, and analytics that a buyer's
+email address had no business ending up in.
+
+One consequence worth flagging: orders created before this change have no
+token, and their confirmation emails linked with `?buyer_email=...`, which
+this endpoint no longer honors — those old links are now dead. Given this
+app hasn't shipped to real customers yet, that one-time transition cost was
+judged acceptable rather than keeping the old mechanism around as a
+fallback.
+
 ## Check-in + Guest List (implemented)
 
 - `POST /v1/organizations/:organizationId/events/:eventId/check-in` — any

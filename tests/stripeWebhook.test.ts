@@ -4,20 +4,24 @@ import { createApp } from '../src/app';
 import { env } from '../src/config/env';
 import { pool } from '../src/config/database';
 import { releaseOrderByPaymentIntentId } from '../src/services/checkout/orderReleaseService';
+import { sendEmail } from '../src/services/email/emailClient';
 import { stripeClient } from '../src/services/stripe/stripeClient';
 import { createPaymentIntent } from '../src/services/stripe/stripePayments';
 import { truncateAllTables } from './helpers/db';
 import { createOrgAndPublishedEvent, createTicketType } from './helpers/checkoutFixtures';
 
 jest.mock('../src/services/stripe/stripePayments');
+jest.mock('../src/services/email/emailClient');
 
 const mockCreatePaymentIntent = createPaymentIntent as jest.MockedFunction<typeof createPaymentIntent>;
+const mockSendEmail = sendEmail as jest.MockedFunction<typeof sendEmail>;
 
 const app = createApp();
 
 beforeEach(async () => {
   await truncateAllTables();
   jest.clearAllMocks();
+  mockSendEmail.mockResolvedValue(undefined);
 });
 
 afterAll(async () => {
@@ -52,7 +56,12 @@ async function createPendingOrder(paymentIntentId: string) {
     .set('Idempotency-Key', crypto.randomUUID())
     .send({ buyer_email: 'buyer@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 2 }] });
 
-  return { ...fixture, ticketType, order: checkoutRes.body.order };
+  return {
+    ...fixture,
+    ticketType,
+    order: checkoutRes.body.order,
+    ticketAccessToken: checkoutRes.body.ticket_access_token as string,
+  };
 }
 
 describe('POST /v1/stripe/webhook', () => {
@@ -69,13 +78,13 @@ describe('POST /v1/stripe/webhook', () => {
 
   it('marks the order paid and issues one ticket per unit purchased on payment_intent.succeeded', async () => {
     const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
-    const { order, ticketType } = await createPendingOrder(paymentIntentId);
+    const { order, ticketType, ticketAccessToken } = await createPendingOrder(paymentIntentId);
 
     const res = await signedWebhookRequest({
       id: `evt_${crypto.randomBytes(6).toString('hex')}`,
       object: 'event',
       type: 'payment_intent.succeeded',
-      data: { object: { id: paymentIntentId } },
+      data: { object: { id: paymentIntentId, metadata: { ticket_access_token: ticketAccessToken } } },
     });
 
     expect(res.status).toBe(200);
@@ -96,14 +105,32 @@ describe('POST /v1/stripe/webhook', () => {
     expect(transactions.rows).toEqual([{ type: 'charge', amount_cents: order.total_cents }]);
   });
 
+  it('sends the confirmation email with a token-based tickets link, never the buyer_email in the URL', async () => {
+    const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
+    const { order, ticketAccessToken } = await createPendingOrder(paymentIntentId);
+
+    await signedWebhookRequest({
+      id: `evt_${crypto.randomBytes(6).toString('hex')}`,
+      object: 'event',
+      type: 'payment_intent.succeeded',
+      data: { object: { id: paymentIntentId, metadata: { ticket_access_token: ticketAccessToken } } },
+    });
+
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const emailHtml = mockSendEmail.mock.calls[0]?.[0]?.html ?? '';
+    expect(emailHtml).toContain(`/orders/${order.id}/tickets?token=${ticketAccessToken}`);
+    expect(emailHtml).not.toContain('buyer_email');
+    expect(emailHtml).not.toContain(order.buyer_email);
+  });
+
   it('is idempotent when Stripe redelivers the same event', async () => {
     const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
-    const { order } = await createPendingOrder(paymentIntentId);
+    const { order, ticketAccessToken } = await createPendingOrder(paymentIntentId);
     const eventPayload = {
       id: `evt_${crypto.randomBytes(6).toString('hex')}`,
       object: 'event',
       type: 'payment_intent.succeeded',
-      data: { object: { id: paymentIntentId } },
+      data: { object: { id: paymentIntentId, metadata: { ticket_access_token: ticketAccessToken } } },
     };
 
     await signedWebhookRequest(eventPayload);
@@ -165,7 +192,7 @@ describe('POST /v1/stripe/webhook', () => {
 
   it('payment always wins: a late payment_intent.succeeded re-reserves inventory and issues tickets even after the order already expired', async () => {
     const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
-    const { order, ticketType } = await createPendingOrder(paymentIntentId);
+    const { order, ticketType, ticketAccessToken } = await createPendingOrder(paymentIntentId);
 
     // The expiry sweep (or an earlier payment_intent.payment_failed on a
     // retried PaymentIntent) beat the success webhook to it.
@@ -183,7 +210,7 @@ describe('POST /v1/stripe/webhook', () => {
       id: `evt_${crypto.randomBytes(6).toString('hex')}`,
       object: 'event',
       type: 'payment_intent.succeeded',
-      data: { object: { id: paymentIntentId } },
+      data: { object: { id: paymentIntentId, metadata: { ticket_access_token: ticketAccessToken } } },
     });
 
     expect(res.status).toBe(200);

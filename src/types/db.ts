@@ -98,6 +98,7 @@ export interface OrderRow {
   idempotency_key: string | null;
   idempotency_request_hash: string | null;
   reservation_expires_at: Date | null;
+  ticket_access_token_hash: string | null;
   created_at: Date;
 }
 

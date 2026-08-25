@@ -17,8 +17,8 @@ export function listTicketsForOrder(
   token: string | null,
   eventId: string,
   orderId: string,
-  buyerEmail?: string,
+  accessToken?: string,
 ): Promise<{ items: BuyerTicket[] }> {
-  const query = token || !buyerEmail ? '' : `?buyer_email=${encodeURIComponent(buyerEmail)}`;
+  const query = token || !accessToken ? '' : `?token=${encodeURIComponent(accessToken)}`;
   return apiRequest(`/v1/events/${eventId}/orders/${orderId}/tickets${query}`, { token });
 }

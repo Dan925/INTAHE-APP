@@ -196,8 +196,8 @@
           eventId +
           '/orders/' +
           checkoutResult.order.id +
-          '/tickets?buyer_email=' +
-          encodeURIComponent(buyerEmail) +
+          '/tickets?token=' +
+          encodeURIComponent(checkoutResult.ticket_access_token) +
           '&lang=' +
           window.intaheLocale();
 
