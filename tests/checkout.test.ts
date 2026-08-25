@@ -335,11 +335,15 @@ describe('POST /v1/events/:eventId/orders (checkout)', () => {
       .set('Idempotency-Key', idempotencyKey())
       .send({
         buyer_email: 'buyer@example.com',
-        // 10 + 10 = 20 is within the per-order cap; one more pushes it to
-        // 21, over MAX_QUANTITY_PER_ORDER (20) — each line individually
-        // still respects MAX_QUANTITY_PER_LINE_ITEM.
+        // Five lines of 10 (each individually at MAX_QUANTITY_PER_LINE_ITEM)
+        // sum to 50, exactly MAX_QUANTITY_PER_ORDER — one more line pushes
+        // the total to 51, over the cap. Split across two ticket types to
+        // confirm the sum is checked across all line items, not per type.
         line_items: [
           { ticket_type_id: typeA.id, quantity: 10 },
+          { ticket_type_id: typeA.id, quantity: 10 },
+          { ticket_type_id: typeA.id, quantity: 10 },
+          { ticket_type_id: typeB.id, quantity: 10 },
           { ticket_type_id: typeB.id, quantity: 10 },
           { ticket_type_id: typeA.id, quantity: 1 },
         ],
@@ -356,6 +360,8 @@ describe('POST /v1/events/:eventId/orders (checkout)', () => {
 
   it('allows an order whose line items sum to exactly MAX_QUANTITY_PER_ORDER across ticket types', async () => {
     const fixture = await createOrgAndPublishedEvent(app);
+    // Mirrors a sponsor buying three tables of ~10 in one order — exactly
+    // the purchase MAX_QUANTITY_PER_ORDER=50 is sized to accommodate.
     const typeA = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
       quantity_total: 1000,
     });
@@ -370,6 +376,9 @@ describe('POST /v1/events/:eventId/orders (checkout)', () => {
         buyer_email: 'buyer@example.com',
         line_items: [
           { ticket_type_id: typeA.id, quantity: 10 },
+          { ticket_type_id: typeA.id, quantity: 10 },
+          { ticket_type_id: typeA.id, quantity: 10 },
+          { ticket_type_id: typeB.id, quantity: 10 },
           { ticket_type_id: typeB.id, quantity: 10 },
         ],
       });

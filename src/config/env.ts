@@ -42,13 +42,20 @@ const envSchema = z.object({
   // these, one POST /v1/events/:eventId/orders call could reserve a
   // ticket type's (or an entire event's) whole remaining stock for the
   // reservation window, since nothing else caps line_items[].quantity or
-  // how many line items an order can hold. 10/line is a generous single
-  // group-purchase size for event ticketing (a corporate table, a group of
-  // friends); 20/order allows mixing a couple of ticket tiers in one
-  // checkout without meaningfully weakening the anti-hoarding bound. A
-  // legitimate buyer needing more than this places more than one order.
+  // how many line items an order can hold. Inventory-hoarding itself is
+  // already covered by reservation expiry + checkout rate limiting below —
+  // these two just bound how much a single request can grab. 10/line
+  // matches a typical single table (Intahe's target segment — nonprofits
+  // with a board, sports leagues, galas, festivals — sells tables of 8-10).
+  // 50/order specifically accommodates a sponsor buying multiple tables in
+  // one transaction (e.g. 3 tables of 10 = 30) without forcing a split
+  // across orders for exactly the kind of purchase this platform wants —
+  // still well short of a scale that would meaningfully weaken the
+  // anti-hoarding bound (a much larger request either way is still caught
+  // by rate limiting and reservation expiry). A legitimate buyer needing
+  // more than this places more than one order.
   MAX_QUANTITY_PER_LINE_ITEM: z.coerce.number().default(10),
-  MAX_QUANTITY_PER_ORDER: z.coerce.number().default(20),
+  MAX_QUANTITY_PER_ORDER: z.coerce.number().default(50),
   // Rate limiting on POST /v1/events/:eventId/orders (checkout), by client
   // IP and by the buyer_email in the request body — same shape as the auth
   // limiters above. Bounds how many reservation-holding orders one

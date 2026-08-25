@@ -25,10 +25,10 @@ describe('ticket_types_bound_quantity_sold_increment trigger', () => {
       quantity_total: 1000,
     });
 
-    // MAX_QUANTITY_PER_ORDER (checkout's application-level cap) is 20 by
+    // MAX_QUANTITY_PER_ORDER (checkout's application-level cap) is 50 by
     // default — this increment is comfortably above that, well past what
     // any legitimate single reReserveAfterLatePayment call could produce,
-    // and still nowhere near the trigger's 500 threshold.
+    // and still nowhere near the trigger's 1000 threshold.
     await expect(
       pool.query(`UPDATE ticket_types SET quantity_sold = quantity_sold + 100 WHERE id = $1`, [ticketType.id]),
     ).resolves.toBeDefined();
@@ -37,26 +37,26 @@ describe('ticket_types_bound_quantity_sold_increment trigger', () => {
     expect(row.rows[0].quantity_sold).toBe(100);
   });
 
-  it('allows an increment of exactly 500 in one write', async () => {
+  it('allows an increment of exactly 1000 in one write', async () => {
     const fixture = await createOrgAndPublishedEvent(app);
     const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
       quantity_total: 1000,
     });
 
     await expect(
-      pool.query(`UPDATE ticket_types SET quantity_sold = quantity_sold + 500 WHERE id = $1`, [ticketType.id]),
+      pool.query(`UPDATE ticket_types SET quantity_sold = quantity_sold + 1000 WHERE id = $1`, [ticketType.id]),
     ).resolves.toBeDefined();
   });
 
-  it('rejects an increment of 501 or more in one write', async () => {
+  it('rejects an increment of 1001 or more in one write', async () => {
     const fixture = await createOrgAndPublishedEvent(app);
     const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
       quantity_total: 10_000,
     });
 
     await expect(
-      pool.query(`UPDATE ticket_types SET quantity_sold = quantity_sold + 501 WHERE id = $1`, [ticketType.id]),
-    ).rejects.toThrow(/quantity_sold.*increased by 501.*over the 500 limit/);
+      pool.query(`UPDATE ticket_types SET quantity_sold = quantity_sold + 1001 WHERE id = $1`, [ticketType.id]),
+    ).rejects.toThrow(/quantity_sold.*increased by 1001.*over the 1000 limit/);
 
     // The whole statement is refused, not partially applied.
     const row = await pool.query('SELECT quantity_sold FROM ticket_types WHERE id = $1', [ticketType.id]);

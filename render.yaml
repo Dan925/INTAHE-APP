@@ -70,7 +70,7 @@ services:
       - key: MAX_QUANTITY_PER_LINE_ITEM
         value: '10'
       - key: MAX_QUANTITY_PER_ORDER
-        value: '20'
+        value: '50'
       - key: CHECKOUT_RATE_LIMIT_WINDOW_MS
         value: '900000'
       - key: CHECKOUT_RATE_LIMIT_MAX
@@ -140,7 +140,7 @@ services:
       - key: MAX_QUANTITY_PER_LINE_ITEM
         value: '10'
       - key: MAX_QUANTITY_PER_ORDER
-        value: '20'
+        value: '50'
       - key: CHECKOUT_RATE_LIMIT_WINDOW_MS
         value: '900000'
       - key: CHECKOUT_RATE_LIMIT_MAX

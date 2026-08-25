@@ -317,13 +317,19 @@ have to be discovered at the door:
   would be silently rejected — reproducing the exact bug that got the
   original constraint dropped, just delayed and much harder to diagnose.
   A trigger comparing `NEW.quantity_sold - OLD.quantity_sold` against a
-  fixed per-write bound (500, deliberately sized as a large multiple of
+  fixed per-write bound (1000, deliberately sized as a 20x multiple of
   `MAX_QUANTITY_PER_ORDER` — see below — so no real order can ever
   approach it) doesn't have that flaw: it judges each write only against
   itself, so it never accumulates against past legitimate incidents. It
   still exists purely to catch a genuine runaway (a loop bug, a bad bulk
   UPDATE, a fat-fingered manual query) — application code is still what's
-  trusted for the actual capacity/payment arbitration.
+  trusted for the actual capacity/payment arbitration. This bound is
+  coupled to `MAX_QUANTITY_PER_ORDER` by documentation, not code (a
+  Postgres trigger can't read the Node process's env config) — it was
+  raised from 500 to 1000 in a follow-up migration when
+  `MAX_QUANTITY_PER_ORDER` moved from 20 to 50, to keep the same order of
+  safety margin; if that cap changes again, this bound should be
+  revisited too.
 - **Every overshoot is persisted** to `capacity_overshoot_incidents`
   (organization, event, ticket type, order, `quantity_sold`,
   `quantity_total`, `overshoot_quantity`, timestamp) in the same
@@ -456,13 +462,21 @@ denies real buyers the ability to check out at all while it holds.
 
 `createOrderSchema` (`src/routes/v1/checkout.ts`) now enforces two caps:
 `MAX_QUANTITY_PER_LINE_ITEM` (10) on each line item's `quantity`, and
-`MAX_QUANTITY_PER_ORDER` (20) on the sum across every line item in the
+`MAX_QUANTITY_PER_ORDER` (50) on the sum across every line item in the
 order — the second one closes the gap the first alone wouldn't: splitting
-a large reservation across many line items or ticket types. Both default
-generously for ordinary event ticketing (a corporate table, a group of
-friends) — a legitimate buyer needing more than 20 tickets in one go
-places more than one order, the same limit most ticketing platforms apply
-for this exact anti-hoarding reason.
+a large reservation across many line items or ticket types.
+
+The two aren't set to the same value: 10/line matches a single table —
+Intahe's target segment (nonprofits with a board, sports leagues, galas,
+festivals) sells tables of 8-10 — while 50/order specifically
+accommodates a sponsor buying several tables in one transaction (e.g. 3
+tables of 10 = 30) without forcing a split across orders, which is exactly
+the kind of purchase this platform wants to support in one checkout.
+Inventory-hoarding itself is already covered by reservation expiry and
+the checkout rate limit below — these two caps only bound how much a
+single isolated request can grab, so raising the per-order cap from an
+earlier, tighter value barely moved that protection. A legitimate buyer
+needing more than 50 tickets in one go places more than one order.
 
 `POST /v1/events/:eventId/orders` now also runs the same IP + `buyer_email`
 rate-limiter pair as the other public routes (`CHECKOUT_RATE_LIMIT_*`, see
