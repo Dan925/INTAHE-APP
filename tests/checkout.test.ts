@@ -284,4 +284,96 @@ describe('POST /v1/events/:eventId/orders (checkout)', () => {
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('ticket_type_not_found');
   });
+
+  it('rejects a single line item quantity above MAX_QUANTITY_PER_LINE_ITEM', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      quantity_total: 1000,
+    });
+
+    const res = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({
+        buyer_email: 'buyer@example.com',
+        line_items: [{ ticket_type_id: ticketType.id, quantity: 11 }],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('validation_error');
+    expect(mockCreatePaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it('allows exactly MAX_QUANTITY_PER_LINE_ITEM (10) in one line item', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      quantity_total: 1000,
+    });
+
+    const res = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({
+        buyer_email: 'buyer@example.com',
+        line_items: [{ ticket_type_id: ticketType.id, quantity: 10 }],
+      });
+
+    expect(res.status).toBe(201);
+  });
+
+  it('rejects an order whose line items sum above MAX_QUANTITY_PER_ORDER, even split across ticket types', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const typeA = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      quantity_total: 1000,
+    });
+    const typeB = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      quantity_total: 1000,
+    });
+
+    const res = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({
+        buyer_email: 'buyer@example.com',
+        // 10 + 10 = 20 is within the per-order cap; one more pushes it to
+        // 21, over MAX_QUANTITY_PER_ORDER (20) — each line individually
+        // still respects MAX_QUANTITY_PER_LINE_ITEM.
+        line_items: [
+          { ticket_type_id: typeA.id, quantity: 10 },
+          { ticket_type_id: typeB.id, quantity: 10 },
+          { ticket_type_id: typeA.id, quantity: 1 },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('validation_error');
+    expect(mockCreatePaymentIntent).not.toHaveBeenCalled();
+
+    // Rejected before any reservation was made.
+    const ttRow = await pool.query('SELECT quantity_sold FROM ticket_types WHERE id = $1', [typeA.id]);
+    expect(ttRow.rows[0].quantity_sold).toBe(0);
+  });
+
+  it('allows an order whose line items sum to exactly MAX_QUANTITY_PER_ORDER across ticket types', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const typeA = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      quantity_total: 1000,
+    });
+    const typeB = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      quantity_total: 1000,
+    });
+
+    const res = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({
+        buyer_email: 'buyer@example.com',
+        line_items: [
+          { ticket_type_id: typeA.id, quantity: 10 },
+          { ticket_type_id: typeB.id, quantity: 10 },
+        ],
+      });
+
+    expect(res.status).toBe(201);
+  });
 });

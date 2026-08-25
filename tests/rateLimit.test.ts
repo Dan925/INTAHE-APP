@@ -281,4 +281,62 @@ describe('rate limiting wired onto the real routes', () => {
     expect(blocked.status).toBe(429);
     expect(blocked.headers['retry-after']).toBeDefined();
   });
+
+  it('POST /v1/events/:eventId/orders blocks repeated checkout attempts for the same buyer_email', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      price_cents: 1000,
+      quantity_total: 1000,
+    });
+    const buyerEmail = uniqueEmail('checkout-target');
+
+    for (let i = 0; i < 20; i++) {
+      const res = await request(app)
+        .post(`/v1/events/${fixture.event.id}/orders`)
+        .set('Idempotency-Key', crypto.randomUUID())
+        .set('X-Forwarded-For', `10.7.0.${i}`)
+        .send({ buyer_email: buyerEmail, line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
+      expect(res.status).not.toBe(429);
+    }
+
+    const blocked = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', crypto.randomUUID())
+      .set('X-Forwarded-For', '10.7.0.250')
+      .send({ buyer_email: buyerEmail, line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers['retry-after']).toBeDefined();
+  });
+
+  it('POST /v1/events/:eventId/orders blocks repeated checkout attempts from the same IP', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      price_cents: 1000,
+      quantity_total: 1000,
+    });
+    const ip = '10.8.0.1';
+
+    for (let i = 0; i < 20; i++) {
+      const res = await request(app)
+        .post(`/v1/events/${fixture.event.id}/orders`)
+        .set('Idempotency-Key', crypto.randomUUID())
+        .set('X-Forwarded-For', ip)
+        .send({
+          buyer_email: uniqueEmail(`checkout-ip-${i}`),
+          line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }],
+        });
+      expect(res.status).not.toBe(429);
+    }
+
+    const blocked = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', crypto.randomUUID())
+      .set('X-Forwarded-For', ip)
+      .send({
+        buyer_email: uniqueEmail('checkout-ip-last'),
+        line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }],
+      });
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers['retry-after']).toBeDefined();
+  });
 });

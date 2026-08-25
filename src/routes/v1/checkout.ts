@@ -1,8 +1,11 @@
 import type { RequestHandler } from 'express';
 import { Router } from 'express';
 import { z } from 'zod';
+import { env } from '../../config/env';
 import { optionalAuth } from '../../middleware/auth';
 import {
+  checkoutRateLimitByEmail,
+  checkoutRateLimitByIp,
   confirmationRateLimitByIp,
   confirmationRateLimitByOrder,
   ticketLookupRateLimitByIp,
@@ -17,17 +20,31 @@ import { validateBody } from '../../utils/validate';
 
 const router = Router({ mergeParams: true });
 
-const createOrderSchema = z.object({
-  buyer_email: z.string().trim().toLowerCase().email(),
-  line_items: z
-    .array(
-      z.object({
-        ticket_type_id: z.string().uuid(),
-        quantity: z.number().int().min(1),
-      }),
-    )
-    .min(1, 'At least one line item is required.'),
-});
+// MAX_QUANTITY_PER_LINE_ITEM/MAX_QUANTITY_PER_ORDER exist to stop one
+// checkout request from reserving a ticket type's (or event's) whole
+// remaining stock for the reservation window — see env.ts for the full
+// reasoning and default justification. Without these, nothing bounded
+// line_items[].quantity or how many line items an order could hold.
+const createOrderSchema = z
+  .object({
+    buyer_email: z.string().trim().toLowerCase().email(),
+    line_items: z
+      .array(
+        z.object({
+          ticket_type_id: z.string().uuid(),
+          quantity: z
+            .number()
+            .int()
+            .min(1)
+            .max(env.MAX_QUANTITY_PER_LINE_ITEM, `quantity cannot exceed ${env.MAX_QUANTITY_PER_LINE_ITEM} per line item.`),
+        }),
+      )
+      .min(1, 'At least one line item is required.'),
+  })
+  .refine((data) => data.line_items.reduce((sum, item) => sum + item.quantity, 0) <= env.MAX_QUANTITY_PER_ORDER, {
+    message: `An order cannot exceed ${env.MAX_QUANTITY_PER_ORDER} tickets in total.`,
+    path: ['line_items'],
+  });
 
 // Checked before body validation: this is a protocol-level requirement
 // ("blocking, pas optionnel" per the brief), so a malformed body shouldn't
@@ -44,6 +61,8 @@ const requireIdempotencyKey: RequestHandler = (req, _res, next) => {
 router.post(
   '/',
   optionalAuth,
+  checkoutRateLimitByIp,
+  checkoutRateLimitByEmail,
   requireIdempotencyKey,
   validateBody(createOrderSchema),
   asyncHandler(async (req, res) => {

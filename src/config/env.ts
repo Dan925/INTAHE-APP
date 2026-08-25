@@ -38,6 +38,25 @@ const envSchema = z.object({
   // unclaimed rather than tying its life to some fixed multiple of poll
   // intervals on the client.
   CONFIRMATION_TOKEN_WINDOW_MINUTES: z.coerce.number().default(10),
+  // Anti-hoarding bounds on a single checkout request: with neither of
+  // these, one POST /v1/events/:eventId/orders call could reserve a
+  // ticket type's (or an entire event's) whole remaining stock for the
+  // reservation window, since nothing else caps line_items[].quantity or
+  // how many line items an order can hold. 10/line is a generous single
+  // group-purchase size for event ticketing (a corporate table, a group of
+  // friends); 20/order allows mixing a couple of ticket tiers in one
+  // checkout without meaningfully weakening the anti-hoarding bound. A
+  // legitimate buyer needing more than this places more than one order.
+  MAX_QUANTITY_PER_LINE_ITEM: z.coerce.number().default(10),
+  MAX_QUANTITY_PER_ORDER: z.coerce.number().default(20),
+  // Rate limiting on POST /v1/events/:eventId/orders (checkout), by client
+  // IP and by the buyer_email in the request body — same shape as the auth
+  // limiters above. Bounds how many reservation-holding orders one
+  // caller/IP can create in a window, closing the other half of the
+  // hoarding vector the per-line/per-order caps above don't: many
+  // separate, individually-small orders adding up.
+  CHECKOUT_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
+  CHECKOUT_RATE_LIMIT_MAX: z.coerce.number().default(20),
   // Placeholders let the app boot without real Stripe credentials; the
   // Stripe SDK requires a non-empty string but nothing calls the real API
   // until a genuine sk_test_/whsec_ value is configured.

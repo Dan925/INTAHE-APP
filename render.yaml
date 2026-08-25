@@ -67,6 +67,14 @@ services:
         value: '100'
       - key: CONFIRMATION_TOKEN_WINDOW_MINUTES
         value: '10'
+      - key: MAX_QUANTITY_PER_LINE_ITEM
+        value: '10'
+      - key: MAX_QUANTITY_PER_ORDER
+        value: '20'
+      - key: CHECKOUT_RATE_LIMIT_WINDOW_MS
+        value: '900000'
+      - key: CHECKOUT_RATE_LIMIT_MAX
+        value: '20'
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
@@ -129,6 +137,14 @@ services:
         value: '100'
       - key: CONFIRMATION_TOKEN_WINDOW_MINUTES
         value: '10'
+      - key: MAX_QUANTITY_PER_LINE_ITEM
+        value: '10'
+      - key: MAX_QUANTITY_PER_ORDER
+        value: '20'
+      - key: CHECKOUT_RATE_LIMIT_WINDOW_MS
+        value: '900000'
+      - key: CHECKOUT_RATE_LIMIT_MAX
+        value: '20'
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET

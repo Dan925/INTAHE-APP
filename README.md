@@ -292,7 +292,7 @@ never giving them a ticket, which is worse than a narrow, rare
 overshoot. What *is* owed to the organizer is visibility, so it doesn't
 have to be discovered at the door:
 
-- **`ticket_types` no longer has a DB constraint enforcing
+- **`ticket_types` no longer has a *cumulative* DB constraint enforcing
   `quantity_sold <= quantity_total`.** It used to (`ticket_types_sold_within_total`),
   and that was itself a bug, not a safety net: the constraint applied to
   every write, including this one, so the late-payment UPDATE would throw,
@@ -307,6 +307,23 @@ have to be discovered at the door:
   check moved into `ticketTypeService.updateTicketType` at the application
   level, since it's a different concern (an organizer's own edit, not a
   payment being honored).
+- **A DB-level backstop still exists, just a different shape: a `BEFORE
+  UPDATE` trigger bounding the *delta* of a single write, not the
+  cumulative total** (`ticket_types_bound_quantity_sold_increment`,
+  see that migration for the full reasoning). A plain numeric margin on
+  top of `quantity_total` was considered and rejected: because it gates
+  the cumulative value, every legitimate overshoot would permanently eat
+  into the same margin, and once exhausted, the next genuinely-paid order
+  would be silently rejected — reproducing the exact bug that got the
+  original constraint dropped, just delayed and much harder to diagnose.
+  A trigger comparing `NEW.quantity_sold - OLD.quantity_sold` against a
+  fixed per-write bound (500, deliberately sized as a large multiple of
+  `MAX_QUANTITY_PER_ORDER` — see below — so no real order can ever
+  approach it) doesn't have that flaw: it judges each write only against
+  itself, so it never accumulates against past legitimate incidents. It
+  still exists purely to catch a genuine runaway (a loop bug, a bad bulk
+  UPDATE, a fat-fingered manual query) — application code is still what's
+  trusted for the actual capacity/payment arbitration.
 - **Every overshoot is persisted** to `capacity_overshoot_incidents`
   (organization, event, ticket type, order, `quantity_sold`,
   `quantity_total`, `overshoot_quantity`, timestamp) in the same
@@ -386,17 +403,20 @@ ticket/QR generation is deferred to payment confirmation).
 ### Rate limiting (implemented)
 
 `POST /v1/auth/login`, `POST /v1/auth/signup`, `POST
-/v1/auth/password-reset/request`, and `GET
-/v1/events/:eventId/orders/:orderId/tickets` (buyer ticket lookup) each run
-two independent limiters (`src/middleware/rateLimit.ts`, `express-rate-limit`):
-one keyed by client IP, one keyed by the target identifier in the request
-(`email`, or `buyer_email` for ticket lookup). Either tripping returns `429`
+/v1/auth/password-reset/request`, `GET
+/v1/events/:eventId/orders/:orderId/tickets` (buyer ticket lookup), `GET
+/v1/events/:eventId/orders/:orderId/confirmation`, and `POST
+/v1/events/:eventId/orders` (checkout) each run two independent limiters
+(`src/middleware/rateLimit.ts`, `express-rate-limit`): one keyed by client
+IP, one keyed by the target identifier in the request (`email`/`buyer_email`,
+or the `orderId` being looked up/polled). Either tripping returns `429`
 with a stable `{ error: { code: 'rate_limited', ... } }` body and a
 `Retry-After` header (set automatically by the library). Keying by target
 identifier as well as IP matters because an attack spread across many IPs
 against one account, or one IP hitting many accounts, are both still caught.
-Limits/windows are configurable via `AUTH_RATE_LIMIT_*` and
-`TICKET_LOOKUP_RATE_LIMIT_*` env vars (see `.env.example`).
+Limits/windows are configurable per route via `AUTH_RATE_LIMIT_*`,
+`TICKET_LOOKUP_RATE_LIMIT_*`, `CONFIRMATION_RATE_LIMIT_*`, and
+`CHECKOUT_RATE_LIMIT_*` env vars (see `.env.example`).
 
 This service runs behind Render's reverse proxy, which adds exactly one
 `X-Forwarded-For` hop. `app.set('trust proxy', 1)` in `app.ts` tells Express
@@ -423,6 +443,32 @@ directly with small explicit limits.
 staging and production — not left to the `NODE_ENV !== 'test'` default, so
 it's visible directly in the deploy config rather than something you have
 to trace through `env.ts`'s fallback logic to confirm.
+
+### Checkout quantity caps (implemented)
+
+Before this, nothing bounded `line_items[].quantity` on `POST
+/v1/events/:eventId/orders`, or how many line items an order could hold.
+One request could reserve a ticket type's — or, spread across several line
+items, an entire event's — whole remaining stock for the reservation
+window (`ORDER_RESERVATION_TTL_MINUTES`, 20 minutes by default), without
+ever paying: an inventory-hoarding vector, not just a nuisance, since it
+denies real buyers the ability to check out at all while it holds.
+
+`createOrderSchema` (`src/routes/v1/checkout.ts`) now enforces two caps:
+`MAX_QUANTITY_PER_LINE_ITEM` (10) on each line item's `quantity`, and
+`MAX_QUANTITY_PER_ORDER` (20) on the sum across every line item in the
+order — the second one closes the gap the first alone wouldn't: splitting
+a large reservation across many line items or ticket types. Both default
+generously for ordinary event ticketing (a corporate table, a group of
+friends) — a legitimate buyer needing more than 20 tickets in one go
+places more than one order, the same limit most ticketing platforms apply
+for this exact anti-hoarding reason.
+
+`POST /v1/events/:eventId/orders` now also runs the same IP + `buyer_email`
+rate-limiter pair as the other public routes (`CHECKOUT_RATE_LIMIT_*`, see
+"Rate limiting" above), closing the other half of the hoarding vector the
+quantity caps alone don't — many separate, individually-small orders
+adding up.
 
 ### Ticket access token, not buyer_email in the URL (implemented)
 

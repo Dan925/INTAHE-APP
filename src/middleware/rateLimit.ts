@@ -75,6 +75,13 @@ function bodyEmail(req: Request): string | undefined {
   return typeof value === 'string' ? value.trim().toLowerCase() : undefined;
 }
 
+// Checkout's field is buyer_email, not email — the auth routes' bodyEmail
+// helper above doesn't apply here.
+function bodyBuyerEmail(req: Request): string | undefined {
+  const value = (req.body as Record<string, unknown> | undefined)?.['buyer_email'];
+  return typeof value === 'string' ? value.trim().toLowerCase() : undefined;
+}
+
 // Ticket lookup no longer takes buyer_email (see utils/ticketAccessToken.ts —
 // it's a 32-byte token now, not brute-forceable by rate limiting or
 // otherwise), so the "target identifier" dimension here keys on the order
@@ -114,4 +121,11 @@ export const confirmationRateLimitByIp = wired(
 );
 export const confirmationRateLimitByOrder = wired(
   createTargetRateLimiter(env.CONFIRMATION_RATE_LIMIT_WINDOW_MS, env.CONFIRMATION_RATE_LIMIT_MAX, paramsOrderId),
+);
+
+export const checkoutRateLimitByIp = wired(
+  createIpRateLimiter(env.CHECKOUT_RATE_LIMIT_WINDOW_MS, env.CHECKOUT_RATE_LIMIT_MAX),
+);
+export const checkoutRateLimitByEmail = wired(
+  createTargetRateLimiter(env.CHECKOUT_RATE_LIMIT_WINDOW_MS, env.CHECKOUT_RATE_LIMIT_MAX, bodyBuyerEmail),
 );
