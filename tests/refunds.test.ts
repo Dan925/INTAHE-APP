@@ -6,15 +6,18 @@ import { pool } from '../src/config/database';
 import { stripeClient } from '../src/services/stripe/stripeClient';
 import { createPaymentIntent } from '../src/services/stripe/stripePayments';
 import { createRefund } from '../src/services/stripe/stripeRefunds';
+import { sendEmail } from '../src/services/email/emailClient';
 import { signupTestUser } from './helpers/auth';
 import { truncateAllTables } from './helpers/db';
 import { createOrgAndPublishedEvent, createTicketType } from './helpers/checkoutFixtures';
 
 jest.mock('../src/services/stripe/stripePayments');
 jest.mock('../src/services/stripe/stripeRefunds');
+jest.mock('../src/services/email/emailClient');
 
 const mockCreatePaymentIntent = createPaymentIntent as jest.MockedFunction<typeof createPaymentIntent>;
 const mockCreateRefund = createRefund as jest.MockedFunction<typeof createRefund>;
+const mockSendEmail = sendEmail as jest.MockedFunction<typeof sendEmail>;
 
 const app = createApp();
 
@@ -25,6 +28,7 @@ beforeEach(async () => {
     const id = `re_test_${crypto.randomBytes(6).toString('hex')}`;
     return { id } as never;
   });
+  mockSendEmail.mockResolvedValue(undefined);
 });
 
 afterAll(async () => {
@@ -407,5 +411,87 @@ describe('refund reason decides whether Intahe’s commission is reversed', () =
     expect(mockCreateRefund).toHaveBeenCalledWith(expect.objectContaining({ refundApplicationFee: false }));
     const order = await pool.query('SELECT status, refund_reason FROM orders WHERE id = $1', [ctx.orderId]);
     expect(order.rows[0]).toEqual({ status: 'partial_refund', refund_reason: 'buyer_request' });
+  });
+});
+
+describe('refund confirmation email', () => {
+  async function setUpPaidOrder(): Promise<{ orgId: string; eventId: string; orderId: string; ownerToken: string }> {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      price_cents: 2500,
+      quantity_total: 10,
+    });
+    const { orderId } = await purchaseAndConfirm(fixture.event.id, ticketType.id, 2);
+    return {
+      orgId: fixture.organization.id,
+      eventId: fixture.event.id,
+      orderId,
+      ownerToken: fixture.owner.accessToken,
+    };
+  }
+
+  it('sends the buyer a confirmation email with the full refunded amount, after commit', async () => {
+    const ctx = await setUpPaidOrder();
+    const orderRow = await pool.query('SELECT total_cents, buyer_email FROM orders WHERE id = $1', [ctx.orderId]);
+    const totalCents = orderRow.rows[0].total_cents;
+    mockSendEmail.mockClear(); // setUpPaidOrder's checkout already sent its own order-confirmation email
+
+    const res = await request(app)
+      .post(`/v1/organizations/${ctx.orgId}/events/${ctx.eventId}/orders/${ctx.orderId}/refund`)
+      .set('Authorization', `Bearer ${ctx.ownerToken}`)
+      .send({ reason: 'buyer_request' });
+
+    expect(res.status).toBe(200);
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const call = mockSendEmail.mock.calls[0]![0];
+    expect(call.to).toBe(orderRow.rows[0].buyer_email);
+    expect(call.subject).toMatch(/refund/i);
+    expect(call.html).toContain(ctx.orderId);
+    expect(call.html).toContain(new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalCents / 100));
+  });
+
+  it('sends only the partial amount, not the order total, on a partial refund', async () => {
+    const ctx = await setUpPaidOrder();
+    const orderRow = await pool.query('SELECT total_cents FROM orders WHERE id = $1', [ctx.orderId]);
+    const partialAmount = Math.floor(orderRow.rows[0].total_cents / 2);
+    mockSendEmail.mockClear();
+
+    await request(app)
+      .post(`/v1/organizations/${ctx.orgId}/events/${ctx.eventId}/orders/${ctx.orderId}/refund`)
+      .set('Authorization', `Bearer ${ctx.ownerToken}`)
+      .send({ amount_cents: partialAmount, reason: 'buyer_request' });
+
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const call = mockSendEmail.mock.calls[0]![0];
+    expect(call.html).toContain(new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(partialAmount / 100));
+    expect(call.html).not.toContain(
+      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(orderRow.rows[0].total_cents / 100),
+    );
+  });
+
+  it('never sends the email when the refund itself fails', async () => {
+    const ctx = await setUpPaidOrder();
+    mockSendEmail.mockClear();
+
+    const res = await request(app)
+      .post(`/v1/organizations/${ctx.orgId}/events/${ctx.eventId}/orders/${ctx.orderId}/refund`)
+      .set('Authorization', `Bearer ${ctx.ownerToken}`)
+      .send({ amount_cents: 999_999_999, reason: 'buyer_request' });
+
+    expect(res.status).toBe(400);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('a delivery failure does not fail the refund request itself', async () => {
+    const ctx = await setUpPaidOrder();
+    mockSendEmail.mockRejectedValueOnce(new Error('Resend is down'));
+
+    const res = await request(app)
+      .post(`/v1/organizations/${ctx.orgId}/events/${ctx.eventId}/orders/${ctx.orderId}/refund`)
+      .set('Authorization', `Bearer ${ctx.ownerToken}`)
+      .send({ reason: 'buyer_request' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.order.status).toBe('refunded');
   });
 });

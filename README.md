@@ -1008,11 +1008,11 @@ to be picked up once it's stable:
   `PaymentIntent` for `amountCents: 0`, which real Stripe will reject.
 - Mobile UI for everything below — the web app has it, the mobile app
   doesn't yet.
-- A refund UI with a reason selector — `orgOrdersPage.js` (web) still only
-  lists orders; nothing in either app calls `POST .../orders/:orderId/refund`
-  yet, so the required `reason` field has no UI to set it from. The
-  cancellation warning (below) covers the *cancel-the-event* flow, not a
-  standalone refund action.
+- A configurable minimum ticket price. A $0.01–$0.80 ticket currently
+  produces a negative organizer net when fees are absorbed (see
+  `tests/orderFeeBoundaries.test.ts`'s $0.01 case) — the exact breakeven is
+  $0.81. Not yet enforced anywhere; the default minimum needs sign-off
+  before it's wired in.
 - Admin console screens for "approve an organization" and "unpublish an
   event" specifically — both endpoints exist and are tested
   (`POST /v1/admin/organizations/:organizationId/approve`,
@@ -1044,7 +1044,27 @@ for FR/EN copy, `window.intaheSession.apiRequest`):
   with the required warning that Stripe's fees are never refunded and stay
   on the organization's account; ticket-type creation surfaces
   `stripe_not_connected` with a specific message and a link back to the
-  Stripe section, instead of a generic error.
+  Stripe section, instead of a generic error. The price field shows a live
+  commission/Stripe-fee/net estimate while the organizer types, computed
+  client-side with the same formulas as `commissionGrid.ts`/`fees.ts` (no
+  round-trip needed), using a red style once the estimated net goes
+  negative.
+- **`orgOrdersPage.js`** — a full refund flow per order: choose full or
+  partial amount, a required reason presented in plain language ("I'm
+  cancelling the event" / "I'm postponing the event" / "The buyer
+  requested it") with its commission consequence shown inline as soon as
+  it's picked, then a confirmation step restating the exact buyer amount,
+  the commission consequence, and the Stripe-fees-are-never-refunded
+  reminder before anything is submitted. After execution, the order shows
+  its refund reason and date. Backend: `refundOrder` now emails the buyer
+  a refund confirmation (amount + usual bank delay) after commit, and
+  `PublicOrder` exposes `refund_reason`/`refunded_at` (the latter derived
+  from the latest `type = 'refund'` transaction, since orders have no
+  `updated_at` column). Also fixed a pre-existing bug found while touching
+  this file: the status-label lookup used the key `partially_refunded`,
+  which never matched the real order status value (`partial_refund`), so
+  a partially-refunded order displayed its raw status string instead of a
+  translated label.
 - **`stripeConnectReturnPage.js`** (`/stripe/connect/return`,
   `/stripe/connect/refresh`) — Stripe's return/refresh URLs are static and
   organization-agnostic, so the organization id is stashed in

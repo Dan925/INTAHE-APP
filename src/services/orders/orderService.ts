@@ -1,5 +1,6 @@
 import { pool } from '../../config/database';
 import { createRefund } from '../stripe/stripeRefunds';
+import { sendEmail } from '../email/emailClient';
 import { ApiError } from '../../utils/errors';
 import { buildPage, decodeCursor, encodeCursor, type CursorPage } from '../../utils/pagination';
 import type { OrderRow, OrganizationRow, RefundReason, TicketRow } from '../../types/db';
@@ -26,6 +27,11 @@ export interface PublicOrder {
   intahe_fee_cents: number;
   total_cents: number;
   status: string;
+  refund_reason: RefundReason | null;
+  // The order row itself has no updated_at column — this is the most
+  // recent type='refund' transaction's occurred_at, i.e. when the order
+  // was last refunded (fully or partially). Null until the first refund.
+  refunded_at: string | null;
   created_at: string;
 }
 
@@ -38,7 +44,7 @@ export interface PublicTicket {
   checked_in_at: string | null;
 }
 
-function toPublicOrder(row: OrderRow): PublicOrder {
+function toPublicOrder(row: OrderRow, refundedAt: Date | null = null): PublicOrder {
   return {
     id: row.id,
     event_id: row.event_id,
@@ -49,6 +55,8 @@ function toPublicOrder(row: OrderRow): PublicOrder {
     intahe_fee_cents: row.intahe_fee_cents,
     total_cents: row.total_cents,
     status: row.status,
+    refund_reason: row.refund_reason,
+    refunded_at: refundedAt ? refundedAt.toISOString() : null,
     created_at: row.created_at.toISOString(),
   };
 }
@@ -71,19 +79,28 @@ export async function listOrdersForEvent(
 ): Promise<CursorPage<PublicOrder>> {
   const decoded = cursor ? decodeCursor(cursor) : null;
 
-  const result = await pool.query<OrderRow & { cursor_created_at: string }>(
-    `SELECT *, created_at::text AS cursor_created_at FROM orders
-     WHERE event_id = $1
+  const result = await pool.query<OrderRow & { cursor_created_at: string; refunded_at: Date | null }>(
+    `SELECT o.*, o.created_at::text AS cursor_created_at, refunds.refunded_at
+     FROM orders o
+     LEFT JOIN LATERAL (
+       SELECT MAX(occurred_at) AS refunded_at FROM transactions WHERE order_id = o.id AND type = 'refund'
+     ) refunds ON true
+     WHERE o.event_id = $1
        AND (
          $2::timestamptz IS NULL
-         OR (created_at, id) < ($2::timestamptz, $3::uuid)
+         OR (o.created_at, o.id) < ($2::timestamptz, $3::uuid)
        )
-     ORDER BY created_at DESC, id DESC
+     ORDER BY o.created_at DESC, o.id DESC
      LIMIT $4`,
     [eventId, decoded?.createdAt ?? null, decoded?.id ?? null, limit + 1],
   );
 
-  return buildPage(result.rows, limit, toPublicOrder, (row) => encodeCursor(row.cursor_created_at, row.id));
+  return buildPage(
+    result.rows,
+    limit,
+    (row) => toPublicOrder(row, row.refunded_at),
+    (row) => encodeCursor(row.cursor_created_at, row.id),
+  );
 }
 
 export async function getOrderForEvent(
@@ -99,12 +116,18 @@ export async function getOrderForEvent(
     throw new ApiError(404, 'order_not_found', 'Order not found.', null);
   }
 
-  const ticketsResult = await pool.query<TicketRow>(
-    `SELECT * FROM tickets WHERE order_id = $1 ORDER BY created_at ASC`,
-    [order.id],
-  );
+  const [ticketsResult, refundedAtResult] = await Promise.all([
+    pool.query<TicketRow>(`SELECT * FROM tickets WHERE order_id = $1 ORDER BY created_at ASC`, [order.id]),
+    pool.query<{ refunded_at: Date | null }>(
+      `SELECT MAX(occurred_at) AS refunded_at FROM transactions WHERE order_id = $1 AND type = 'refund'`,
+      [order.id],
+    ),
+  ]);
 
-  return { order: toPublicOrder(order), tickets: ticketsResult.rows.map(toPublicTicket) };
+  return {
+    order: toPublicOrder(order, refundedAtResult.rows[0]?.refunded_at ?? null),
+    tickets: ticketsResult.rows.map(toPublicTicket),
+  };
 }
 
 /**
@@ -125,6 +148,7 @@ export async function refundOrder(
   reason: RefundReason,
 ): Promise<PublicOrder> {
   const client = await pool.connect();
+  let confirmationEmail: { to: string; amountCents: number; currency: string; orderId: string } | null = null;
   try {
     await client.query('BEGIN');
 
@@ -204,12 +228,66 @@ export async function refundOrder(
       throw new Error('Update to orders did not return a row.');
     }
 
+    // order_line_items don't carry currency themselves — same lookup
+    // payoutService uses, via the ticket types actually purchased.
+    const currencyResult = await client.query<{ currency: string }>(
+      `SELECT tt.currency
+       FROM order_line_items oli
+       JOIN ticket_types tt ON tt.id = oli.ticket_type_id
+       WHERE oli.order_id = $1
+       LIMIT 1`,
+      [orderId],
+    );
+
     await client.query('COMMIT');
-    return toPublicOrder(updated);
+    confirmationEmail = {
+      to: updated.buyer_email,
+      amountCents: requested,
+      currency: currencyResult.rows[0]?.currency ?? 'usd',
+      orderId,
+    };
+    return toPublicOrder(updated, new Date());
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
   } finally {
     client.release();
+    // Deliberately outside the transaction (and outside the try/catch
+    // above, which already resolved either way by this point): the refund
+    // is already committed, so a delivery failure here must never look
+    // like the refund itself failed, and a slow/failed network call must
+    // never lengthen the row lock refundOrder holds via `FOR UPDATE`.
+    // Mirrors stripeWebhookService's post-commit confirmation email.
+    if (confirmationEmail) {
+      await deliverRefundConfirmationEmail(
+        confirmationEmail.to,
+        confirmationEmail.orderId,
+        confirmationEmail.amountCents,
+        confirmationEmail.currency,
+      );
+    }
+  }
+}
+
+async function deliverRefundConfirmationEmail(
+  email: string,
+  orderId: string,
+  amountCents: number,
+  currency: string,
+): Promise<void> {
+  const formattedAmount = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(
+    amountCents / 100,
+  );
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Your Intahe refund confirmation',
+      html: `<p>Your refund has been processed.</p>
+<p>Order reference: <strong>${orderId}</strong></p>
+<p>Amount refunded: <strong>${formattedAmount}</strong></p>
+<p>Refunds typically appear on your original payment method within 5-10 business days, depending on your bank.</p>`,
+    });
+  } catch (err) {
+    console.error('Failed to send refund confirmation email:', err);
   }
 }

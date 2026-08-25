@@ -8,6 +8,20 @@
 
   var ticketTypes = [];
   var selectedTypeId = null;
+  var currentEvent = null;
+
+  // Mirrors src/utils/commissionGrid.ts and src/utils/fees.ts exactly —
+  // there is no server round-trip while the organizer is still typing a
+  // price, so the estimate shown here has to compute the same numbers the
+  // backend will actually charge.
+  function estimateTicketCommissionCents(priceCents) {
+    if (priceCents <= 0) return 0;
+    var raw = Math.round((priceCents * 300) / 10000);
+    return Math.min(499, Math.max(49, raw));
+  }
+  function estimateStripeFeeCents(subtotalCents) {
+    return subtotalCents === 0 ? 0 : Math.round(subtotalCents * 0.029 + 30);
+  }
 
   function formatPrice(cents, currency) {
     return new Intl.NumberFormat(window.intaheLocaleTag(), { style: 'currency', currency: currency.toUpperCase() }).format(
@@ -53,6 +67,7 @@
 
   function render(event) {
     container.textContent = '';
+    currentEvent = event;
 
     var headerRow = document.createElement('div');
     headerRow.className = 'row';
@@ -184,6 +199,7 @@
       '<div class="field"><label for="type-price">' +
       t('manage_event.ticket_price_label') +
       '</label><input id="type-price" type="text" inputmode="decimal" required /></div>' +
+      '<p id="type-price-estimate" class="small text-secondary"></p>' +
       '<div class="field"><label for="type-quantity">' +
       t('manage_event.ticket_quantity_label') +
       '</label><input id="type-quantity" type="number" min="1" required /></div>' +
@@ -197,6 +213,30 @@
       '</button>' +
       '</div>';
     container.appendChild(form);
+
+    var priceInput = form.querySelector('#type-price');
+    var priceEstimate = form.querySelector('#type-price-estimate');
+    priceInput.addEventListener('input', function () {
+      var priceCents = Math.round(Number(priceInput.value.replace(',', '.')) * 100);
+      if (!Number.isFinite(priceCents) || priceCents < 0) {
+        priceEstimate.textContent = '';
+        return;
+      }
+      if (priceCents === 0) {
+        priceEstimate.textContent = t('manage_event.price_estimate_free');
+        return;
+      }
+      var commissionCents = estimateTicketCommissionCents(priceCents);
+      var stripeFeeCents = estimateStripeFeeCents(priceCents);
+      var absorbed = Boolean(currentEvent && currentEvent.fees_absorbed_by_organizer);
+      var netCents = absorbed ? priceCents - stripeFeeCents - commissionCents : priceCents;
+      priceEstimate.textContent = t('manage_event.price_estimate', {
+        commission: formatPrice(commissionCents, 'cad'),
+        stripe_fee: formatPrice(stripeFeeCents, 'cad'),
+        net: formatPrice(netCents, 'cad'),
+      });
+      priceEstimate.className = netCents < 0 ? 'small error' : 'small text-secondary';
+    });
 
     addBtn.addEventListener('click', function () {
       addBtn.style.display = 'none';
