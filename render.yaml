@@ -49,6 +49,8 @@ services:
         value: 7d
       - key: PASSWORD_RESET_TOKEN_TTL_MINUTES
         value: '30'
+      - key: ORDER_RESERVATION_TTL_MINUTES
+        value: '20'
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
@@ -93,6 +95,8 @@ services:
         value: 7d
       - key: PASSWORD_RESET_TOKEN_TTL_MINUTES
         value: '30'
+      - key: ORDER_RESERVATION_TTL_MINUTES
+        value: '20'
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET

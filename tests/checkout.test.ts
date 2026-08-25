@@ -206,6 +206,62 @@ describe('POST /v1/events/:eventId/orders (checkout)', () => {
     expect(res.body.error.code).toBe('mixed_currency_order');
   });
 
+  it('releases an abandoned reservation past its expiry and lets a new order use the freed inventory', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      quantity_total: 1,
+    });
+
+    const first = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({ buyer_email: 'abandoned@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
+    expect(first.status).toBe(201);
+
+    // Simulate an abandoned checkout: the reservation's deadline has passed.
+    await pool.query(`UPDATE orders SET reservation_expires_at = now() - interval '1 minute' WHERE id = $1`, [
+      first.body.order.id,
+    ]);
+
+    const second = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({ buyer_email: 'newbuyer@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
+
+    expect(second.status).toBe(201);
+
+    const firstOrderRow = await pool.query('SELECT status FROM orders WHERE id = $1', [first.body.order.id]);
+    expect(firstOrderRow.rows[0].status).toBe('expired');
+
+    // Only the second order's reservation remains — the first's was given back.
+    const ttRow = await pool.query('SELECT quantity_sold FROM ticket_types WHERE id = $1', [ticketType.id]);
+    expect(ttRow.rows[0].quantity_sold).toBe(1);
+  });
+
+  it('does not release a reservation that has not expired yet', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      quantity_total: 1,
+    });
+
+    const first = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({ buyer_email: 'a@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
+    expect(first.status).toBe(201);
+
+    const second = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({ buyer_email: 'b@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
+
+    expect(second.status).toBe(409);
+    expect(second.body.error.code).toBe('ticket_sold_out');
+
+    const firstOrderRow = await pool.query('SELECT status FROM orders WHERE id = $1', [first.body.order.id]);
+    expect(firstOrderRow.rows[0].status).toBe('pending');
+  });
+
   it('rejects a ticket_type_id that does not belong to the event', async () => {
     const fixtureA = await createOrgAndPublishedEvent(app);
     const fixtureB = await createOrgAndPublishedEvent(app);

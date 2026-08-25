@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type Stripe from 'stripe';
 import { env } from '../../config/env';
 import { pool } from '../../config/database';
+import { releaseOrderByPaymentIntentId, reReserveAfterLatePayment } from '../checkout/orderReleaseService';
 import { sendEmail } from '../email/emailClient';
 import { retrieveAccount } from '../stripe/stripeConnect';
 import type { OrderLineItemRow, OrderRow } from '../../types/db';
@@ -23,6 +24,18 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     await markOrderPaidAndIssueTickets(paymentIntent.id);
     return;
   }
+  // Released immediately rather than waiting for the reservation to time
+  // out, once Stripe has told us the payment isn't happening. For
+  // payment_failed specifically, the same PaymentIntent can still be
+  // retried with a different card — released eagerly anyway, and if that
+  // retry later succeeds, markOrderPaidAndIssueTickets's payment-always-
+  // wins handling re-reserves the inventory rather than ever refusing a
+  // confirmed payment.
+  if (event.type === 'payment_intent.canceled' || event.type === 'payment_intent.payment_failed') {
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    await releaseOrderByPaymentIntentId(paymentIntent.id);
+    return;
+  }
   if (event.type === 'account.updated') {
     const account = event.data.object as Stripe.Account;
     await syncConnectedAccountChargesEnabled(account.id, Boolean(account.charges_enabled));
@@ -37,9 +50,7 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     await syncConnectedAccountChargesEnabled(account.id, Boolean(account.charges_enabled));
     return;
   }
-  // Other event types (e.g. payment_intent.payment_failed) are acknowledged
-  // but intentionally ignored: the orders.status enum has no "failed" state
-  // in this schema, so a failed attempt just leaves the order pending.
+  // Other event types are acknowledged but intentionally ignored.
 }
 
 // Stripe recommends syncing charges_enabled from this webhook rather than
@@ -76,6 +87,15 @@ async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<vo
       // Stripe may deliver the same webhook event more than once.
       await client.query('ROLLBACK');
       return;
+    }
+
+    // Payment always wins: this order's reservation may have already been
+    // released (timed out, or an earlier payment_intent.payment_failed on
+    // the same PaymentIntent) before this success arrived — Stripe has
+    // already moved real money, so the sale is honored regardless, and the
+    // ticket types' quantity_sold must be corrected back up to reflect it.
+    if (order.status === 'expired') {
+      await reReserveAfterLatePayment(client, order.id);
     }
 
     await client.query(`UPDATE orders SET status = 'paid' WHERE id = $1`, [order.id]);

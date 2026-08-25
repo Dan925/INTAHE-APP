@@ -258,6 +258,26 @@ ever held for an order that never got a PaymentIntent. `ticket_sold_out` is
 returned when demand exceeds supply, matching the brief's exact error format
 example.
 
+### Reservation expiry (implemented)
+
+A `pending` order's reservation isn't held forever: `orders.reservation_expires_at`
+is set at creation (`ORDER_RESERVATION_TTL_MINUTES`, default 20) and released —
+`quantity_sold` decremented, order moved to `expired` — either lazily (right
+before `reserveInventory` reserves capacity for a *new* order on the same
+ticket type, scoped to just that ticket type, inside the same transaction —
+no cron/`setInterval` in the web process) or immediately on
+`payment_intent.canceled`/`payment_intent.payment_failed`. **Payment always
+wins**: if `payment_intent.succeeded` arrives for an order that already
+expired (the sweep or a `payment_failed` on a retried PaymentIntent beat it),
+`markOrderPaidAndIssueTickets` re-increments `quantity_sold` before marking
+it paid — a confirmed payment is never refused because its reservation
+lapsed in the meantime. See `src/services/checkout/orderReleaseService.ts`.
+
+Operational note: `payment_intent.canceled` and `payment_intent.payment_failed`
+need to actually be subscribed to on the Stripe Dashboard's Event
+Destination(s) for this to fire in production — same step as when
+`payment_intent.succeeded`/`account.updated` were first configured.
+
 Two tables exist beyond the brief's core schema, both required to make the
 above work: `password_reset_tokens` (auth) and `order_line_items`, which
 records what was purchased before any `tickets` row exists (needed because

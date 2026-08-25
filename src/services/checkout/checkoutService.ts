@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { pool } from '../../config/database';
+import { computeReservationExpiry, releaseExpiredReservations } from './orderReleaseService';
 import { createPaymentIntent, retrievePaymentIntent } from '../stripe/stripePayments';
 import { ApiError } from '../../utils/errors';
 import { computeOrderFees } from '../../utils/fees';
@@ -75,6 +76,15 @@ async function reserveInventory(
   let totalQuantity = 0;
   let currency: string | null = null;
   const lines: ReservedLine[] = [];
+
+  // Release any abandoned reservations on exactly the ticket types this
+  // order needs, in the same transaction, before attempting to reserve —
+  // so a checkout doesn't fail as falsely sold out just because earlier
+  // abandoned carts are still holding capacity nothing will ever pay for.
+  await releaseExpiredReservations(
+    client,
+    [...new Set(lineItems.map((item) => item.ticket_type_id))],
+  );
 
   for (const item of lineItems) {
     if (!Number.isInteger(item.quantity) || item.quantity < 1) {
@@ -204,9 +214,10 @@ export async function createOrder(
     const orderResult = await client.query<OrderRow>(
       `INSERT INTO orders (
          event_id, buyer_user_id, buyer_email, subtotal_cents, stripe_fee_cents,
-         intahe_fee_cents, total_cents, status, idempotency_key, idempotency_request_hash
+         intahe_fee_cents, total_cents, status, idempotency_key, idempotency_request_hash,
+         reservation_expires_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10)
        RETURNING *`,
       [
         eventId,
@@ -218,6 +229,7 @@ export async function createOrder(
         totalCents,
         idempotencyKey,
         requestHash,
+        computeReservationExpiry(),
       ],
     );
     const order = orderResult.rows[0];

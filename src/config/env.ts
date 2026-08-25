@@ -8,6 +8,11 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
   JWT_EXPIRES_IN: z.string().default('7d'),
   PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce.number().default(30),
+  // How long a pending order holds its ticket-type inventory before the
+  // reservation is released back for someone else to buy. Long enough for
+  // a buyer to enter card details, short enough that abandoned checkouts
+  // don't hold real capacity hostage.
+  ORDER_RESERVATION_TTL_MINUTES: z.coerce.number().default(20),
   // Placeholders let the app boot without real Stripe credentials; the
   // Stripe SDK requires a non-empty string but nothing calls the real API
   // until a genuine sk_test_/whsec_ value is configured.

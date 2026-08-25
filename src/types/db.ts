@@ -82,7 +82,7 @@ export interface TicketTypeRow {
   created_at: Date;
 }
 
-export type OrderStatus = 'pending' | 'paid' | 'refunded' | 'partial_refund';
+export type OrderStatus = 'pending' | 'paid' | 'refunded' | 'partial_refund' | 'expired';
 
 export interface OrderRow {
   id: string;
@@ -97,6 +97,7 @@ export interface OrderRow {
   status: OrderStatus;
   idempotency_key: string | null;
   idempotency_request_hash: string | null;
+  reservation_expires_at: Date | null;
   created_at: Date;
 }
 
