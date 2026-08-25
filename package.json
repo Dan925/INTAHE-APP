@@ -14,7 +14,8 @@
     "migrate:up": "node-pg-migrate up -m src/db/migrations",
     "migrate:down": "node-pg-migrate down -m src/db/migrations",
     "migrate:create": "node-pg-migrate create -m src/db/migrations",
-    "backfill:payout-schedule": "tsx src/scripts/backfillManualPayoutSchedule.ts"
+    "backfill:payout-schedule": "tsx src/scripts/backfillManualPayoutSchedule.ts",
+    "audit:connected-accounts": "tsx src/scripts/auditConnectedAccounts.ts"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

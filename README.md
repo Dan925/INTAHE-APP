@@ -540,6 +540,12 @@ concept of "Intahe staff" at all.
   is treated as settled — the two settings are documented somewhat
   independently and their interaction under this specific combination
   isn't fully verifiable from the API reference alone.
+  **`npm run audit:connected-accounts`** (`src/scripts/auditConnectedAccounts.ts`)
+  checks this — and every other value on this list — against real
+  connected accounts via a read-only Stripe API call, printing the
+  *observed* value per organization rather than the documented default.
+  Run it before treating any line in this section as settled for accounts
+  that actually exist.
 - **Dispute/litigation webhooks (`charge.dispute.created`,
   `dispute.closed`) and refunds issued outside this application
   (`charge.refunded`) are explicitly out of scope for this migration** —
