@@ -1067,14 +1067,17 @@ vs. a $1.00 floor's thin $0.18 (18%) margin, which wouldn't survive a
 routine Stripe fee adjustment. It doesn't constrain this platform's actual
 segment (concerts, galas, tables typically $15-40+).
 
-`manageEventPage.js` mirrors this exact figure client-side (hardcoded, not
-fetched — there's no round-trip on keystroke) both in the live per-keystroke
-estimate and in the submit-time error, and the FR/EN copy
+`GET /v1/config` (deliberately unauthenticated — nothing here is sensitive)
+exposes `min_ticket_price_cents`, and `manageEventPage.js` fetches it on
+load rather than hardcoding the figure, so the number shown while typing
+and in the submit-time error always tracks the real
+`MIN_TICKET_PRICE_CENTS`, not a copy that can drift. The FR/EN copy
 (`manage_event.price_below_minimum`/`price_below_minimum_error` in
-`i18n.js`) also hardcodes "$2.00"/"2,00 $". If `MIN_TICKET_PRICE_CENTS` is
-ever changed, both of those need to be updated by hand — a documented
-coupling, not an automated one, same convention as the `quantity_sold`
-trigger bound vs. `MAX_QUANTITY_PER_ORDER` elsewhere in this codebase.
+`i18n.js`) interpolates that fetched value too (`{{minimum}}`), so there's
+no dollar figure hardcoded in translation strings either — the price field
+falls back to the compiled-in default of 200 only for the brief window
+before that fetch resolves.
+
 - **`orgOrdersPage.js`** — a full refund flow per order: choose full or
   partial amount, a required reason presented in plain language ("I'm
   cancelling the event" / "I'm postponing the event" / "The buyer

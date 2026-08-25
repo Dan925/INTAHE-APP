@@ -22,14 +22,14 @@
   function estimateStripeFeeCents(subtotalCents) {
     return subtotalCents === 0 ? 0 : Math.round(subtotalCents * 0.029 + 30);
   }
-  // Mirrors env.ts's MIN_TICKET_PRICE_CENTS default. A paid ticket below
-  // this is rejected server-side (ticket_price_below_minimum) — this
-  // constant only drives the proactive warning shown while typing; the
-  // server is still the authority. Hardcoded rather than fetched because
-  // there is no server round-trip on keystroke; if the env default ever
-  // changes, this and the price_below_minimum* i18n copy must be updated
-  // by hand too (see env.ts's comment on MIN_TICKET_PRICE_CENTS).
-  var MIN_TICKET_PRICE_CENTS = 200;
+  // Fetched from GET /v1/config on load (see load() below) rather than
+  // hardcoded, so this always matches the real env.ts MIN_TICKET_PRICE_CENTS
+  // — a paid ticket below it is rejected server-side either way
+  // (ticket_price_below_minimum), this only drives the proactive warning
+  // shown while the organizer is still typing, before that round-trip. 200
+  // is a fallback for the brief window before /v1/config resolves, matching
+  // env.ts's own default — not a second source of truth to keep in sync.
+  var minTicketPriceCents = 200;
 
   function formatPrice(cents, currency) {
     return new Intl.NumberFormat(window.intaheLocaleTag(), { style: 'currency', currency: currency.toUpperCase() }).format(
@@ -61,10 +61,19 @@
     Promise.all([
       api('/v1/organizations/' + orgId + '/events/' + eventId),
       api('/v1/organizations/' + orgId + '/events/' + eventId + '/ticket-types'),
+      // Best-effort: a failure here falls back to minTicketPriceCents's
+      // existing value rather than failing the whole page load — the
+      // organizer can still manage the event even if this one read fails.
+      api('/v1/config').catch(function () {
+        return null;
+      }),
     ])
       .then(function (results) {
         document.title = results[0].event.name + ' — Intahe';
         ticketTypes = results[1].items;
+        if (results[2] && typeof results[2].min_ticket_price_cents === 'number') {
+          minTicketPriceCents = results[2].min_ticket_price_cents;
+        }
         render(results[0].event);
       })
       .catch(function () {
@@ -239,9 +248,9 @@
       // alongside it): the organizer's transparency argument is that this
       // appears the instant it's true, from the very first digit typed,
       // not only once they try to submit.
-      if (priceCents < MIN_TICKET_PRICE_CENTS) {
+      if (priceCents < minTicketPriceCents) {
         priceEstimate.textContent = t('manage_event.price_below_minimum', {
-          minimum: formatPrice(MIN_TICKET_PRICE_CENTS, 'cad'),
+          minimum: formatPrice(minTicketPriceCents, 'cad'),
         });
         priceEstimate.className = 'small error';
         return;
@@ -276,10 +285,10 @@
       if (!Number.isFinite(priceCents) || priceCents < 0 || !Number.isInteger(quantityTotal) || quantityTotal < 1) {
         return;
       }
-      if (priceCents > 0 && priceCents < MIN_TICKET_PRICE_CENTS) {
+      if (priceCents > 0 && priceCents < minTicketPriceCents) {
         showError(
           typeError,
-          t('manage_event.price_below_minimum_error', { minimum: formatPrice(MIN_TICKET_PRICE_CENTS, 'cad') }),
+          t('manage_event.price_below_minimum_error', { minimum: formatPrice(minTicketPriceCents, 'cad') }),
         );
         return;
       }
@@ -305,7 +314,7 @@
           } else if (err && err.code === 'ticket_price_below_minimum') {
             showError(
               typeError,
-              t('manage_event.price_below_minimum_error', { minimum: formatPrice(MIN_TICKET_PRICE_CENTS, 'cad') }),
+              t('manage_event.price_below_minimum_error', { minimum: formatPrice(minTicketPriceCents, 'cad') }),
             );
           } else {
             showError(typeError, (err && err.message) || t('manage_event.create_ticket_type_error'));

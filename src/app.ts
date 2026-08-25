@@ -15,6 +15,7 @@ import meRouter from './routes/v1/me';
 import organizationMembersRouter from './routes/v1/organizationMembers';
 import organizationsRouter from './routes/v1/organizations';
 import ordersRouter from './routes/v1/orders';
+import publicConfigRouter from './routes/v1/publicConfig';
 import stripeConnectRouter from './routes/v1/stripeConnect';
 import stripeWebhookRouter from './routes/v1/stripeWebhook';
 import ticketTypesRouter from './routes/v1/ticketTypes';
@@ -67,6 +68,7 @@ export function createApp() {
 
   app.use('/v1/admin', adminRouter);
   app.use('/v1/auth', authRouter);
+  app.use('/v1/config', publicConfigRouter);
   app.use('/v1/discover', discoverRouter);
   app.use('/v1/me', meRouter);
   app.use('/v1/organizations', organizationsRouter);
