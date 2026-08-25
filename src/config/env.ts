@@ -78,6 +78,25 @@ const envSchema = z.object({
   // are frontend routes — placeholders until a frontend exists to own them.
   STRIPE_CONNECT_REFRESH_URL: z.string().url().default('http://localhost:3000/stripe/connect/refresh'),
   STRIPE_CONNECT_RETURN_URL: z.string().url().default('http://localhost:3000/stripe/connect/return'),
+  // How long after an event's end_at its organizer's Stripe balance stays
+  // untouched before the platform triggers a Payout — the deferred-payout
+  // guarantee shown on the organizer dashboard ("48h after the event
+  // ends"). Connected accounts are set to a manual payout schedule
+  // specifically so nothing pays out before this worker decides to.
+  PAYOUT_DELAY_HOURS: z.coerce.number().default(48),
+  // How often the in-process payout worker (src/index.ts) checks for
+  // events whose payout delay has elapsed. Independent of
+  // PAYOUT_DELAY_HOURS: this just bounds how late a due payout can be
+  // noticed, not how long funds are held.
+  PAYOUT_WORKER_INTERVAL_MS: z.coerce.number().default(60 * 60 * 1000),
+  // Orders at or above this amount request 3D Secure step-up authentication
+  // explicitly (payment_method_options.card.request_three_d_secure = 'any')
+  // instead of leaving it to Stripe's automatic, risk-based decision — a
+  // higher-value order is a more attractive chargeback target, so it's
+  // worth the extra friction. $150 is a starting point that clears a
+  // typical single-ticket purchase (this platform's target segment sells
+  // $25-100 tickets) while still catching most multi-ticket/table orders.
+  THREE_D_SECURE_THRESHOLD_CENTS: z.coerce.number().default(15_000),
   // Comma-separated: the mobile app's iOS/Android OAuth client ID(s) plus
   // any web client ID, all valid `aud` claims for tokens we should accept.
   GOOGLE_OAUTH_CLIENT_IDS: z.string().min(1).default('placeholder.apps.googleusercontent.com'),

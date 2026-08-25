@@ -41,6 +41,11 @@ router.get(
 const refundSchema = z.object({
   // Omit for a full refund of the remaining refundable balance.
   amount_cents: z.number().int().min(1).optional(),
+  // Required, never inferred from event status or anything else — this is
+  // the recorded reason future accounting reconciles against, and it
+  // decides whether Intahe's commission is reversed to the buyer (see
+  // orderService.shouldReverseApplicationFee).
+  reason: z.enum(['organizer_cancellation', 'buyer_request', 'event_postponed']),
 });
 
 router.post(
@@ -55,6 +60,7 @@ router.post(
       eventId,
       req.params['orderId']!,
       req.body.amount_cents,
+      req.body.reason,
     );
     res.status(200).json({ order });
   }),

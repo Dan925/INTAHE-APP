@@ -178,7 +178,7 @@ describe('account.updated webhook', () => {
   });
 });
 
-describe('checkout only uses a destination charge once charges_enabled is true', () => {
+describe('checkout only uses a direct charge once charges_enabled is true', () => {
   it('falls back to a platform charge while onboarding is incomplete', async () => {
     const fixture = await createOrgAndPublishedEvent(app);
     await request(app)
@@ -195,11 +195,11 @@ describe('checkout only uses a destination charge once charges_enabled is true',
       .send({ buyer_email: 'buyer@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
 
     expect(mockCreatePaymentIntent).toHaveBeenCalledWith(
-      expect.objectContaining({ destinationAccountId: null, applicationFeeCents: undefined }),
+      expect.objectContaining({ connectedAccountId: null, applicationFeeCents: undefined }),
     );
   });
 
-  it('uses a destination charge once the connected account is charges_enabled', async () => {
+  it('uses a direct charge once the connected account is charges_enabled', async () => {
     const fixture = await createOrgAndPublishedEvent(app);
     const orgRes = await request(app)
       .post(`/v1/organizations/${fixture.organization.id}/stripe/onboarding-link`)
@@ -222,7 +222,7 @@ describe('checkout only uses a destination charge once charges_enabled is true',
       .send({ buyer_email: 'buyer@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
 
     expect(mockCreatePaymentIntent).toHaveBeenCalledWith(
-      expect.objectContaining({ destinationAccountId: stripeAccountId }),
+      expect.objectContaining({ connectedAccountId: stripeAccountId }),
     );
   });
 });

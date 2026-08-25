@@ -89,7 +89,7 @@ describe('GET /v1/organizations/:organizationId/dashboard', () => {
       .set('Authorization', `Bearer ${fixture.owner.accessToken}`);
 
     expect(res.status).toBe(200);
-    const expectedFees = computeOrderFees(5000, 2, false);
+    const expectedFees = computeOrderFees([{ priceCents: 2500, quantity: 2 }], false);
     expect(res.body.totals).toMatchObject({
       orders_paid_count: 1,
       tickets_sold: 2,
@@ -119,7 +119,7 @@ describe('GET /v1/organizations/:organizationId/dashboard', () => {
       .get(`/v1/organizations/${fixture.organization.id}/dashboard`)
       .set('Authorization', `Bearer ${fixture.owner.accessToken}`);
 
-    const expectedFees = computeOrderFees(2500, 1, true);
+    const expectedFees = computeOrderFees([{ priceCents: 2500, quantity: 1 }], true);
     expect(res.body.totals.gross_ticket_revenue_cents).toBe(2500);
     expect(res.body.totals.net_revenue_cents).toBe(2500 - expectedFees.stripeFeeCents - expectedFees.intaheFeeCents);
     expect(res.body.totals.net_revenue_cents).toBeLessThan(res.body.totals.gross_ticket_revenue_cents);

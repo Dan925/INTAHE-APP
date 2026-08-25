@@ -235,6 +235,42 @@ describe('POST /v1/stripe/webhook', () => {
     expect(finalTicketType.rows[0].quantity_sold).toBe(2);
   });
 
+  it('payment always wins even when the event arrives scoped to a connected account (direct-charge shape)', async () => {
+    // Under direct charges, payment_intent.* events fire on the connected
+    // account rather than the platform — Stripe includes the connected
+    // account id as a top-level `account` field on the event envelope
+    // (see the Stripe Dashboard reconfiguration runbook). handleStripeEvent
+    // looks the order up by PaymentIntent id alone and never reads
+    // event.account, so this must behave identically to the platform-scoped
+    // case above — this test exists specifically to pin that down, since a
+    // future change that started filtering on event.account could silently
+    // stop the late-payment path from firing for direct-charge orders.
+    const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
+    const { order, ticketType } = await createPendingOrder(paymentIntentId);
+
+    await releaseOrderByPaymentIntentId(paymentIntentId);
+    const releasedOrder = await pool.query('SELECT status FROM orders WHERE id = $1', [order.id]);
+    expect(releasedOrder.rows[0].status).toBe('expired');
+
+    const res = await signedWebhookRequest({
+      id: `evt_${crypto.randomBytes(6).toString('hex')}`,
+      object: 'event',
+      type: 'payment_intent.succeeded',
+      account: 'acct_test_connected_scope',
+      data: { object: { id: paymentIntentId } },
+    });
+
+    expect(res.status).toBe(200);
+    const finalOrder = await pool.query('SELECT status FROM orders WHERE id = $1', [order.id]);
+    expect(finalOrder.rows[0].status).toBe('paid');
+    const tickets = await pool.query('SELECT id FROM tickets WHERE order_id = $1', [order.id]);
+    expect(tickets.rows).toHaveLength(2);
+    const finalTicketType = await pool.query('SELECT quantity_sold FROM ticket_types WHERE id = $1', [
+      ticketType.id,
+    ]);
+    expect(finalTicketType.rows[0].quantity_sold).toBe(2);
+  });
+
   it('never releases an order that has already been paid, even past its reservation expiry', async () => {
     const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
     const { order, ticketType } = await createPendingOrder(paymentIntentId);

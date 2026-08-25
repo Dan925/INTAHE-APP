@@ -5,7 +5,31 @@ import { computeReservationExpiry, releaseExpiredReservations } from './orderRel
 import { createPaymentIntent, retrievePaymentIntent } from '../stripe/stripePayments';
 import { ApiError } from '../../utils/errors';
 import { computeOrderFees } from '../../utils/fees';
-import type { EventRow, OrderRow, OrganizationRow, TicketTypeRow } from '../../types/db';
+import type { EventRow, OrderRow, OrganizationRow, StripeChargeMode, TicketTypeRow } from '../../types/db';
+
+/**
+ * Only a 'direct' charge's PaymentIntent lives in the connected account's
+ * own Stripe context — 'platform' orders never touched Connect at all, and
+ * 'destination' orders (legacy, pre-migration) had their PaymentIntent
+ * created on the *platform* account with transfer_data pointing at the
+ * connected account, so retrieving/refunding them is also a plain
+ * platform-context call. Getting this wrong for a 'destination' order would
+ * mean asking Stripe for a PaymentIntent inside an account that never had
+ * it — a 404, not a stale value.
+ */
+async function connectedAccountIdForOrder(order: OrderRow): Promise<string | null> {
+  if (order.stripe_charge_mode !== 'direct') {
+    return null;
+  }
+  const result = await pool.query<{ stripe_account_id: string | null }>(
+    `SELECT org.stripe_account_id
+     FROM events e
+     JOIN organizations org ON org.id = e.organization_id
+     WHERE e.id = $1`,
+    [order.event_id],
+  );
+  return result.rows[0]?.stripe_account_id ?? null;
+}
 
 export interface CheckoutLineItemInput {
   ticket_type_id: string;
@@ -168,9 +192,13 @@ export async function createOrder(
         'Idempotency-Key',
       );
     }
-    const clientSecret = existingOrder.stripe_payment_intent_id
-      ? (await retrievePaymentIntent(existingOrder.stripe_payment_intent_id)).client_secret
-      : null;
+    let clientSecret: string | null = null;
+    if (existingOrder.stripe_payment_intent_id) {
+      const connectedAccountId = await connectedAccountIdForOrder(existingOrder);
+      clientSecret = (
+        await retrievePaymentIntent(existingOrder.stripe_payment_intent_id, connectedAccountId)
+      ).client_secret;
+    }
     return { order: toPublicOrder(existingOrder), client_secret: clientSecret };
   }
 
@@ -199,17 +227,23 @@ export async function createOrder(
       throw new ApiError(404, 'event_not_found', 'Event not found.', null);
     }
 
-    const { subtotalCents, totalQuantity, currency, lines } = await reserveInventory(
+    const { subtotalCents, currency, lines } = await reserveInventory(
       client,
       eventId,
       input.line_items,
     );
 
     const { stripeFeeCents, intaheFeeCents, totalCents } = computeOrderFees(
-      subtotalCents,
-      totalQuantity,
+      lines.map((line) => ({ priceCents: line.priceCents, quantity: line.quantity })),
       event.fees_absorbed_by_organizer,
     );
+
+    // A connected account existing isn't enough — onboarding can be started
+    // and abandoned. Only route funds to it once Stripe has confirmed via
+    // account.updated that it can actually accept charges; otherwise fall
+    // back to a plain platform charge (the brief's allowed simplified mode).
+    const canUseDirectCharge = Boolean(organization.stripe_account_id) && organization.stripe_charges_enabled;
+    const stripeChargeMode: StripeChargeMode = canUseDirectCharge ? 'direct' : 'platform';
 
     // ticket_access_token_hash is deliberately NOT set here: the token it
     // guards is proof that tickets belonging to this order can be viewed,
@@ -221,9 +255,9 @@ export async function createOrder(
       `INSERT INTO orders (
          event_id, buyer_user_id, buyer_email, subtotal_cents, stripe_fee_cents,
          intahe_fee_cents, total_cents, status, idempotency_key, idempotency_request_hash,
-         reservation_expires_at
+         reservation_expires_at, stripe_charge_mode
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10, $11)
        RETURNING *`,
       [
         eventId,
@@ -236,6 +270,7 @@ export async function createOrder(
         idempotencyKey,
         requestHash,
         computeReservationExpiry(),
+        stripeChargeMode,
       ],
     );
     const order = orderResult.rows[0];
@@ -251,18 +286,13 @@ export async function createOrder(
       );
     }
 
-    // A connected account existing isn't enough — onboarding can be started
-    // and abandoned. Only route funds to it once Stripe has confirmed via
-    // account.updated that it can actually accept charges; otherwise fall
-    // back to a plain platform charge (the brief's allowed simplified mode).
-    const canUseDestinationCharge = Boolean(organization.stripe_account_id) && organization.stripe_charges_enabled;
-
     const paymentIntent = await createPaymentIntent({
       amountCents: totalCents,
       currency,
       orderId: order.id,
-      destinationAccountId: canUseDestinationCharge ? organization.stripe_account_id : null,
-      applicationFeeCents: canUseDestinationCharge ? intaheFeeCents : undefined,
+      connectedAccountId: canUseDirectCharge ? organization.stripe_account_id : null,
+      applicationFeeCents: canUseDirectCharge ? intaheFeeCents : undefined,
+      eventName: event.name,
     });
 
     const updatedOrderResult = await client.query<OrderRow>(

@@ -2,7 +2,19 @@ import { pool } from '../../config/database';
 import { createRefund } from '../stripe/stripeRefunds';
 import { ApiError } from '../../utils/errors';
 import { buildPage, decodeCursor, encodeCursor, type CursorPage } from '../../utils/pagination';
-import type { OrderRow, OrganizationRow, TicketRow } from '../../types/db';
+import type { OrderRow, OrganizationRow, RefundReason, TicketRow } from '../../types/db';
+
+// The one place this decision is made: whether a refund reverses Intahe's
+// application fee back to the buyer depends only on *why* the order is
+// being refunded, never on how much is being refunded or which charge mode
+// the order used. Per the brief: the organizer cancelling (or postponing,
+// treated the same way) means the service Intahe was paid for didn't
+// happen, so its fee goes back too; a refund the *buyer* asked for — full
+// or partial — means the service (running the checkout, holding the seat)
+// was rendered, so the fee stands regardless of refund size.
+function shouldReverseApplicationFee(reason: RefundReason): boolean {
+  return reason === 'organizer_cancellation' || reason === 'event_postponed';
+}
 
 export interface PublicOrder {
   id: string;
@@ -110,6 +122,7 @@ export async function refundOrder(
   eventId: string,
   orderId: string,
   amountCents: number | undefined,
+  reason: RefundReason,
 ): Promise<PublicOrder> {
   const client = await pool.connect();
   try {
@@ -155,29 +168,37 @@ export async function refundOrder(
       );
     }
 
+    // order.stripe_charge_mode is written once at order creation and never
+    // changed afterwards (see checkoutService.createOrder) — refunding by
+    // its recorded mode, rather than the organization's *current* Connect
+    // state, is what keeps a refund on an old order correct even after the
+    // organization's connected account status has moved on since.
     const orgResult = await client.query<OrganizationRow>(`SELECT * FROM organizations WHERE id = $1`, [
       organizationId,
     ]);
     const org = orgResult.rows[0];
-    const reverseTransfer = Boolean(org?.stripe_account_id) && Boolean(org?.stripe_charges_enabled);
+    const connectedAccountId = order.stripe_charge_mode === 'direct' ? (org?.stripe_account_id ?? null) : null;
+    const refundApplicationFee = shouldReverseApplicationFee(reason);
 
     const refund = await createRefund({
       paymentIntentId: order.stripe_payment_intent_id,
       amountCents: requested,
-      reverseTransfer,
+      chargeMode: order.stripe_charge_mode,
+      connectedAccountId,
+      refundApplicationFee,
     });
 
     await client.query(
-      `INSERT INTO transactions (order_id, type, amount_cents, stripe_object_id, occurred_at)
-       VALUES ($1, 'refund', $2, $3, now())`,
-      [orderId, requested, refund.id],
+      `INSERT INTO transactions (order_id, type, amount_cents, stripe_object_id, application_fee_refunded, occurred_at)
+       VALUES ($1, 'refund', $2, $3, $4, now())`,
+      [orderId, requested, refund.id, refundApplicationFee],
     );
 
     const newStatus = remaining - requested === 0 ? 'refunded' : 'partial_refund';
-    const updateResult = await client.query<OrderRow>(`UPDATE orders SET status = $2 WHERE id = $1 RETURNING *`, [
-      orderId,
-      newStatus,
-    ]);
+    const updateResult = await client.query<OrderRow>(
+      `UPDATE orders SET status = $2, refund_reason = $3 WHERE id = $1 RETURNING *`,
+      [orderId, newStatus, reason],
+    );
     const updated = updateResult.rows[0];
     if (!updated) {
       throw new Error('Update to orders did not return a row.');

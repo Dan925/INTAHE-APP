@@ -84,6 +84,12 @@ export interface TicketTypeRow {
 
 export type OrderStatus = 'pending' | 'paid' | 'refunded' | 'partial_refund' | 'expired';
 
+// 'destination' only ever appears on orders created before the direct-charge
+// migration — see 1787680100000_add-stripe-charge-mode-and-refund-reason-to-orders.sql.
+export type StripeChargeMode = 'platform' | 'destination' | 'direct';
+
+export type RefundReason = 'organizer_cancellation' | 'buyer_request' | 'event_postponed';
+
 export interface OrderRow {
   id: string;
   event_id: string;
@@ -101,6 +107,8 @@ export interface OrderRow {
   ticket_access_token_hash: string | null;
   tickets_issued_at: Date | null;
   confirmation_token_hash: string | null;
+  stripe_charge_mode: StripeChargeMode;
+  refund_reason: RefundReason | null;
   created_at: Date;
 }
 
@@ -133,5 +141,25 @@ export interface TransactionRow {
   type: TransactionType;
   amount_cents: number;
   stripe_object_id: string | null;
+  // Only meaningful for type === 'refund'; null for 'charge'/'payout' rows.
+  application_fee_refunded: boolean | null;
   occurred_at: Date;
+}
+
+export type OrganizerPayoutStatus = 'pending' | 'succeeded' | 'failed' | 'skipped_no_balance';
+
+export interface OrganizerPayoutRow {
+  id: string;
+  organization_id: string;
+  event_id: string;
+  stripe_account_id: string;
+  scheduled_for: Date;
+  status: OrganizerPayoutStatus;
+  stripe_payout_id: string | null;
+  amount_cents: number | null;
+  currency: string | null;
+  attempted_at: Date | null;
+  error_message: string | null;
+  created_at: Date;
+  updated_at: Date;
 }

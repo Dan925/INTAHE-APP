@@ -62,7 +62,7 @@ describe('POST /v1/events/:eventId/orders (checkout)', () => {
       });
 
     expect(res.status).toBe(201);
-    const expectedFees = computeOrderFees(5000, 2, false);
+    const expectedFees = computeOrderFees([{ priceCents: 2500, quantity: 2 }], false);
     expect(res.body.order).toMatchObject({
       status: 'pending',
       subtotal_cents: 5000,

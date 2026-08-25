@@ -75,6 +75,12 @@ services:
         value: '900000'
       - key: CHECKOUT_RATE_LIMIT_MAX
         value: '20'
+      - key: PAYOUT_DELAY_HOURS
+        value: '48'
+      - key: PAYOUT_WORKER_INTERVAL_MS
+        value: '3600000'
+      - key: THREE_D_SECURE_THRESHOLD_CENTS
+        value: '15000'
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
@@ -145,6 +151,12 @@ services:
         value: '900000'
       - key: CHECKOUT_RATE_LIMIT_MAX
         value: '20'
+      - key: PAYOUT_DELAY_HOURS
+        value: '48'
+      - key: PAYOUT_WORKER_INTERVAL_MS
+        value: '3600000'
+      - key: THREE_D_SECURE_THRESHOLD_CENTS
+        value: '15000'
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET

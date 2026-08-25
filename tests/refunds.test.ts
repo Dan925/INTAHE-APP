@@ -74,6 +74,24 @@ async function purchaseAndConfirm(
 }
 
 describe('POST .../orders/:orderId/refund', () => {
+  it('requires a reason — it is never inferred', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      price_cents: 2500,
+      quantity_total: 10,
+    });
+    const { orderId } = await purchaseAndConfirm(fixture.event.id, ticketType.id, 1);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${orderId}/refund`)
+      .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('validation_error');
+    expect(mockCreateRefund).not.toHaveBeenCalled();
+  });
+
   it('fully refunds an order when no amount_cents is given', async () => {
     const fixture = await createOrgAndPublishedEvent(app);
     const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
@@ -87,19 +105,27 @@ describe('POST .../orders/:orderId/refund', () => {
     const res = await request(app)
       .post(`/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${orderId}/refund`)
       .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
-      .send({});
+      .send({ reason: 'buyer_request' });
 
     expect(res.status).toBe(200);
     expect(res.body.order.status).toBe('refunded');
     expect(mockCreateRefund).toHaveBeenCalledWith(
-      expect.objectContaining({ amountCents: totalCents, reverseTransfer: false }),
+      expect.objectContaining({
+        amountCents: totalCents,
+        chargeMode: 'platform',
+        connectedAccountId: null,
+        refundApplicationFee: false,
+      }),
     );
 
     const txResult = await pool.query(
-      `SELECT type, amount_cents FROM transactions WHERE order_id = $1 AND type = 'refund'`,
+      `SELECT type, amount_cents, application_fee_refunded FROM transactions WHERE order_id = $1 AND type = 'refund'`,
       [orderId],
     );
-    expect(txResult.rows).toEqual([{ type: 'refund', amount_cents: totalCents }]);
+    expect(txResult.rows).toEqual([{ type: 'refund', amount_cents: totalCents, application_fee_refunded: false }]);
+
+    const orderAfter = await pool.query('SELECT refund_reason FROM orders WHERE id = $1', [orderId]);
+    expect(orderAfter.rows[0].refund_reason).toBe('buyer_request');
   });
 
   it('partially refunds, then tops up to a full refund on a second call', async () => {
@@ -116,7 +142,7 @@ describe('POST .../orders/:orderId/refund', () => {
     const firstRes = await request(app)
       .post(`/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${orderId}/refund`)
       .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
-      .send({ amount_cents: partialAmount });
+      .send({ amount_cents: partialAmount, reason: 'buyer_request' });
 
     expect(firstRes.status).toBe(200);
     expect(firstRes.body.order.status).toBe('partial_refund');
@@ -124,7 +150,7 @@ describe('POST .../orders/:orderId/refund', () => {
     const secondRes = await request(app)
       .post(`/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${orderId}/refund`)
       .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
-      .send({});
+      .send({ reason: 'buyer_request' });
 
     expect(secondRes.status).toBe(200);
     expect(secondRes.body.order.status).toBe('refunded');
@@ -144,7 +170,7 @@ describe('POST .../orders/:orderId/refund', () => {
     const res = await request(app)
       .post(`/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${orderId}/refund`)
       .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
-      .send({ amount_cents: 999999 });
+      .send({ amount_cents: 999999, reason: 'buyer_request' });
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('invalid_refund_amount');
@@ -168,7 +194,7 @@ describe('POST .../orders/:orderId/refund', () => {
         `/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${checkoutRes.body.order.id}/refund`,
       )
       .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
-      .send({});
+      .send({ reason: 'buyer_request' });
 
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('order_not_refundable');
@@ -182,18 +208,21 @@ describe('POST .../orders/:orderId/refund', () => {
     });
     const { orderId } = await purchaseAndConfirm(fixture.event.id, ticketType.id, 1);
     const refundUrl = `/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${orderId}/refund`;
-    await request(app).post(refundUrl).set('Authorization', `Bearer ${fixture.owner.accessToken}`).send({});
+    await request(app)
+      .post(refundUrl)
+      .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
+      .send({ reason: 'buyer_request' });
 
     const res = await request(app)
       .post(refundUrl)
       .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
-      .send({});
+      .send({ reason: 'buyer_request' });
 
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('order_not_refundable');
   });
 
-  it('sets reverse_transfer when the organization has a connected, charges-enabled Stripe account', async () => {
+  it('refunds via the connected account (direct charge) when the org is charges-enabled', async () => {
     const fixture = await createOrgAndPublishedEvent(app);
     await pool.query(
       `UPDATE organizations SET stripe_account_id = 'acct_test_123', stripe_charges_enabled = true WHERE id = $1`,
@@ -205,12 +234,49 @@ describe('POST .../orders/:orderId/refund', () => {
     });
     const { orderId } = await purchaseAndConfirm(fixture.event.id, ticketType.id, 1);
 
+    const chargeModeRow = await pool.query('SELECT stripe_charge_mode FROM orders WHERE id = $1', [orderId]);
+    expect(chargeModeRow.rows[0].stripe_charge_mode).toBe('direct');
+
     await request(app)
       .post(`/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${orderId}/refund`)
       .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
-      .send({});
+      .send({ reason: 'organizer_cancellation' });
 
-    expect(mockCreateRefund).toHaveBeenCalledWith(expect.objectContaining({ reverseTransfer: true }));
+    expect(mockCreateRefund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chargeMode: 'direct',
+        connectedAccountId: 'acct_test_123',
+        refundApplicationFee: true,
+      }),
+    );
+  });
+
+  it('refunds a legacy destination-charge order using reverse_transfer, by its recorded charge mode', async () => {
+    // Simulates an order created before the direct-charge migration shipped
+    // — its stripe_charge_mode is 'destination' regardless of the
+    // organization's *current* Connect state, and a refund on it must keep
+    // using the old shape indefinitely (see checkoutService's
+    // connectedAccountIdForOrder and orderService.refundOrder).
+    const fixture = await createOrgAndPublishedEvent(app);
+    await pool.query(
+      `UPDATE organizations SET stripe_account_id = 'acct_legacy_456', stripe_charges_enabled = true WHERE id = $1`,
+      [fixture.organization.id],
+    );
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      price_cents: 2500,
+      quantity_total: 10,
+    });
+    const { orderId } = await purchaseAndConfirm(fixture.event.id, ticketType.id, 1);
+    await pool.query(`UPDATE orders SET stripe_charge_mode = 'destination' WHERE id = $1`, [orderId]);
+
+    await request(app)
+      .post(`/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${orderId}/refund`)
+      .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
+      .send({ reason: 'organizer_cancellation' });
+
+    expect(mockCreateRefund).toHaveBeenCalledWith(
+      expect.objectContaining({ chargeMode: 'destination', connectedAccountId: null, refundApplicationFee: true }),
+    );
   });
 
   it('excludes refunded orders from the dashboard once refunded through this endpoint', async () => {
@@ -229,7 +295,7 @@ describe('POST .../orders/:orderId/refund', () => {
     await request(app)
       .post(`/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${orderId}/refund`)
       .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
-      .send({});
+      .send({ reason: 'buyer_request' });
 
     const afterDashboard = await request(app)
       .get(`/v1/organizations/${fixture.organization.id}/dashboard`)
@@ -254,9 +320,66 @@ describe('POST .../orders/:orderId/refund', () => {
     const res = await request(app)
       .post(`/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${orderId}/refund`)
       .set('Authorization', `Bearer ${staff.accessToken}`)
-      .send({});
+      .send({ reason: 'buyer_request' });
 
     expect(res.status).toBe(403);
     expect(mockCreateRefund).not.toHaveBeenCalled();
+  });
+});
+
+describe('refund reason decides whether Intahe’s commission is reversed', () => {
+  async function setUpPaidOrder(): Promise<{ orgId: string; eventId: string; orderId: string; ownerToken: string }> {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      price_cents: 2500,
+      quantity_total: 10,
+    });
+    const { orderId } = await purchaseAndConfirm(fixture.event.id, ticketType.id, 2);
+    return {
+      orgId: fixture.organization.id,
+      eventId: fixture.event.id,
+      orderId,
+      ownerToken: fixture.owner.accessToken,
+    };
+  }
+
+  async function refund(
+    ctx: { orgId: string; eventId: string; orderId: string; ownerToken: string },
+    body: Record<string, unknown>,
+  ) {
+    return request(app)
+      .post(`/v1/organizations/${ctx.orgId}/events/${ctx.eventId}/orders/${ctx.orderId}/refund`)
+      .set('Authorization', `Bearer ${ctx.ownerToken}`)
+      .send(body);
+  }
+
+  it('organizer_cancellation reverses the application fee', async () => {
+    const ctx = await setUpPaidOrder();
+    await refund(ctx, { reason: 'organizer_cancellation' });
+    expect(mockCreateRefund).toHaveBeenCalledWith(expect.objectContaining({ refundApplicationFee: true }));
+    const order = await pool.query('SELECT refund_reason FROM orders WHERE id = $1', [ctx.orderId]);
+    expect(order.rows[0].refund_reason).toBe('organizer_cancellation');
+  });
+
+  it('event_postponed is treated the same as a cancellation', async () => {
+    const ctx = await setUpPaidOrder();
+    await refund(ctx, { reason: 'event_postponed' });
+    expect(mockCreateRefund).toHaveBeenCalledWith(expect.objectContaining({ refundApplicationFee: true }));
+  });
+
+  it('buyer_request (full refund) does not reverse the application fee', async () => {
+    const ctx = await setUpPaidOrder();
+    await refund(ctx, { reason: 'buyer_request' });
+    expect(mockCreateRefund).toHaveBeenCalledWith(expect.objectContaining({ refundApplicationFee: false }));
+  });
+
+  it('buyer_request (partial refund) does not reverse the application fee either', async () => {
+    const ctx = await setUpPaidOrder();
+    const orderRow = await pool.query('SELECT total_cents FROM orders WHERE id = $1', [ctx.orderId]);
+    const partialAmount = Math.floor(orderRow.rows[0].total_cents / 2);
+    await refund(ctx, { amount_cents: partialAmount, reason: 'buyer_request' });
+    expect(mockCreateRefund).toHaveBeenCalledWith(expect.objectContaining({ refundApplicationFee: false }));
+    const order = await pool.query('SELECT status, refund_reason FROM orders WHERE id = $1', [ctx.orderId]);
+    expect(order.rows[0]).toEqual({ status: 'partial_refund', refund_reason: 'buyer_request' });
   });
 });
