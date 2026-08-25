@@ -132,6 +132,33 @@ export async function updateTicketType(
     throw new ApiError(400, 'validation_error', 'At least one field must be provided.', null);
   }
 
+  // An organizer lowering quantity_total below what's already sold is
+  // rejected here at the application level — it used to be caught by a DB
+  // CHECK constraint (quantity_sold <= quantity_total), dropped because it
+  // also silently broke "payment always wins" (see orderReleaseService's
+  // reReserveAfterLatePayment, which legitimately needs to push
+  // quantity_sold past quantity_total). That was a DB-level invariant
+  // serving two different concerns; this one is purely this organizer
+  // action's own validation.
+  if (typeof patch.quantity_total === 'number') {
+    const currentResult = await pool.query<{ quantity_sold: number }>(
+      `SELECT quantity_sold FROM ticket_types WHERE id = $1 AND event_id = $2`,
+      [ticketTypeId, eventId],
+    );
+    const current = currentResult.rows[0];
+    if (!current) {
+      throw notFound();
+    }
+    if (patch.quantity_total < current.quantity_sold) {
+      throw new ApiError(
+        400,
+        'invalid_input',
+        'quantity_total cannot be lower than the quantity already sold.',
+        'quantity_total',
+      );
+    }
+  }
+
   const setClause = fields.map(([column], i) => `${column} = $${i + 3}`).join(', ');
   const values = fields.map(([, value]) => value);
 

@@ -133,6 +133,11 @@ window.__INTAHE_I18N__ = {
       orders_tickets_summary: '{{orders}} commandes · {{tickets}} billets',
       net_prefix: 'Net : {{amount}}',
       load_error: 'Impossible de charger le tableau de bord.',
+      capacity_exceeded_badge: 'Capacité dépassée de {{n}}',
+      capacity_exceeded_view_details: 'Voir les commandes concernées',
+      capacity_exceeded_hide_details: 'Masquer',
+      capacity_exceeded_load_error: 'Impossible de charger le détail.',
+      capacity_incident_line: '{{ticket_type}} — commande {{order}} ({{email}}), {{sold}}/{{total}} vendus',
     },
     manage_event: {
       load_error: 'Impossible de charger l’événement.',
@@ -171,6 +176,7 @@ window.__INTAHE_I18N__ = {
       error_not_found: 'Aucun billet ne correspond à ce code pour cet événement.',
       error_already: 'Ce billet a déjà été scanné.',
       success_title: 'Billet validé',
+      capacity_warning: 'Ce type de billet dépasse sa capacité de {{n}} — billet valide, quand même accepté.',
     },
     guest_list: {
       empty: 'Aucun billet vendu pour l’instant.',
@@ -337,6 +343,11 @@ window.__INTAHE_I18N__ = {
       orders_tickets_summary: '{{orders}} orders · {{tickets}} tickets',
       net_prefix: 'Net: {{amount}}',
       load_error: 'Unable to load the dashboard.',
+      capacity_exceeded_badge: 'Capacity exceeded by {{n}}',
+      capacity_exceeded_view_details: 'View affected orders',
+      capacity_exceeded_hide_details: 'Hide',
+      capacity_exceeded_load_error: 'Unable to load the details.',
+      capacity_incident_line: '{{ticket_type}} — order {{order}} ({{email}}), {{sold}}/{{total}} sold',
     },
     manage_event: {
       load_error: 'Unable to load the event.',
@@ -375,6 +386,7 @@ window.__INTAHE_I18N__ = {
       error_not_found: 'No ticket matches this code for this event.',
       error_already: 'This ticket has already been scanned.',
       success_title: 'Ticket validated',
+      capacity_warning: 'This ticket type is {{n}} over capacity — valid ticket, still accepted.',
     },
     guest_list: {
       empty: 'No tickets sold yet.',

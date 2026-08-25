@@ -27,6 +27,19 @@ async function writeRelease(client: PoolClient, order: OrderRow): Promise<void> 
   await client.query(`UPDATE orders SET status = 'expired' WHERE id = $1`, [order.id]);
 }
 
+export interface CapacityOvershootIncident {
+  id: string;
+  organizationId: string;
+  eventId: string;
+  ticketTypeId: string;
+  ticketTypeName: string;
+  orderId: string;
+  quantitySold: number;
+  quantityTotal: number;
+  overshootQuantity: number;
+  createdAt: Date;
+}
+
 /**
  * Undoes writeRelease's decrement for an order a late Stripe success is
  * about to mark paid despite already being released — "payment always
@@ -35,21 +48,79 @@ async function writeRelease(client: PoolClient, order: OrderRow): Promise<void> 
  * already lapsed. Deliberately does NOT re-check capacity (unlike the
  * conditional UPDATE reserveInventory uses for a *new* reservation) —
  * there's nothing to reject a completed payment back into, so this always
- * succeeds. Whoever else may have bought the freed capacity in the
- * meantime is an accepted, narrow race the brief chose to allow rather
- * than ever refusing a confirmed payment.
+ * succeeds, even past quantity_total (ticket_types no longer has a CHECK
+ * enforcing quantity_sold <= quantity_total — see this migration's up —
+ * it used to, and that constraint being violated here is exactly what
+ * made this silently defeat "payment always wins": the UPDATE would
+ * throw, the whole webhook transaction would roll back, and the order
+ * would stay 'expired' forever despite the buyer having genuinely paid).
+ * Whoever else may have bought the freed capacity in the meantime is an
+ * accepted, narrow race the brief chose to allow rather than ever
+ * refusing a confirmed payment — recorded as a capacity_overshoot_incidents
+ * row (and returned here) whenever it actually pushes a ticket type over
+ * capacity, so it's observable instead of invisible.
  */
-async function reReserveAfterLatePayment(client: PoolClient, orderId: string): Promise<void> {
+async function reReserveAfterLatePayment(client: PoolClient, order: OrderRow): Promise<CapacityOvershootIncident[]> {
   const lineItemsResult = await client.query<OrderLineItemRow>(
     `SELECT * FROM order_line_items WHERE order_id = $1`,
-    [orderId],
+    [order.id],
   );
-  for (const line of lineItemsResult.rows) {
-    await client.query(`UPDATE ticket_types SET quantity_sold = quantity_sold + $2 WHERE id = $1`, [
-      line.ticket_type_id,
-      line.quantity,
-    ]);
+
+  const eventResult = await client.query<{ organization_id: string }>(
+    `SELECT organization_id FROM events WHERE id = $1`,
+    [order.event_id],
+  );
+  const organizationId = eventResult.rows[0]?.organization_id;
+  if (!organizationId) {
+    throw new Error(`Order ${order.id}'s event ${order.event_id} has no organization.`);
   }
+
+  const incidents: CapacityOvershootIncident[] = [];
+  for (const line of lineItemsResult.rows) {
+    const updateResult = await client.query<{
+      id: string;
+      name: string;
+      quantity_sold: number;
+      quantity_total: number;
+    }>(
+      `UPDATE ticket_types SET quantity_sold = quantity_sold + $2
+       WHERE id = $1
+       RETURNING id, name, quantity_sold, quantity_total`,
+      [line.ticket_type_id, line.quantity],
+    );
+    const updated = updateResult.rows[0];
+    if (!updated || updated.quantity_sold <= updated.quantity_total) {
+      continue;
+    }
+
+    const overshootQuantity = updated.quantity_sold - updated.quantity_total;
+    const insertResult = await client.query<{ id: string; created_at: Date }>(
+      `INSERT INTO capacity_overshoot_incidents (
+         organization_id, event_id, ticket_type_id, order_id, quantity_sold, quantity_total, overshoot_quantity
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, created_at`,
+      [organizationId, order.event_id, updated.id, order.id, updated.quantity_sold, updated.quantity_total, overshootQuantity],
+    );
+    const inserted = insertResult.rows[0];
+    if (!inserted) {
+      throw new Error('Insert into capacity_overshoot_incidents did not return a row.');
+    }
+
+    incidents.push({
+      id: inserted.id,
+      organizationId,
+      eventId: order.event_id,
+      ticketTypeId: updated.id,
+      ticketTypeName: updated.name,
+      orderId: order.id,
+      quantitySold: updated.quantity_sold,
+      quantityTotal: updated.quantity_total,
+      overshootQuantity,
+      createdAt: inserted.created_at,
+    });
+  }
+  return incidents;
 }
 
 export { reReserveAfterLatePayment };

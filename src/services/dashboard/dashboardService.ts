@@ -9,9 +9,18 @@ export interface EventDashboardEntry {
   stripe_fees_cents: number;
   intahe_fees_cents: number;
   net_revenue_cents: number;
+  // Sum of capacity_overshoot_incidents.overshoot_quantity for this event —
+  // 0 for the overwhelming majority of events, which never hit the "payment
+  // always wins over a resold, expired reservation" edge case. Not folded
+  // into totals (unlike the other fields) since summing an "amount over
+  // capacity" across events isn't a meaningful number the way revenue is.
+  capacity_overshoot_quantity: number;
 }
 
-export type DashboardTotals = Omit<EventDashboardEntry, 'event_id' | 'event_name'>;
+export type DashboardTotals = Omit<
+  EventDashboardEntry,
+  'event_id' | 'event_name' | 'capacity_overshoot_quantity'
+>;
 
 export interface OrganizationDashboard {
   organization_id: string;
@@ -28,6 +37,7 @@ interface DashboardRow {
   stripe_fees_cents: string;
   intahe_fees_cents: string;
   net_revenue_cents: string;
+  capacity_overshoot_quantity: string;
 }
 
 function toEntry(row: DashboardRow): EventDashboardEntry {
@@ -40,6 +50,7 @@ function toEntry(row: DashboardRow): EventDashboardEntry {
     stripe_fees_cents: Number(row.stripe_fees_cents),
     intahe_fees_cents: Number(row.intahe_fees_cents),
     net_revenue_cents: Number(row.net_revenue_cents),
+    capacity_overshoot_quantity: Number(row.capacity_overshoot_quantity),
   };
 }
 
@@ -69,6 +80,11 @@ export async function getOrganizationDashboard(organizationId: string): Promise<
        FROM order_line_items oli
        JOIN paid_orders po ON po.id = oli.order_id
        GROUP BY po.event_id
+     ),
+     overshoot_totals AS (
+       SELECT event_id, SUM(overshoot_quantity) AS overshoot_quantity
+       FROM capacity_overshoot_incidents
+       GROUP BY event_id
      )
      SELECT
        e.id AS event_id,
@@ -78,12 +94,14 @@ export async function getOrganizationDashboard(organizationId: string): Promise<
        COALESCE(SUM(po.subtotal_cents), 0) AS gross_ticket_revenue_cents,
        COALESCE(SUM(po.stripe_fee_cents), 0) AS stripe_fees_cents,
        COALESCE(SUM(po.intahe_fee_cents), 0) AS intahe_fees_cents,
-       COALESCE(SUM(po.total_cents - po.stripe_fee_cents - po.intahe_fee_cents), 0) AS net_revenue_cents
+       COALESCE(SUM(po.total_cents - po.stripe_fee_cents - po.intahe_fee_cents), 0) AS net_revenue_cents,
+       COALESCE(ot.overshoot_quantity, 0) AS capacity_overshoot_quantity
      FROM events e
      LEFT JOIN paid_orders po ON po.event_id = e.id
      LEFT JOIN line_item_totals lit ON lit.event_id = e.id
+     LEFT JOIN overshoot_totals ot ON ot.event_id = e.id
      WHERE e.organization_id = $1 AND e.deleted_at IS NULL
-     GROUP BY e.id, e.name, lit.tickets_sold
+     GROUP BY e.id, e.name, lit.tickets_sold, ot.overshoot_quantity
      ORDER BY e.created_at DESC`,
     [organizationId],
   );

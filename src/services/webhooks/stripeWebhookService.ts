@@ -2,7 +2,12 @@ import crypto from 'node:crypto';
 import type Stripe from 'stripe';
 import { env } from '../../config/env';
 import { pool } from '../../config/database';
-import { releaseOrderByPaymentIntentId, reReserveAfterLatePayment } from '../checkout/orderReleaseService';
+import { notifyCapacityOvershoot } from '../capacity/capacityOvershootService';
+import {
+  releaseOrderByPaymentIntentId,
+  reReserveAfterLatePayment,
+  type CapacityOvershootIncident,
+} from '../checkout/orderReleaseService';
 import { sendEmail } from '../email/emailClient';
 import { retrieveAccount } from '../stripe/stripeConnect';
 import { generateTicketAccessToken, hashTicketAccessToken } from '../../utils/ticketAccessToken';
@@ -24,6 +29,7 @@ interface ConfirmedOrder {
   eventId: string;
   buyerEmail: string;
   ticketAccessToken: string;
+  capacityOvershootIncidents: CapacityOvershootIncident[];
 }
 
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
@@ -102,8 +108,9 @@ async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<vo
     // the same PaymentIntent) before this success arrived — Stripe has
     // already moved real money, so the sale is honored regardless, and the
     // ticket types' quantity_sold must be corrected back up to reflect it.
+    let capacityOvershootIncidents: CapacityOvershootIncident[] = [];
     if (order.status === 'expired') {
-      await reReserveAfterLatePayment(client, order.id);
+      capacityOvershootIncidents = await reReserveAfterLatePayment(client, order);
     }
 
     // Minted here rather than at order creation: it's proof that this
@@ -143,7 +150,13 @@ async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<vo
     );
 
     await client.query('COMMIT');
-    confirmedOrder = { id: order.id, eventId: order.event_id, buyerEmail: order.buyer_email, ticketAccessToken };
+    confirmedOrder = {
+      id: order.id,
+      eventId: order.event_id,
+      buyerEmail: order.buyer_email,
+      ticketAccessToken,
+      capacityOvershootIncidents,
+    };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -157,7 +170,10 @@ async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<vo
   // Stripe. A failed response would make Stripe retry, and the retry would
   // just hit the `status === 'paid'` idempotency guard above and return
   // early without ever re-attempting the email — so a thrown error here
-  // wouldn't even get the retry it seemed to be asking for.
+  // wouldn't even get the retry it seemed to be asking for. Same reasoning
+  // for the capacity overshoot notifications below: the incident rows are
+  // already committed, so a logging/email failure here must not look like
+  // the payment confirmation itself failed.
   if (confirmedOrder) {
     await deliverOrderConfirmationEmail(
       confirmedOrder.buyerEmail,
@@ -165,6 +181,9 @@ async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<vo
       confirmedOrder.id,
       confirmedOrder.ticketAccessToken,
     );
+    for (const incident of confirmedOrder.capacityOvershootIncidents) {
+      await notifyCapacityOvershoot(incident);
+    }
   }
 }
 

@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import authRouter from './routes/v1/auth';
+import capacityIncidentsRouter from './routes/v1/capacityIncidents';
 import checkInRouter from './routes/v1/checkin';
 import checkoutRouter from './routes/v1/checkout';
 import discoverRouter from './routes/v1/discover';
@@ -71,6 +72,7 @@ export function createApp() {
   app.use('/v1/organizations/:organizationId/events', eventsRouter);
   app.use('/v1/organizations/:organizationId/events/:eventId/ticket-types', ticketTypesRouter);
   app.use('/v1/organizations/:organizationId/events/:eventId/orders', ordersRouter);
+  app.use('/v1/organizations/:organizationId/events/:eventId/capacity-incidents', capacityIncidentsRouter);
   app.use('/v1/organizations/:organizationId/events/:eventId', checkInRouter);
   app.use('/v1/events/:eventId/orders', checkoutRouter);
 

@@ -26,6 +26,17 @@ export interface GuestListEntry extends PublicTicket {
   buyer_email: string;
 }
 
+export interface CheckInResult extends GuestListEntry {
+  // Live, at scan time — not a historical record like
+  // capacity_overshoot_incidents. Never blocks the scan either way: a
+  // valid, unscanned ticket always checks in (see checkInTicket below).
+  // This only tells staff the venue's actual headcount may run over the
+  // ticket type's listed capacity, since a late payment can push
+  // quantity_sold past quantity_total (orderReleaseService.reReserveAfterLatePayment).
+  ticket_type_capacity_exceeded: boolean;
+  ticket_type_overshoot_quantity: number;
+}
+
 interface TicketJoinRow {
   id: string;
   order_id: string;
@@ -80,7 +91,7 @@ export async function checkInTicket(
   eventId: string,
   qrCode: string,
   checkedInByUserId: string,
-): Promise<GuestListEntry> {
+): Promise<CheckInResult> {
   const existingResult = await pool.query<TicketJoinRow>(
     `${TICKET_JOIN_SELECT} WHERE t.qr_code = $1 AND o.event_id = $2`,
     [qrCode, eventId],
@@ -93,6 +104,9 @@ export async function checkInTicket(
     throw new ApiError(409, 'ticket_already_checked_in', 'This ticket has already been checked in.', null);
   }
 
+  // A valid, not-yet-scanned ticket always checks in — quantity_total is
+  // never consulted as a gate here. Whether this ticket type happens to be
+  // over capacity right now is reported below, informationally only.
   const updateResult = await pool.query<{ checked_in_at: Date; checked_in_by: string }>(
     `UPDATE tickets SET checked_in_at = now(), checked_in_by = $2
      WHERE id = $1 AND checked_in_at IS NULL
@@ -105,11 +119,22 @@ export async function checkInTicket(
     throw new ApiError(409, 'ticket_already_checked_in', 'This ticket has already been checked in.', null);
   }
 
-  return toGuestListEntry({
-    ...existing,
-    checked_in_at: updated.checked_in_at,
-    checked_in_by: updated.checked_in_by,
-  });
+  const capacityResult = await pool.query<{ quantity_sold: number; quantity_total: number }>(
+    `SELECT quantity_sold, quantity_total FROM ticket_types WHERE id = $1`,
+    [existing.ticket_type_id],
+  );
+  const capacity = capacityResult.rows[0];
+  const overshootQuantity = capacity ? Math.max(0, capacity.quantity_sold - capacity.quantity_total) : 0;
+
+  return {
+    ...toGuestListEntry({
+      ...existing,
+      checked_in_at: updated.checked_in_at,
+      checked_in_by: updated.checked_in_by,
+    }),
+    ticket_type_capacity_exceeded: overshootQuantity > 0,
+    ticket_type_overshoot_quantity: overshootQuantity,
+  };
 }
 
 // Buyers aren't authenticated by default (guest checkout), so ownership is

@@ -66,6 +66,20 @@
         detail.style.margin = '4px 0 0';
         detail.textContent = result.ticket.ticket_type_name + ' — ' + (result.ticket.attendee_name || result.ticket.buyer_email);
         resultCard.appendChild(detail);
+
+        // Never blocks the scan — this ticket is valid and was just
+        // checked in regardless — but staff should know the venue may be
+        // running over this ticket type's listed capacity.
+        if (result.ticket.ticket_type_capacity_exceeded) {
+          var warning = document.createElement('p');
+          warning.className = 'small';
+          warning.style.color = 'var(--destructive)';
+          warning.style.fontWeight = '700';
+          warning.style.margin = '8px 0 0';
+          warning.textContent = t('check_in.capacity_warning', { n: result.ticket.ticket_type_overshoot_quantity });
+          resultCard.appendChild(warning);
+        }
+
         resultCard.style.display = 'block';
       })
       .catch(function (err) {

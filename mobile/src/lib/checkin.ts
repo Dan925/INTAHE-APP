@@ -13,6 +13,11 @@ export interface GuestListEntry {
   checked_in_by: string | null;
 }
 
+export interface CheckInResult extends GuestListEntry {
+  ticket_type_capacity_exceeded: boolean;
+  ticket_type_overshoot_quantity: number;
+}
+
 interface CursorPage<T> {
   items: T[];
   next_cursor: string | null;
@@ -23,7 +28,7 @@ export function checkInTicket(
   organizationId: string,
   eventId: string,
   qrCode: string,
-): Promise<{ ticket: GuestListEntry }> {
+): Promise<{ ticket: CheckInResult }> {
   return apiRequest(`/v1/organizations/${organizationId}/events/${eventId}/check-in`, {
     method: 'POST',
     body: { qr_code: qrCode },

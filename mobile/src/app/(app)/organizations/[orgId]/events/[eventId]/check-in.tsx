@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { ApiError, useAuth } from '@/lib/auth-context';
-import { checkInTicket, type GuestListEntry } from '@/lib/checkin';
+import { checkInTicket, type CheckInResult } from '@/lib/checkin';
 import { useTranslation } from '@/lib/i18n/context';
 
 export default function CheckInScreen() {
@@ -24,7 +24,7 @@ export default function CheckInScreen() {
   const [qrCode, setQrCode] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastTicket, setLastTicket] = useState<GuestListEntry | null>(null);
+  const [lastTicket, setLastTicket] = useState<CheckInResult | null>(null);
 
   async function onCheckIn() {
     if (!session || !qrCode.trim()) return;
@@ -82,6 +82,11 @@ export default function CheckInScreen() {
             <ThemedText type="small" themeColor="textSecondary">
               {lastTicket.ticket_type_name} — {lastTicket.attendee_name ?? lastTicket.buyer_email}
             </ThemedText>
+            {lastTicket.ticket_type_capacity_exceeded ? (
+              <ThemedText type="smallBold" themeColor="destructive">
+                {t('check_in.capacity_warning', { n: lastTicket.ticket_type_overshoot_quantity })}
+              </ThemedText>
+            ) : null}
           </ThemedView>
         ) : null}
       </View>

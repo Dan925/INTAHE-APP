@@ -86,8 +86,79 @@
       net.style.margin = '2px 0 0';
       net.textContent = t('org_dashboard.net_prefix', { amount: formatPrice(entry.net_revenue_cents, 'CAD') });
       card.appendChild(net);
+
+      if (entry.capacity_overshoot_quantity > 0) {
+        card.appendChild(renderCapacityWarning(entry));
+      }
+
       container.appendChild(card);
     });
+  }
+
+  // A late-paid order can push a ticket type's quantity_sold past its
+  // quantity_total ("payment always wins" — see the backend README's
+  // "Capacity overshoot" section). Rare, but when it happens the organizer
+  // needs to see it here rather than discover it at the door.
+  function renderCapacityWarning(entry) {
+    var wrap = document.createElement('div');
+    wrap.style.marginTop = '8px';
+
+    var badge = document.createElement('span');
+    badge.className = 'badge badge-destructive';
+    badge.textContent = t('org_dashboard.capacity_exceeded_badge', { n: entry.capacity_overshoot_quantity });
+    wrap.appendChild(badge);
+
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'ghost small-btn';
+    toggle.style.marginLeft = '8px';
+    toggle.textContent = t('org_dashboard.capacity_exceeded_view_details');
+    wrap.appendChild(toggle);
+
+    var details = document.createElement('div');
+    details.style.marginTop = '8px';
+    details.style.display = 'none';
+    wrap.appendChild(details);
+
+    var loaded = false;
+    toggle.addEventListener('click', function () {
+      var showing = details.style.display !== 'none';
+      if (showing) {
+        details.style.display = 'none';
+        toggle.textContent = t('org_dashboard.capacity_exceeded_view_details');
+        return;
+      }
+      details.style.display = 'block';
+      toggle.textContent = t('org_dashboard.capacity_exceeded_hide_details');
+      if (loaded) return;
+      loaded = true;
+      api('/v1/organizations/' + orgId + '/events/' + entry.event_id + '/capacity-incidents')
+        .then(function (body) {
+          details.textContent = '';
+          body.items.forEach(function (incident) {
+            var line = document.createElement('p');
+            line.className = 'small text-secondary';
+            line.style.margin = '2px 0';
+            line.textContent = t('org_dashboard.capacity_incident_line', {
+              ticket_type: incident.ticket_type_name,
+              order: incident.order_id,
+              email: incident.buyer_email,
+              sold: incident.quantity_sold,
+              total: incident.quantity_total,
+            });
+            details.appendChild(line);
+          });
+        })
+        .catch(function () {
+          details.textContent = '';
+          var p = document.createElement('p');
+          p.className = 'small error';
+          p.textContent = t('org_dashboard.capacity_exceeded_load_error');
+          details.appendChild(p);
+        });
+    });
+
+    return wrap;
   }
 
   load();

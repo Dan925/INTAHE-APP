@@ -273,21 +273,63 @@ expired (the sweep or a `payment_failed` on a retried PaymentIntent beat it),
 it paid — a confirmed payment is never refused because its reservation
 lapsed in the meantime. See `src/services/checkout/orderReleaseService.ts`.
 
-**Known gap: this re-increment (`reReserveAfterLatePayment`) doesn't
-re-check capacity, so `quantity_sold` can end up above `quantity_total`.**
-Concretely: a ticket type at full capacity releases (reservation expires),
-someone else immediately buys the now-free capacity, and *then* the
-original PaymentIntent's late `payment_intent.succeeded` arrives — that
-order is honored regardless (by design: a confirmed payment must never be
-refused), pushing `quantity_sold` over `quantity_total` for as long as both
-orders' tickets are valid. There's currently no code path that checks for
-or surfaces this — no log line, no dashboard flag, nothing sent to the
-organizer. It's a real, if narrow, way to oversell that only becomes
-visible operationally (more valid tickets scanned at the door than
-`quantity_total` allows for), not before. Flagged here rather than fixed:
-whether to reject the late payment (impossible — money already moved),
-cap the organizer's *visible* capacity below the real limit, or add
-oversell detection/alerting is a product decision, not made yet.
+#### Capacity overshoot: an accepted trade-off, not a defect (implemented)
+
+The re-increment above (`reReserveAfterLatePayment`) doesn't re-check
+capacity, so `quantity_sold` can end up above `quantity_total`. Concretely:
+a ticket type at full capacity releases (reservation expires), someone
+else immediately buys the now-free capacity, and *then* the original
+PaymentIntent's late `payment_intent.succeeded` arrives — that order is
+honored regardless, pushing `quantity_sold` over `quantity_total` for as
+long as both orders' tickets are valid.
+
+**This is a deliberate arbitration, not a bug: honoring a confirmed
+payment always takes priority over a ticket type's capacity.** The
+alternative — rejecting the late payment because capacity is gone — isn't
+actually available anyway: Stripe has already moved real money by the time
+this webhook fires, so "rejecting" it would mean charging a buyer and
+never giving them a ticket, which is worse than a narrow, rare
+overshoot. What *is* owed to the organizer is visibility, so it doesn't
+have to be discovered at the door:
+
+- **`ticket_types` no longer has a DB constraint enforcing
+  `quantity_sold <= quantity_total`.** It used to (`ticket_types_sold_within_total`),
+  and that was itself a bug, not a safety net: the constraint applied to
+  every write, including this one, so the late-payment UPDATE would throw,
+  the whole webhook transaction would roll back, and the order would stay
+  `expired` forever despite the buyer having genuinely paid — "payment
+  always wins" silently *not* winning. Every other write path
+  (`reserveInventory`'s atomic conditional UPDATE, `writeRelease`'s
+  decrement) already enforces capacity at the application level and never
+  relied on the DB constraint, so dropping it only changes behavior for
+  the one path it was quietly sabotaging. An organizer manually lowering
+  `quantity_total` below what's already sold is still rejected — that
+  check moved into `ticketTypeService.updateTicketType` at the application
+  level, since it's a different concern (an organizer's own edit, not a
+  payment being honored).
+- **Every overshoot is persisted** to `capacity_overshoot_incidents`
+  (organization, event, ticket type, order, `quantity_sold`,
+  `quantity_total`, `overshoot_quantity`, timestamp) in the same
+  transaction as the re-increment — queryable after the fact, and the
+  intended source for a future ledger.
+- **Logged at alert level** (`console.error('[capacity_overshoot]', ...)`,
+  `capacityOvershootService.ts`) with the same structured fields — the one
+  call site to swap for `Sentry.captureMessage` once Sentry is installed.
+- **Emailed to the organizer at the moment of the incident** — the
+  organization's `contact_email` if set, else its owner's — not folded
+  into some pre-event summary.
+- **Surfaced on the organization dashboard**
+  (`GET /v1/organizations/:organizationId/dashboard`, both web and mobile):
+  a "Capacity exceeded by N" badge per affected event, expandable to the
+  list of affected orders via `GET /v1/organizations/:organizationId/events/:eventId/capacity-incidents`.
+- **Never blocks check-in.** `checkInTicket` doesn't consult
+  `quantity_total` as a gate — it never did — so a valid, unscanned ticket
+  always checks in regardless of capacity. What changed: the response now
+  also reports whether the ticket type is currently over capacity
+  (`ticket_type_capacity_exceeded`, `ticket_type_overshoot_quantity`), and
+  both the web and mobile check-in screens show a non-blocking warning
+  banner on scan so door staff know the headcount may run over the
+  printed capacity, without a scan ever being refused.
 
 Operational note: `payment_intent.canceled` and `payment_intent.payment_failed`
 need to actually be subscribed to on the Stripe Dashboard's Event
