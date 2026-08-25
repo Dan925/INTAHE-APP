@@ -1,5 +1,6 @@
 import request from 'supertest';
 import type { Express } from 'express';
+import { pool } from '../../src/config/database';
 import { signupTestUser, type TestUser } from './auth';
 
 export interface OrgEventFixture {
@@ -8,14 +9,17 @@ export interface OrgEventFixture {
   event: { id: string; status: string };
 }
 
-export async function createOrgAndPublishedEvent(
+interface OrgAndPublishedEventOverrides {
+  fees_absorbed_by_organizer?: boolean;
+  is_public_discoverable?: boolean;
+  latitude?: number;
+  longitude?: number;
+}
+
+async function buildOrgAndPublishedEvent(
   app: Express,
-  overrides: {
-    fees_absorbed_by_organizer?: boolean;
-    is_public_discoverable?: boolean;
-    latitude?: number;
-    longitude?: number;
-  } = {},
+  connectStripe: boolean,
+  overrides: OrgAndPublishedEventOverrides,
 ): Promise<OrgEventFixture> {
   const owner = await signupTestUser(app);
 
@@ -24,6 +28,19 @@ export async function createOrgAndPublishedEvent(
     .set('Authorization', `Bearer ${owner.accessToken}`)
     .send({ name: `Checkout Org ${Date.now()}-${Math.random()}` });
   const organization = orgRes.body.organization;
+
+  if (connectStripe) {
+    // Sets stripe_account_id/stripe_charges_enabled directly rather than
+    // going through the real onboarding-link + account.updated webhook
+    // flow, which would depend on every calling test file mocking the
+    // Stripe Connect service the same way. This fixture is shared by ~15
+    // test files with varying mock setups, so a raw DB write is the one
+    // path guaranteed to work the same everywhere.
+    await pool.query(
+      `UPDATE organizations SET stripe_account_id = $2, stripe_charges_enabled = true WHERE id = $1`,
+      [organization.id, `acct_test_fixture_${organization.id}`],
+    );
+  }
 
   const eventRes = await request(app)
     .post(`/v1/organizations/${organization.id}/events`)
@@ -45,6 +62,37 @@ export async function createOrgAndPublishedEvent(
     .set('Authorization', `Bearer ${owner.accessToken}`);
 
   return { owner, organization, event: { ...event, status: 'published' } };
+}
+
+/**
+ * Stripe-connected and charges-enabled by default — most tests using this
+ * fixture go on to create a paid ticket type, which
+ * ticketTypeService.assertOrganizationCanSellPaidTickets now refuses
+ * without a working connected account. Pass a free ticket type
+ * (price_cents: 0) if a given test doesn't need Stripe at all.
+ */
+export async function createOrgAndPublishedEvent(
+  app: Express,
+  overrides: OrgAndPublishedEventOverrides = {},
+): Promise<OrgEventFixture> {
+  return buildOrgAndPublishedEvent(app, true, overrides);
+}
+
+/**
+ * Same as createOrgAndPublishedEvent, but the organization never connects
+ * Stripe — for exercising the free-event path (a free ticket type must
+ * still be creatable and sellable with no Connect account at all) and the
+ * explicit refusal when something tries to sell a paid ticket type without
+ * one. Deliberately a separate, explicitly-named fixture rather than an
+ * options flag on the default one, so "no Stripe" stays an opt-in choice a
+ * test makes on purpose, not something that quietly falls out of an
+ * overrides object.
+ */
+export async function createOrgAndPublishedEventWithoutStripe(
+  app: Express,
+  overrides: OrgAndPublishedEventOverrides = {},
+): Promise<OrgEventFixture> {
+  return buildOrgAndPublishedEvent(app, false, overrides);
 }
 
 export async function createTicketType(

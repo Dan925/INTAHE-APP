@@ -38,7 +38,7 @@ router.post(
     const organizationId = req.params['organizationId']!;
     const eventId = req.params['eventId']!;
     await assertEventInOrganization(organizationId, eventId);
-    const ticketType = await ticketTypeService.createTicketType(eventId, req.body);
+    const ticketType = await ticketTypeService.createTicketType(organizationId, eventId, req.body);
     res.status(201).json({ ticket_type: ticketType });
   }),
 );
@@ -88,6 +88,7 @@ router.patch(
     const eventId = req.params['eventId']!;
     await assertEventInOrganization(organizationId, eventId);
     const ticketType = await ticketTypeService.updateTicketType(
+      organizationId,
       eventId,
       req.params['ticketTypeId']!,
       req.body,

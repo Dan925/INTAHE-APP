@@ -133,6 +133,10 @@ describe('POST /v1/organizations/:organizationId/events/:eventId/check-in', () =
       .set('Authorization', `Bearer ${owner.accessToken}`)
       .send({ name: 'Multi-Event Org' });
     const organization = orgRes.body.organization;
+    await pool.query(
+      `UPDATE organizations SET stripe_account_id = $2, stripe_charges_enabled = true WHERE id = $1`,
+      [organization.id, `acct_test_multi_event_${organization.id}`],
+    );
 
     async function publishedEventIn(name: string) {
       const eventRes = await request(app)

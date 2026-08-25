@@ -27,7 +27,15 @@ export interface OrderFeeLine {
  */
 export function computeOrderFees(lines: OrderFeeLine[], feesAbsorbedByOrganizer: boolean): OrderFees {
   const subtotalCents = lines.reduce((sum, line) => sum + line.priceCents * line.quantity, 0);
-  const stripeFeeCents = Math.round(subtotalCents * 0.029 + 30);
+  // A $0 subtotal (every line item free) never becomes a real Stripe
+  // charge — there is nothing for the flat processing-fee component to
+  // apply to, and charging a buyer 30 cents for a "free" ticket would
+  // contradict the ticket being free at all. Ticket types with price_cents
+  // = 0 are also exempt from ever needing a connected Stripe account (see
+  // ticketTypeService.assertOrganizationCanSellPaidTickets) specifically
+  // because no payment is expected to happen — this keeps that promise
+  // true all the way through to the amount actually charged.
+  const stripeFeeCents = subtotalCents === 0 ? 0 : Math.round(subtotalCents * 0.029 + 30);
   const intaheFeeCents = lines.reduce(
     (sum, line) => sum + computeTicketCommissionCents(line.priceCents) * line.quantity,
     0,

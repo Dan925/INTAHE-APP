@@ -240,9 +240,29 @@ export async function createOrder(
 
     // A connected account existing isn't enough — onboarding can be started
     // and abandoned. Only route funds to it once Stripe has confirmed via
-    // account.updated that it can actually accept charges; otherwise fall
-    // back to a plain platform charge (the brief's allowed simplified mode).
+    // account.updated that it can actually accept charges.
+    //
+    // There used to be a fallback here to a plain platform charge when the
+    // organization wasn't Connect-ready — money for an order the organizer
+    // never had the means to receive would land in Intahe's own Stripe
+    // balance instead, with no built-in mechanism to ever get it to them.
+    // That's exactly the funds-custodian role this migration exists to
+    // eliminate, and ticketTypeService.assertOrganizationCanSellPaidTickets
+    // already refuses to let a *paid* ticket type exist without a
+    // charges-enabled connected account — so a paid order reaching this
+    // point with none is either a stale ticket type from before that gate,
+    // or the account's charges_enabled regressing (a compliance hold)
+    // after the ticket type was created. Either way: refuse outright,
+    // never silently charge the platform account.
     const canUseDirectCharge = Boolean(organization.stripe_account_id) && organization.stripe_charges_enabled;
+    if (totalCents > 0 && !canUseDirectCharge) {
+      throw new ApiError(
+        409,
+        'stripe_not_connected',
+        'This event cannot accept payment right now — its organizer needs to reconnect Stripe.',
+        null,
+      );
+    }
     const stripeChargeMode: StripeChargeMode = canUseDirectCharge ? 'direct' : 'platform';
 
     // ticket_access_token_hash is deliberately NOT set here: the token it

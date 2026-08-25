@@ -112,8 +112,7 @@ describe('POST .../orders/:orderId/refund', () => {
     expect(mockCreateRefund).toHaveBeenCalledWith(
       expect.objectContaining({
         amountCents: totalCents,
-        chargeMode: 'platform',
-        connectedAccountId: null,
+        chargeMode: 'direct',
         refundApplicationFee: false,
       }),
     );
@@ -276,6 +275,33 @@ describe('POST .../orders/:orderId/refund', () => {
 
     expect(mockCreateRefund).toHaveBeenCalledWith(
       expect.objectContaining({ chargeMode: 'destination', connectedAccountId: null, refundApplicationFee: true }),
+    );
+  });
+
+  it('refunds a legacy platform-charge order (pre-migration, no Connect involved) with no Connect params at all', async () => {
+    // 'platform' mode is no longer reachable for a *paid* order through
+    // checkout — createOrder now refuses outright when total_cents > 0 and
+    // the organization has no working connected account (see
+    // checkoutService.createOrder). This simulates an order that predates
+    // that hardening, to prove refunding it still works and never sends a
+    // reverse_transfer/application-fee flag Stripe would reject for a
+    // charge that was never split with a connected account in the first
+    // place.
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      price_cents: 2500,
+      quantity_total: 10,
+    });
+    const { orderId } = await purchaseAndConfirm(fixture.event.id, ticketType.id, 1);
+    await pool.query(`UPDATE orders SET stripe_charge_mode = 'platform' WHERE id = $1`, [orderId]);
+
+    await request(app)
+      .post(`/v1/organizations/${fixture.organization.id}/events/${fixture.event.id}/orders/${orderId}/refund`)
+      .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
+      .send({ reason: 'organizer_cancellation' });
+
+    expect(mockCreateRefund).toHaveBeenCalledWith(
+      expect.objectContaining({ chargeMode: 'platform', connectedAccountId: null, refundApplicationFee: true }),
     );
   });
 

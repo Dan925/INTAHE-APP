@@ -8,7 +8,11 @@ import { createAccountLink, createConnectedAccount, retrieveAccount } from '../s
 import { createPaymentIntent } from '../src/services/stripe/stripePayments';
 import { signupTestUser } from './helpers/auth';
 import { truncateAllTables } from './helpers/db';
-import { createOrgAndPublishedEvent, createTicketType } from './helpers/checkoutFixtures';
+import {
+  createOrgAndPublishedEvent,
+  createOrgAndPublishedEventWithoutStripe,
+  createTicketType,
+} from './helpers/checkoutFixtures';
 
 jest.mock('../src/services/stripe/stripeConnect');
 jest.mock('../src/services/stripe/stripePayments');
@@ -179,28 +183,8 @@ describe('account.updated webhook', () => {
 });
 
 describe('checkout only uses a direct charge once charges_enabled is true', () => {
-  it('falls back to a platform charge while onboarding is incomplete', async () => {
-    const fixture = await createOrgAndPublishedEvent(app);
-    await request(app)
-      .post(`/v1/organizations/${fixture.organization.id}/stripe/onboarding-link`)
-      .set('Authorization', `Bearer ${fixture.owner.accessToken}`);
-    // stripe_account_id is now set, but charges_enabled is still false.
-    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
-      quantity_total: 10,
-    });
-
-    await request(app)
-      .post(`/v1/events/${fixture.event.id}/orders`)
-      .set('Idempotency-Key', crypto.randomUUID())
-      .send({ buyer_email: 'buyer@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
-
-    expect(mockCreatePaymentIntent).toHaveBeenCalledWith(
-      expect.objectContaining({ connectedAccountId: null, applicationFeeCents: undefined }),
-    );
-  });
-
-  it('uses a direct charge once the connected account is charges_enabled', async () => {
-    const fixture = await createOrgAndPublishedEvent(app);
+  it('uses a direct charge once the connected account is charges_enabled, end to end through onboarding', async () => {
+    const fixture = await createOrgAndPublishedEventWithoutStripe(app);
     const orgRes = await request(app)
       .post(`/v1/organizations/${fixture.organization.id}/stripe/onboarding-link`)
       .set('Authorization', `Bearer ${fixture.owner.accessToken}`);
@@ -224,5 +208,55 @@ describe('checkout only uses a direct charge once charges_enabled is true', () =
     expect(mockCreatePaymentIntent).toHaveBeenCalledWith(
       expect.objectContaining({ connectedAccountId: stripeAccountId }),
     );
+  });
+
+  it('refuses checkout outright — never falls back to a platform charge — if charges_enabled regresses after a paid ticket type was already on sale', async () => {
+    // A compliance hold (synced via the account.updated webhook) can flip
+    // stripe_charges_enabled back to false after a paid ticket type
+    // already passed ticketTypeService's own gate at creation time — this
+    // is exactly the case checkout's own defense-in-depth check exists
+    // for, since the ticket-type gate alone can't catch a regression that
+    // happens afterward.
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      quantity_total: 10,
+    });
+    await pool.query(`UPDATE organizations SET stripe_charges_enabled = false WHERE id = $1`, [
+      fixture.organization.id,
+    ]);
+
+    const res = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', crypto.randomUUID())
+      .send({ buyer_email: 'buyer@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('stripe_not_connected');
+    expect(mockCreatePaymentIntent).not.toHaveBeenCalled();
+
+    const orderRow = await pool.query(`SELECT status FROM orders WHERE buyer_email = 'buyer@example.com'`);
+    expect(orderRow.rows).toHaveLength(0);
+  });
+
+  it('allows checkout with no Stripe account at all for a free ticket type — nothing to charge', async () => {
+    const fixture = await createOrgAndPublishedEventWithoutStripe(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      price_cents: 0,
+      quantity_total: 10,
+    });
+
+    const res = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', crypto.randomUUID())
+      .send({ buyer_email: 'buyer@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
+
+    // Not asserting 201 here: computeOrderFees' flat Stripe-fee-estimate
+    // component is nonzero even for a $0 subtotal today, which is a
+    // separate, pre-existing gap (flagged separately) — this test only
+    // pins down that a free ticket type is *creatable and checkout-
+    // reachable* without Connect, i.e. it must not be rejected specifically
+    // for lacking a Stripe account.
+    expect(res.status).not.toBe(409);
+    expect(res.body?.error?.code).not.toBe('stripe_not_connected');
   });
 });

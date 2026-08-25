@@ -60,6 +60,33 @@ function notFound(): ApiError {
   return new ApiError(404, 'ticket_type_not_found', 'Ticket type not found.', null);
 }
 
+/**
+ * The actual gate on "can this organization sell paid tickets" — not
+ * publishing the event, which a fully free event (a webinar, an AGM) never
+ * needs Stripe for at all. Applied to every write that would result in a
+ * ticket type with price_cents > 0: creating one outright, or raising an
+ * existing (possibly free) one above 0. Checked fresh on every such write
+ * rather than once at creation time, since stripe_charges_enabled can
+ * regress after the fact (a compliance hold synced via the account.updated
+ * webhook) — a ticket type created while charges were enabled must not stay
+ * sellable once they aren't.
+ */
+async function assertOrganizationCanSellPaidTickets(organizationId: string): Promise<void> {
+  const result = await pool.query<{ stripe_account_id: string | null; stripe_charges_enabled: boolean }>(
+    `SELECT stripe_account_id, stripe_charges_enabled FROM organizations WHERE id = $1`,
+    [organizationId],
+  );
+  const org = result.rows[0];
+  if (!org?.stripe_account_id || !org.stripe_charges_enabled) {
+    throw new ApiError(
+      409,
+      'stripe_not_connected',
+      'Connect a Stripe account and complete verification before selling paid tickets.',
+      'price_cents',
+    );
+  }
+}
+
 // Single-row counterpart to listTicketTypes's LEFT JOIN LATERAL below —
 // same condition, just queried separately since there's only one ticket
 // type here rather than a page of them. Used by every read/write path in
@@ -80,9 +107,14 @@ async function getExpiredPendingQuantity(ticketTypeId: string): Promise<number> 
 }
 
 export async function createTicketType(
+  organizationId: string,
   eventId: string,
   input: CreateTicketTypeInput,
 ): Promise<PublicTicketType> {
+  if (input.price_cents > 0) {
+    await assertOrganizationCanSellPaidTickets(organizationId);
+  }
+
   const result = await pool.query<TicketTypeRow>(
     `INSERT INTO ticket_types (event_id, name, price_cents, currency, quantity_total, sale_starts_at, sale_ends_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -117,10 +149,15 @@ export async function getTicketType(eventId: string, ticketTypeId: string): Prom
 }
 
 export async function updateTicketType(
+  organizationId: string,
   eventId: string,
   ticketTypeId: string,
   patch: UpdateTicketTypeInput,
 ): Promise<PublicTicketType> {
+  if (typeof patch.price_cents === 'number' && patch.price_cents > 0) {
+    await assertOrganizationCanSellPaidTickets(organizationId);
+  }
+
   const fields: Array<[string, unknown]> = [];
   if ('name' in patch) fields.push(['name', patch.name]);
   if ('price_cents' in patch) fields.push(['price_cents', patch.price_cents]);
