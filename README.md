@@ -1006,10 +1006,51 @@ to be picked up once it's stable:
 - A proper $0-order checkout path (see "Direct charges, not destination
   charges" above) — a fully free order still attempts a Stripe
   `PaymentIntent` for `amountCents: 0`, which real Stripe will reject.
-- Organizer-facing UI for payout balance/date, payout history, event fee
-  breakdown, the onboarding flow's blocked-publish messaging, and the
-  cancellation fee warning — the backend (ledger, worker, commission
-  grid, refund-reason recording, the two read endpoints above) is built
-  and tested; the screens that read from it are not.
-- Admin console UI — the backend (`is_platform_admin`, the access log,
-  the five admin endpoints) is built and tested; the screens are not.
+- Mobile UI for everything below — the web app has it, the mobile app
+  doesn't yet.
+- A refund UI with a reason selector — `orgOrdersPage.js` (web) still only
+  lists orders; nothing in either app calls `POST .../orders/:orderId/refund`
+  yet, so the required `reason` field has no UI to set it from. The
+  cancellation warning (below) covers the *cancel-the-event* flow, not a
+  standalone refund action.
+- Admin console screens for "approve an organization" and "unpublish an
+  event" specifically — both endpoints exist and are tested
+  (`POST /v1/admin/organizations/:organizationId/approve`,
+  `POST /v1/admin/events/:eventId/unpublish`), but `adminPayoutsPage.js`
+  only covers the payouts section of the admin console (due/executed/
+  failed, hold/unhold, manual trigger), which is what was specified in
+  detail. The other two admin actions are reachable via the API only.
+
+## Web UI (implemented)
+
+Built on top of the read-only endpoints and admin backend above, following
+the existing organizer-app conventions (vanilla JS per page, `window.intaheT`
+for FR/EN copy, `window.intaheSession.apiRequest`):
+
+- **`organizationDetailPage.js`** — a Stripe billing status section: not
+  connected (with the exact required explanatory copy and a "Connect
+  Stripe" button), connected-but-`charges_enabled: false` (a "verification
+  in progress" state with a manual refresh button — not a frozen screen),
+  or active. A "Payouts" nav button links to the new payouts page.
+- **`orgPayoutsPage.js`** (`/organizations/:orgId/payouts`) — collected
+  ("pending") and available Stripe balance, upcoming payouts with their
+  computed date and the "48h after the event ends" wording, and the full
+  attempt history with per-status styling.
+- **`eventFeesPage.js`** (`/organizations/:orgId/events/:eventId/fees`) —
+  price, Intahe's commission, and units sold per ticket type, plus the
+  event's cumulative gross/Stripe-fee/Intahe-fee/net totals. Linked from
+  `manageEventPage.js`'s management row.
+- **`manageEventPage.js`** — the "Cancel event" button now confirms first
+  with the required warning that Stripe's fees are never refunded and stay
+  on the organization's account; ticket-type creation surfaces
+  `stripe_not_connected` with a specific message and a link back to the
+  Stripe section, instead of a generic error.
+- **`stripeConnectReturnPage.js`** (`/stripe/connect/return`,
+  `/stripe/connect/refresh`) — Stripe's return/refresh URLs are static and
+  organization-agnostic, so the organization id is stashed in
+  `sessionStorage` right before redirecting to Stripe and read back here to
+  send the owner to the right place.
+- **`adminPayoutsPage.js`** (`/admin/payouts`) — not linked from the main
+  nav (server-side authorization is what actually matters); due payouts
+  with an overdue-hours badge and hold/unhold/trigger actions, plus
+  executed and failed history across every organization.

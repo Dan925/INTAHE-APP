@@ -154,6 +154,15 @@ router.get('/organizations/:orgId/dashboard', (req, res) => {
   });
 });
 
+router.get('/organizations/:orgId/payouts', (req, res) => {
+  page(req, res, {
+    title: (s) => s.org_payouts.title,
+    scriptSrc: '/orgPayoutsPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('payouts-container'),
+  });
+});
+
 router.get('/organizations/:orgId/events/:eventId', (req, res) => {
   page(req, res, {
     title: (s) => s.manage_event.title,
@@ -181,6 +190,15 @@ router.get('/organizations/:orgId/events/:eventId/guest-list', (req, res) => {
   });
 });
 
+router.get('/organizations/:orgId/events/:eventId/fees', (req, res) => {
+  page(req, res, {
+    title: (s) => s.event_fees.title,
+    scriptSrc: '/eventFeesPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('event-fees-container'),
+  });
+});
+
 router.get('/organizations/:orgId/events/:eventId/orders', (req, res) => {
   page(req, res, {
     title: (s) => s.org_orders.title,
@@ -196,6 +214,41 @@ router.get('/organizations/:orgId/events/:eventId/tickets/:orderId', (req, res) 
     scriptSrc: '/orderTicketsPage.js',
     requireAuth: true,
     bodyHtml: () => containerBody('order-tickets-container'),
+  });
+});
+
+// Stripe redirects here after onboarding (return) or when a session link
+// expired mid-flow (refresh) — same page either way, since both cases just
+// need to get the owner back to their organization's Stripe status. See
+// stripeConnectReturnPage.js for how it finds which organization.
+router.get('/stripe/connect/return', (req, res) => {
+  page(req, res, {
+    title: (s) => s.stripe_connect_return.title,
+    scriptSrc: '/stripeConnectReturnPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('stripe-connect-return-container'),
+  });
+});
+
+router.get('/stripe/connect/refresh', (req, res) => {
+  page(req, res, {
+    title: (s) => s.stripe_connect_return.title,
+    scriptSrc: '/stripeConnectReturnPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('stripe-connect-return-container'),
+  });
+});
+
+// Not linked from the main nav — reachable only by URL, same as several
+// other deep pages in this app. The real access control is server-side
+// (requirePlatformAdmin on every /v1/admin/* call); a non-admin who
+// navigates here just sees this page's own 403 handling.
+router.get('/admin/payouts', (req, res) => {
+  page(req, res, {
+    title: (s) => s.admin_payouts.title,
+    scriptSrc: '/adminPayoutsPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('admin-payouts-container'),
   });
 });
 

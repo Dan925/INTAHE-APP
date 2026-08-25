@@ -60,6 +60,123 @@
     return wrap;
   }
 
+  // Blocking rule lives in ticketTypeService.assertOrganizationCanSellPaidTickets
+  // (paid ticket types require a connected, charges-enabled account) — this
+  // section is just visibility into that same status, plus the action to
+  // fix it. A fully free event never needs any of this.
+  function renderStripeSection() {
+    var wrap = document.createElement('div');
+    wrap.className = 'card';
+    wrap.style.marginBottom = '24px';
+    var heading = document.createElement('h2');
+    heading.style.margin = '0 0 8px';
+    heading.textContent = t('org_stripe.section_title');
+    wrap.appendChild(heading);
+    var body = document.createElement('div');
+    wrap.appendChild(body);
+
+    var loader = document.createElement('div');
+    loader.className = 'loader';
+    body.appendChild(loader);
+
+    api('/v1/organizations/' + orgId + '/stripe/status')
+      .then(function (status) {
+        renderStripeStatus(body, status);
+      })
+      .catch(function () {
+        body.textContent = '';
+        showError(body, t('org_stripe.load_error'));
+      });
+
+    return wrap;
+  }
+
+  function renderStripeStatus(body, status) {
+    body.textContent = '';
+
+    if (!status.connected) {
+      var intro = document.createElement('p');
+      intro.className = 'small text-secondary';
+      intro.textContent = t('org_stripe.intro');
+      body.appendChild(intro);
+
+      var notConnected = document.createElement('p');
+      notConnected.className = 'small';
+      notConnected.textContent = t('org_stripe.status_not_connected');
+      body.appendChild(notConnected);
+
+      var connectError = document.createElement('div');
+      body.appendChild(connectError);
+
+      var connectBtn = document.createElement('button');
+      connectBtn.type = 'button';
+      connectBtn.textContent = t('org_stripe.connect_button');
+      connectBtn.addEventListener('click', function () {
+        connectBtn.disabled = true;
+        connectError.textContent = '';
+        api('/v1/organizations/' + orgId + '/stripe/onboarding-link', { method: 'POST' })
+          .then(function (result) {
+            // The Stripe redirect back (return_url/refresh_url) lands on a
+            // static, organization-agnostic path — this is how that page
+            // knows which organization to send the owner back to.
+            try {
+              sessionStorage.setItem('intahe.stripeConnectOrgId', orgId);
+            } catch (e) {
+              // sessionStorage unavailable (private browsing) — the return
+              // page falls back to the organizations list in that case.
+            }
+            location.href = result.url;
+          })
+          .catch(function (err) {
+            showError(connectError, (err && err.message) || t('org_stripe.connect_error'));
+            connectBtn.disabled = false;
+          });
+      });
+      body.appendChild(connectBtn);
+      return;
+    }
+
+    if (!status.charges_enabled) {
+      var pendingTitle = document.createElement('p');
+      pendingTitle.style.fontWeight = '700';
+      pendingTitle.style.margin = '0 0 4px';
+      pendingTitle.textContent = t('org_stripe.status_pending_title');
+      body.appendChild(pendingTitle);
+
+      var pendingBody = document.createElement('p');
+      pendingBody.className = 'small text-secondary';
+      pendingBody.textContent = t('org_stripe.status_pending_body');
+      body.appendChild(pendingBody);
+
+      var refreshBtn = document.createElement('button');
+      refreshBtn.type = 'button';
+      refreshBtn.className = 'ghost';
+      refreshBtn.textContent = t('org_stripe.refresh_button');
+      refreshBtn.addEventListener('click', function () {
+        refreshBtn.disabled = true;
+        body.textContent = '';
+        var loader = document.createElement('div');
+        loader.className = 'loader';
+        body.appendChild(loader);
+        api('/v1/organizations/' + orgId + '/stripe/status')
+          .then(function (fresh) {
+            renderStripeStatus(body, fresh);
+          })
+          .catch(function () {
+            body.textContent = '';
+            showError(body, t('org_stripe.load_error'));
+          });
+      });
+      body.appendChild(refreshBtn);
+      return;
+    }
+
+    var active = document.createElement('p');
+    active.className = 'small';
+    active.textContent = t('org_stripe.status_active');
+    body.appendChild(active);
+  }
+
   function load() {
     container.textContent = '';
     var loader = document.createElement('div');
@@ -102,7 +219,18 @@
     });
     navRow.appendChild(dashboardBtn);
 
+    var payoutsBtn = document.createElement('button');
+    payoutsBtn.type = 'button';
+    payoutsBtn.className = 'ghost';
+    payoutsBtn.textContent = t('organization_detail.payouts_button');
+    payoutsBtn.addEventListener('click', function () {
+      location.href = '/organizations/' + orgId + '/payouts';
+    });
+    navRow.appendChild(payoutsBtn);
+
     container.appendChild(navRow);
+
+    container.appendChild(renderStripeSection());
 
     var createWrap = document.createElement('div');
     createWrap.style.marginBottom = '24px';

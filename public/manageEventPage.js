@@ -112,6 +112,11 @@
       cancelBtn.className = 'destructive';
       cancelBtn.textContent = t('manage_event.cancel_event_button');
       cancelBtn.addEventListener('click', function () {
+        // Stripe's own processing fees are never refunded by Stripe,
+        // regardless of why an order is later refunded — the organizer
+        // needs to see that before confirming, not discover it after the
+        // fact on their Stripe balance.
+        if (!confirm(t('manage_event.cancel_confirm_message'))) return;
         cancelBtn.disabled = true;
         api('/v1/organizations/' + orgId + '/events/' + eventId + '/cancel', { method: 'POST' })
           .then(load)
@@ -136,6 +141,7 @@
       ['orders', t('manage_event.orders_button')],
       ['guest-list', t('manage_event.guest_list_button')],
       ['check-in', t('manage_event.check_in_button')],
+      ['fees', t('manage_event.fees_button')],
     ].forEach(function (entry) {
       var btn = document.createElement('button');
       btn.type = 'button';
@@ -223,7 +229,15 @@
       })
         .then(load)
         .catch(function (err) {
-          showError(typeError, (err && err.message) || t('manage_event.create_ticket_type_error'));
+          if (err && err.code === 'stripe_not_connected') {
+            showError(typeError, t('manage_event.ticket_type_stripe_required'));
+            var link = document.createElement('a');
+            link.href = '/organizations/' + orgId;
+            link.textContent = t('org_stripe.connect_button');
+            typeError.appendChild(link);
+          } else {
+            showError(typeError, (err && err.message) || t('manage_event.create_ticket_type_error'));
+          }
           submitBtn.disabled = false;
         });
     });
