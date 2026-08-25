@@ -233,3 +233,85 @@ describe('paid ticket types require a working connected Stripe account', () => {
     expect(after.status).toBe(201);
   });
 });
+
+describe('paid ticket types have a $2.00 minimum price', () => {
+  it('allows a free ($0) ticket type with no minimum applied', async () => {
+    const owner = await signupTestUser(app);
+    const { organization, event } = await createOrgAndEvent(owner, { connectStripe: false });
+
+    const res = await request(app)
+      .post(`/v1/organizations/${organization.id}/events/${event.id}/ticket-types`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ name: 'Free Admission', price_cents: 0, quantity_total: 100 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.ticket_type.price_cents).toBe(0);
+  });
+
+  it('refuses to create a paid ticket type priced below $2.00', async () => {
+    const owner = await signupTestUser(app);
+    const { organization, event } = await createOrgAndEvent(owner);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${organization.id}/events/${event.id}/ticket-types`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ name: 'Too Cheap', price_cents: 199, quantity_total: 10 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('ticket_price_below_minimum');
+    expect(typeof res.body.error.message).toBe('string');
+    expect(res.body.error.message.length).toBeGreaterThan(0);
+  });
+
+  it('allows creating a paid ticket type priced at exactly $2.00', async () => {
+    const owner = await signupTestUser(app);
+    const { organization, event } = await createOrgAndEvent(owner);
+
+    const res = await request(app)
+      .post(`/v1/organizations/${organization.id}/events/${event.id}/ticket-types`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ name: 'Just Right', price_cents: 200, quantity_total: 10 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.ticket_type.price_cents).toBe(200);
+  });
+
+  it('refuses to raise an existing ticket type to a paid price below $2.00', async () => {
+    const owner = await signupTestUser(app);
+    const { organization, event } = await createOrgAndEvent(owner);
+    const createRes = await request(app)
+      .post(`/v1/organizations/${organization.id}/events/${event.id}/ticket-types`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ name: 'General Admission', price_cents: 0, quantity_total: 50 });
+    const ticketTypeId = createRes.body.ticket_type.id;
+
+    const res = await request(app)
+      .patch(`/v1/organizations/${organization.id}/events/${event.id}/ticket-types/${ticketTypeId}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ price_cents: 150 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('ticket_price_below_minimum');
+
+    const stillFree = await pool.query('SELECT price_cents FROM ticket_types WHERE id = $1', [ticketTypeId]);
+    expect(stillFree.rows[0].price_cents).toBe(0);
+  });
+
+  it('allows lowering a paid ticket type back to $0 (free), bypassing the minimum', async () => {
+    const owner = await signupTestUser(app);
+    const { organization, event } = await createOrgAndEvent(owner);
+    const createRes = await request(app)
+      .post(`/v1/organizations/${organization.id}/events/${event.id}/ticket-types`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ name: 'General Admission', price_cents: 2500, quantity_total: 50 });
+    const ticketTypeId = createRes.body.ticket_type.id;
+
+    const res = await request(app)
+      .patch(`/v1/organizations/${organization.id}/events/${event.id}/ticket-types/${ticketTypeId}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ price_cents: 0 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ticket_type.price_cents).toBe(0);
+  });
+});

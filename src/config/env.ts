@@ -56,6 +56,18 @@ const envSchema = z.object({
   // more than this places more than one order.
   MAX_QUANTITY_PER_LINE_ITEM: z.coerce.number().default(10),
   MAX_QUANTITY_PER_ORDER: z.coerce.number().default(50),
+  // Floor on a *paid* ticket type's price (price_cents === 0, i.e. a free
+  // ticket, is exempt — that's a free event, not a ticket under the floor).
+  // Below $0.81 the organizer's net (price - Stripe's ~2.9%+$0.30 - Intahe's
+  // 3%/$0.49-$4.99 commission) goes negative when the organizer absorbs
+  // fees. $2.00 is set well above that breakeven on purpose: it nets the
+  // organizer $1.15 (58% retained, 2.47x the breakeven), leaving headroom a
+  // $1.00 floor wouldn't have (only $0.18/18% net — thin enough that a
+  // routine Stripe fee adjustment could push it negative again). This exact
+  // dollar figure is also hardcoded into the FR/EN error copy in
+  // manageEventPage.js and i18n.js (ticket_types.price_below_minimum*) —
+  // if this default ever changes, that copy must be updated by hand too.
+  MIN_TICKET_PRICE_CENTS: z.coerce.number().default(200),
   // Rate limiting on POST /v1/events/:eventId/orders (checkout), by client
   // IP and by the buyer_email in the request body — same shape as the auth
   // limiters above. Bounds how many reservation-holding orders one

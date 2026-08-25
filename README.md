@@ -1008,11 +1008,8 @@ to be picked up once it's stable:
   `PaymentIntent` for `amountCents: 0`, which real Stripe will reject.
 - Mobile UI for everything below — the web app has it, the mobile app
   doesn't yet.
-- A configurable minimum ticket price. A $0.01–$0.80 ticket currently
-  produces a negative organizer net when fees are absorbed (see
-  `tests/orderFeeBoundaries.test.ts`'s $0.01 case) — the exact breakeven is
-  $0.81. Not yet enforced anywhere; the default minimum needs sign-off
-  before it's wired in.
+- ~~A configurable minimum ticket price~~ — done. See "Minimum ticket
+  price" under Web UI (implemented) below.
 - Admin console screens for "approve an organization" and "unpublish an
   event" specifically — both endpoints exist and are tested
   (`POST /v1/admin/organizations/:organizationId/approve`,
@@ -1048,7 +1045,36 @@ for FR/EN copy, `window.intaheSession.apiRequest`):
   commission/Stripe-fee/net estimate while the organizer types, computed
   client-side with the same formulas as `commissionGrid.ts`/`fees.ts` (no
   round-trip needed), using a red style once the estimated net goes
-  negative.
+  negative. Below `MIN_TICKET_PRICE_CENTS` the estimate line is replaced by
+  the below-minimum explanation instead — visible from the very first digit
+  typed, not only on submit — see "Minimum ticket price" below.
+
+### Minimum ticket price
+
+`MIN_TICKET_PRICE_CENTS` (`src/config/env.ts`, default **200**, i.e.
+**$2.00**) is a floor on *paid* ticket types only — a $0 (free) ticket is
+always allowed, since that's a free event, not a ticket under the floor.
+Enforced in `ticketTypeService.createTicketType`/`updateTicketType` (the
+same place, and same "checked fresh on every write" pattern, as the
+Stripe-connected gate above), returning `400 ticket_price_below_minimum`
+with an explanatory message, not a bare rejection.
+
+Why $2.00: the exact organizer-net breakeven (where `price - Stripe's fee -
+Intahe's commission = 0`, when the organizer absorbs fees) is $0.81 — see
+`tests/orderFeeBoundaries.test.ts`. $2.00 was chosen well above that on
+purpose: it nets the organizer $1.15 (58% retained, 2.47x the breakeven),
+vs. a $1.00 floor's thin $0.18 (18%) margin, which wouldn't survive a
+routine Stripe fee adjustment. It doesn't constrain this platform's actual
+segment (concerts, galas, tables typically $15-40+).
+
+`manageEventPage.js` mirrors this exact figure client-side (hardcoded, not
+fetched — there's no round-trip on keystroke) both in the live per-keystroke
+estimate and in the submit-time error, and the FR/EN copy
+(`manage_event.price_below_minimum`/`price_below_minimum_error` in
+`i18n.js`) also hardcodes "$2.00"/"2,00 $". If `MIN_TICKET_PRICE_CENTS` is
+ever changed, both of those need to be updated by hand — a documented
+coupling, not an automated one, same convention as the `quantity_sold`
+trigger bound vs. `MAX_QUANTITY_PER_ORDER` elsewhere in this codebase.
 - **`orgOrdersPage.js`** — a full refund flow per order: choose full or
   partial amount, a required reason presented in plain language ("I'm
   cancelling the event" / "I'm postponing the event" / "The buyer

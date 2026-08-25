@@ -22,6 +22,14 @@
   function estimateStripeFeeCents(subtotalCents) {
     return subtotalCents === 0 ? 0 : Math.round(subtotalCents * 0.029 + 30);
   }
+  // Mirrors env.ts's MIN_TICKET_PRICE_CENTS default. A paid ticket below
+  // this is rejected server-side (ticket_price_below_minimum) — this
+  // constant only drives the proactive warning shown while typing; the
+  // server is still the authority. Hardcoded rather than fetched because
+  // there is no server round-trip on keystroke; if the env default ever
+  // changes, this and the price_below_minimum* i18n copy must be updated
+  // by hand too (see env.ts's comment on MIN_TICKET_PRICE_CENTS).
+  var MIN_TICKET_PRICE_CENTS = 200;
 
   function formatPrice(cents, currency) {
     return new Intl.NumberFormat(window.intaheLocaleTag(), { style: 'currency', currency: currency.toUpperCase() }).format(
@@ -224,6 +232,18 @@
       }
       if (priceCents === 0) {
         priceEstimate.textContent = t('manage_event.price_estimate_free');
+        priceEstimate.className = 'small text-secondary';
+        return;
+      }
+      // Below-minimum takes over the estimate line entirely (not shown
+      // alongside it): the organizer's transparency argument is that this
+      // appears the instant it's true, from the very first digit typed,
+      // not only once they try to submit.
+      if (priceCents < MIN_TICKET_PRICE_CENTS) {
+        priceEstimate.textContent = t('manage_event.price_below_minimum', {
+          minimum: formatPrice(MIN_TICKET_PRICE_CENTS, 'cad'),
+        });
+        priceEstimate.className = 'small error';
         return;
       }
       var commissionCents = estimateTicketCommissionCents(priceCents);
@@ -256,6 +276,13 @@
       if (!Number.isFinite(priceCents) || priceCents < 0 || !Number.isInteger(quantityTotal) || quantityTotal < 1) {
         return;
       }
+      if (priceCents > 0 && priceCents < MIN_TICKET_PRICE_CENTS) {
+        showError(
+          typeError,
+          t('manage_event.price_below_minimum_error', { minimum: formatPrice(MIN_TICKET_PRICE_CENTS, 'cad') }),
+        );
+        return;
+      }
       var submitBtn = form.querySelector('#type-submit');
       submitBtn.disabled = true;
       api('/v1/organizations/' + orgId + '/events/' + eventId + '/ticket-types', {
@@ -275,6 +302,11 @@
             link.href = '/organizations/' + orgId;
             link.textContent = t('org_stripe.connect_button');
             typeError.appendChild(link);
+          } else if (err && err.code === 'ticket_price_below_minimum') {
+            showError(
+              typeError,
+              t('manage_event.price_below_minimum_error', { minimum: formatPrice(MIN_TICKET_PRICE_CENTS, 'cad') }),
+            );
           } else {
             showError(typeError, (err && err.message) || t('manage_event.create_ticket_type_error'));
           }

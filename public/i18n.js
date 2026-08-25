@@ -241,6 +241,10 @@ window.__INTAHE_I18N__ = {
       price_estimate:
         'Commission Intahe : {{commission}} · Frais Stripe estimés : {{stripe_fee}} · Net organisateur estimé : {{net}}',
       price_estimate_free: 'Billet gratuit — aucun frais.',
+      price_below_minimum:
+        'Le prix minimum est de {{minimum}}. En dessous, les frais de traitement dépasseraient ce que tu reçois. Pour un événement sans frais, mets le prix à 0 $.',
+      price_below_minimum_error:
+        'Le prix minimum est de {{minimum}}. En dessous, les frais de traitement dépasseraient ce que tu reçois. Pour un événement sans frais, mets le prix à 0 $.',
       ticket_quantity_label: 'Quantité disponible',
       create_type_button: 'Créer',
       cancel_form_button: 'Annuler',
@@ -562,6 +566,10 @@ window.__INTAHE_I18N__ = {
       price_estimate:
         'Intahe commission: {{commission}} · Estimated Stripe fee: {{stripe_fee}} · Estimated organizer net: {{net}}',
       price_estimate_free: 'Free ticket — no fees.',
+      price_below_minimum:
+        'The minimum price is {{minimum}}. Below that, processing fees would exceed what you receive. For a free event, set the price to $0.',
+      price_below_minimum_error:
+        'The minimum price is {{minimum}}. Below that, processing fees would exceed what you receive. For a free event, set the price to $0.',
       ticket_quantity_label: 'Quantity available',
       create_type_button: 'Create',
       cancel_form_button: 'Cancel',

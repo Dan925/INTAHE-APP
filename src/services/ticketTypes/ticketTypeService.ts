@@ -1,4 +1,5 @@
 import { pool } from '../../config/database';
+import { env } from '../../config/env';
 import { ApiError } from '../../utils/errors';
 import { buildPage, decodeCursor, encodeCursor, type CursorPage } from '../../utils/pagination';
 import type { TicketTypeRow } from '../../types/db';
@@ -87,6 +88,21 @@ async function assertOrganizationCanSellPaidTickets(organizationId: string): Pro
   }
 }
 
+// A price_cents of exactly 0 is a free ticket (a free event) and is never
+// subject to this floor — it's not "a paid ticket under the minimum," it's
+// not a paid ticket at all. Only 0 < price_cents < MIN_TICKET_PRICE_CENTS is
+// rejected. See env.ts's MIN_TICKET_PRICE_CENTS comment for why $2.00.
+function assertTicketPriceAboveMinimum(priceCents: number): void {
+  if (priceCents > 0 && priceCents < env.MIN_TICKET_PRICE_CENTS) {
+    throw new ApiError(
+      400,
+      'ticket_price_below_minimum',
+      `Ticket price must be at least ${env.MIN_TICKET_PRICE_CENTS} cents, or exactly 0 for a free ticket.`,
+      'price_cents',
+    );
+  }
+}
+
 // Single-row counterpart to listTicketTypes's LEFT JOIN LATERAL below —
 // same condition, just queried separately since there's only one ticket
 // type here rather than a page of them. Used by every read/write path in
@@ -112,6 +128,7 @@ export async function createTicketType(
   input: CreateTicketTypeInput,
 ): Promise<PublicTicketType> {
   if (input.price_cents > 0) {
+    assertTicketPriceAboveMinimum(input.price_cents);
     await assertOrganizationCanSellPaidTickets(organizationId);
   }
 
@@ -155,6 +172,7 @@ export async function updateTicketType(
   patch: UpdateTicketTypeInput,
 ): Promise<PublicTicketType> {
   if (typeof patch.price_cents === 'number' && patch.price_cents > 0) {
+    assertTicketPriceAboveMinimum(patch.price_cents);
     await assertOrganizationCanSellPaidTickets(organizationId);
   }
 
