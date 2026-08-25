@@ -25,6 +25,7 @@ window.__INTAHE_I18N__ = {
       pay_button: 'Payer',
       pay_button_wait: 'Paiement en cours…',
       payment_failed: 'Le paiement a échoué.',
+      payment_succeeded: 'Paiement réussi ! Consulte tes courriels : tes billets t’y attendent.',
       title_suffix: ' — Intahe',
     },
     tickets: {
@@ -227,6 +228,7 @@ window.__INTAHE_I18N__ = {
       pay_button: 'Pay',
       pay_button_wait: 'Processing payment…',
       payment_failed: 'Payment failed.',
+      payment_succeeded: 'Payment successful! Check your email — your tickets are on their way.',
       title_suffix: ' — Intahe',
     },
     tickets: {

@@ -33,7 +33,16 @@ export interface PublicTicketType {
   created_at: string;
 }
 
-function toPublicTicketType(row: TicketTypeRow): PublicTicketType {
+// expiredPendingQuantity subtracts reservations that have timed out but
+// haven't been swept by the lazy release yet (see listTicketTypes below) —
+// without this, a ticket type whose stock is entirely tied up by abandoned
+// carts reads as sold out forever: nobody can see it's actually available,
+// so nobody goes to checkout, so the lazy release (which only runs inside
+// checkoutService.reserveInventory) never fires. Defaults to 0 for the
+// single-row paths (create/get/update), which intentionally still show the
+// raw, uncorrected counter — those are organizer-authenticated calls, not
+// on the public availability path this fixes.
+function toPublicTicketType(row: TicketTypeRow, expiredPendingQuantity = 0): PublicTicketType {
   return {
     id: row.id,
     event_id: row.event_id,
@@ -41,7 +50,7 @@ function toPublicTicketType(row: TicketTypeRow): PublicTicketType {
     price_cents: row.price_cents,
     currency: row.currency,
     quantity_total: row.quantity_total,
-    quantity_sold: row.quantity_sold,
+    quantity_sold: Math.max(0, row.quantity_sold - expiredPendingQuantity),
     sale_starts_at: row.sale_starts_at ? row.sale_starts_at.toISOString() : null,
     sale_ends_at: row.sale_ends_at ? row.sale_ends_at.toISOString() : null,
     created_at: row.created_at.toISOString(),
@@ -119,6 +128,14 @@ export async function updateTicketType(
   return toPublicTicketType(row);
 }
 
+interface TicketTypeListRow extends TicketTypeRow {
+  cursor_created_at: string;
+  // bigint from SUM() — node-postgres returns it as a numeric-looking
+  // string to avoid silent precision loss, same convention as
+  // dashboardService's SUM() columns.
+  expired_pending_quantity: string;
+}
+
 export async function listTicketTypes(
   eventId: string,
   cursor: string | undefined,
@@ -126,17 +143,37 @@ export async function listTicketTypes(
 ): Promise<CursorPage<PublicTicketType>> {
   const decoded = cursor ? decodeCursor(cursor) : null;
 
-  const result = await pool.query<TicketTypeRow & { cursor_created_at: string }>(
-    `SELECT *, created_at::text AS cursor_created_at FROM ticket_types
-     WHERE event_id = $1
+  const result = await pool.query<TicketTypeListRow>(
+    `SELECT tt.*, tt.created_at::text AS cursor_created_at,
+            COALESCE(expired.qty, 0) AS expired_pending_quantity
+     FROM ticket_types tt
+     LEFT JOIN LATERAL (
+       -- Same "expired but not yet released" condition as
+       -- orderReleaseService.releaseExpiredReservations — mirrored here as
+       -- a pure read-side correction rather than a write, so a public GET
+       -- never mutates state.
+       SELECT SUM(oli.quantity) AS qty
+       FROM order_line_items oli
+       JOIN orders o ON o.id = oli.order_id
+       WHERE oli.ticket_type_id = tt.id
+         AND o.status = 'pending'
+         AND o.reservation_expires_at IS NOT NULL
+         AND o.reservation_expires_at < now()
+     ) expired ON true
+     WHERE tt.event_id = $1
        AND (
          $2::timestamptz IS NULL
-         OR (created_at, id) < ($2::timestamptz, $3::uuid)
+         OR (tt.created_at, tt.id) < ($2::timestamptz, $3::uuid)
        )
-     ORDER BY created_at DESC, id DESC
+     ORDER BY tt.created_at DESC, tt.id DESC
      LIMIT $4`,
     [eventId, decoded?.createdAt ?? null, decoded?.id ?? null, limit + 1],
   );
 
-  return buildPage(result.rows, limit, toPublicTicketType, (row) => encodeCursor(row.cursor_created_at, row.id));
+  return buildPage(
+    result.rows,
+    limit,
+    (row) => toPublicTicketType(row, Number(row.expired_pending_quantity)),
+    (row) => encodeCursor(row.cursor_created_at, row.id),
+  );
 }

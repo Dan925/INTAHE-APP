@@ -190,20 +190,19 @@
         payBtn.textContent = window.intaheT('event.pay_button_wait');
         errorContainer.textContent = '';
 
-        const ticketsUrl =
-          location.origin +
-          '/events/' +
-          eventId +
-          '/orders/' +
-          checkoutResult.order.id +
-          '/tickets?token=' +
-          encodeURIComponent(checkoutResult.ticket_access_token) +
-          '&lang=' +
-          window.intaheLocale();
+        // Only used if Stripe actually has to leave the page (e.g. an
+        // off-site 3DS step) — redirect: 'if_required' resolves in place
+        // otherwise. There's no tickets link to send the buyer to here:
+        // the access token doesn't exist until the payment_intent.succeeded
+        // webhook issues the tickets, which hasn't necessarily happened yet
+        // by the time this resolves — the confirmation email (sent from
+        // that same webhook, once the token exists) is the reliable way to
+        // reach them.
+        const returnUrl = location.origin + '/events/' + eventId + '?lang=' + window.intaheLocale();
 
         const { error } = await stripe.confirmPayment({
           elements,
-          confirmParams: { return_url: ticketsUrl },
+          confirmParams: { return_url: returnUrl },
           redirect: 'if_required',
         });
 
@@ -214,7 +213,12 @@
           return;
         }
 
-        location.href = ticketsUrl;
+        payBtn.remove();
+        paymentContainer.innerHTML = '';
+        const successBox = document.createElement('div');
+        successBox.className = 'success-box';
+        successBox.textContent = window.intaheT('event.payment_succeeded');
+        paymentContainer.appendChild(successBox);
       });
     });
   }

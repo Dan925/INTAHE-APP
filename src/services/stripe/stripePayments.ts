@@ -5,11 +5,6 @@ export interface CreatePaymentIntentInput {
   amountCents: number;
   currency: string;
   orderId: string;
-  // Carried through to the payment_intent.succeeded webhook via metadata so
-  // the confirmation email can link to the buyer's tickets — the only raw
-  // copy of this token exists in memory at order-creation time and here;
-  // the database only ever stores its hash (see utils/ticketAccessToken.ts).
-  ticketAccessToken: string;
   destinationAccountId?: string | null | undefined;
   applicationFeeCents?: number | undefined;
 }
@@ -18,7 +13,7 @@ export async function createPaymentIntent(input: CreatePaymentIntentInput): Prom
   const params: Stripe.PaymentIntentCreateParams = {
     amount: input.amountCents,
     currency: input.currency,
-    metadata: { order_id: input.orderId, ticket_access_token: input.ticketAccessToken },
+    metadata: { order_id: input.orderId },
   };
 
   // Stripe Connect destination charge: the connected organization receives

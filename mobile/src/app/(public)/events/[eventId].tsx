@@ -1,5 +1,5 @@
 import { useStripe } from '@stripe/stripe-react-native';
-import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -19,7 +19,6 @@ import type { TicketType } from '@/lib/ticketTypes';
 export default function PublicEventScreen() {
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
   const navigation = useNavigation();
-  const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { t, localeTag } = useTranslation();
 
@@ -221,26 +220,15 @@ export default function PublicEventScreen() {
                 ) : null}
 
                 {paymentSucceeded ? (
-                  <>
-                    <ThemedText type="smallBold" themeColor="success" style={styles.paymentNote}>
-                      {t('event_detail.payment_succeeded')}
-                    </ThemedText>
-                    <Button
-                      title={t('event_detail.view_tickets')}
-                      variant="ghost"
-                      style={styles.viewTicketsButton}
-                      onPress={() =>
-                        router.push({
-                          pathname: '/events/[eventId]/tickets/[orderId]',
-                          params: {
-                            eventId,
-                            orderId: checkoutResult.order.id,
-                            accessToken: checkoutResult.ticket_access_token ?? undefined,
-                          },
-                        })
-                      }
-                    />
-                  </>
+                  // No "view tickets" link here: the access token doesn't
+                  // exist until the payment_intent.succeeded webhook issues
+                  // the tickets, which hasn't necessarily happened by the
+                  // time this resolves. The confirmation email (sent from
+                  // that same webhook, once the token exists) is the
+                  // reliable way to reach the buyer.
+                  <ThemedText type="smallBold" themeColor="success" style={styles.paymentNote}>
+                    {t('event_detail.payment_succeeded')}
+                  </ThemedText>
                 ) : isPaymentReady ? (
                   <Button
                     title={t('event_detail.pay_now')}

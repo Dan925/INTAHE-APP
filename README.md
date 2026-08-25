@@ -278,6 +278,20 @@ need to actually be subscribed to on the Stripe Dashboard's Event
 Destination(s) for this to fire in production — same step as when
 `payment_intent.succeeded`/`account.updated` were first configured.
 
+**Availability shown on public reads is corrected for the same expired
+reservations, without writing anything.** The lazy sweep above only runs
+inside `reserveInventory`, i.e. when *someone actually attempts a
+checkout* — but public availability (`/discover`, the event page) reads
+`ticket_types.quantity_sold` directly. Left uncorrected, a ticket type
+whose stock is entirely tied up by abandoned carts reads as sold out
+forever: nobody sees it's actually available, so nobody goes to checkout,
+so the sweep that would free it never runs. `ticketTypeService.listTicketTypes`
+closes this by subtracting still-`pending`-but-expired reservations from
+`quantity_sold` at read time (a `LEFT JOIN LATERAL` mirroring the same
+condition `releaseExpiredReservations` uses) rather than triggering a write
+from a GET request. The stored counter stays stale until someone actually
+buys — only the number shown is corrected.
+
 Two tables exist beyond the brief's core schema, both required to make the
 above work: `password_reset_tokens` (auth) and `order_line_items`, which
 records what was purchased before any `tickets` row exists (needed because
@@ -319,6 +333,11 @@ checking. `tests/rateLimit.test.ts` opts back in explicitly (setting
 routes end to end, in addition to unit-testing the limiter factories
 directly with small explicit limits.
 
+`RATE_LIMIT_ENABLED=true` is set explicitly in `render.yaml` for both
+staging and production — not left to the `NODE_ENV !== 'test'` default, so
+it's visible directly in the deploy config rather than something you have
+to trace through `env.ts`'s fallback logic to confirm.
+
 ### Ticket access token, not buyer_email in the URL (implemented)
 
 `GET /v1/events/:eventId/orders/:orderId/tickets` used to accept
@@ -339,25 +358,33 @@ used, since this now guards a real bearer credential. An authenticated
 buyer (`buyer_user_id` on the order matching the caller's session) still
 needs no token at all, unchanged from before.
 
-The token is generated once, at order creation (`checkoutService.createOrder`),
-before payment — needed because the client-side checkout flow
-(`public/event.js`, the mobile app) navigates straight to the tickets page
-right after `stripe.confirmPayment()` resolves, well before the
-`payment_intent.succeeded` webhook necessarily runs. The confirmation email
-is sent later, from that webhook — a separate process that never sees the
-raw token (only its hash is in the database) — so the same raw value is
-carried through as Stripe PaymentIntent metadata
-(`ticket_access_token`, alongside the pre-existing `order_id`), which Stripe
-echoes back on the event the webhook receives. This trades a narrower,
-already-trusted exposure (our own Stripe platform account, which anyone
-with `STRIPE_SECRET_KEY` already has equivalent access to) for closing the
-original leak into logs, `Referer` headers, and analytics that a buyer's
-email address had no business ending up in.
+The token is minted in `stripeWebhookService.markOrderPaidAndIssueTickets`,
+at the exact moment `payment_intent.succeeded` issues the tickets — not at
+order creation. It has no reason to exist before then: nothing can be
+viewed with it until tickets actually exist, and minting it earlier would
+mean carrying the raw value across the gap between the checkout request and
+the later, asynchronous webhook that sends the confirmation email — which
+was the first version of this fix's approach (Stripe PaymentIntent
+metadata), rejected because Stripe metadata is permanent, visible in the
+dashboard to every collaborator with platform access, and not something
+this app can purge. Minting inside the webhook avoids that gap entirely:
+the token is generated, hashed into `orders.ticket_access_token_hash`, and
+handed to `deliverOrderConfirmationEmail` all within the same function call,
+so the raw value only ever exists in memory for the life of that request.
 
-One consequence worth flagging: orders created before this change have no
-token, and their confirmation emails linked with `?buyer_email=...`, which
-this endpoint no longer honors — those old links are now dead. Given this
-app hasn't shipped to real customers yet, that one-time transition cost was
+One consequence: the public checkout pages (`public/event.js`, the mobile
+app's guest checkout) can no longer redirect straight to a working tickets
+link right after `stripe.confirmPayment()` resolves, since the token
+doesn't exist at that point — payment confirmation and ticket issuance are
+two different moments now. Both show a "check your email" message instead;
+the confirmation email (sent once the token exists) is the reliable way to
+reach an anonymous buyer. A logged-in buyer's session still works
+immediately, before or after payment, since that path was never token-based.
+
+Also worth flagging: orders created before this change have no token, and
+their confirmation emails linked with `?buyer_email=...`, which this
+endpoint no longer honors — those old links are now dead. Given this app
+hasn't shipped to real customers yet, that one-time transition cost was
 judged acceptable rather than keeping the old mechanism around as a
 fallback.
 

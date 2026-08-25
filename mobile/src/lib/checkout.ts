@@ -16,7 +16,6 @@ export interface Order {
 export interface CheckoutResult {
   order: Order;
   client_secret: string | null;
-  ticket_access_token: string | null;
 }
 
 export function createOrder(

@@ -1,14 +1,25 @@
+import crypto from 'node:crypto';
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { pool } from '../src/config/database';
+import { createPaymentIntent } from '../src/services/stripe/stripePayments';
 import { truncateAllTables } from './helpers/db';
 import { signupTestUser } from './helpers/auth';
 import { createOrgAndPublishedEvent, createTicketType } from './helpers/checkoutFixtures';
+
+jest.mock('../src/services/stripe/stripePayments');
+
+const mockCreatePaymentIntent = createPaymentIntent as jest.MockedFunction<typeof createPaymentIntent>;
 
 const app = createApp();
 
 beforeEach(async () => {
   await truncateAllTables();
+  jest.clearAllMocks();
+  mockCreatePaymentIntent.mockImplementation(async () => {
+    const id = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
+    return { id, client_secret: `${id}_secret` } as never;
+  });
 });
 
 afterAll(async () => {
@@ -119,5 +130,61 @@ describe('GET /v1/discover/events/:eventId/ticket-types', () => {
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(1);
     expect(res.body.items[0].name).toBe('GA');
+  });
+
+  // Reproduces the deadlock: abandoned carts reserve the entire stock and
+  // time out, but nothing ever calls checkoutService.reserveInventory again
+  // (the only place that sweeps expired reservations) to release it,
+  // because the public page already shows the event as sold out and no one
+  // attempts to buy. The fix has to be in the read path itself.
+  it('does not report an event as sold out when its stock is only held by expired reservations', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      name: 'GA',
+      quantity_total: 1,
+    });
+
+    const orderRes = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', 'discover-sold-out-repro')
+      .send({ buyer_email: 'abandoned@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
+    expect(orderRes.status).toBe(201);
+
+    await pool.query(`UPDATE orders SET reservation_expires_at = now() - interval '1 minute' WHERE id = $1`, [
+      orderRes.body.order.id,
+    ]);
+
+    const res = await request(app).get(`/v1/discover/events/${fixture.event.id}/ticket-types`);
+
+    expect(res.status).toBe(200);
+    const item = res.body.items.find((i: { id: string }) => i.id === ticketType.id);
+    expect(item.quantity_sold).toBe(0);
+    expect(item.quantity_total - item.quantity_sold).toBe(1);
+
+    // Confirms this is a pure read-side correction, not a hidden write —
+    // the stored counter is still stale until someone actually checks out.
+    const raw = await pool.query('SELECT quantity_sold FROM ticket_types WHERE id = $1', [ticketType.id]);
+    expect(raw.rows[0].quantity_sold).toBe(1);
+  });
+
+  it('still reports reduced availability for a reservation that has not expired yet', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      name: 'GA',
+      quantity_total: 1,
+    });
+
+    const orderRes = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', 'discover-active-reservation')
+      .send({ buyer_email: 'active-buyer@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }] });
+    expect(orderRes.status).toBe(201);
+
+    const res = await request(app).get(`/v1/discover/events/${fixture.event.id}/ticket-types`);
+
+    expect(res.status).toBe(200);
+    const item = res.body.items.find((i: { id: string }) => i.id === ticketType.id);
+    expect(item.quantity_sold).toBe(1);
+    expect(item.quantity_total - item.quantity_sold).toBe(0);
   });
 });

@@ -5,7 +5,6 @@ import { computeReservationExpiry, releaseExpiredReservations } from './orderRel
 import { createPaymentIntent, retrievePaymentIntent } from '../stripe/stripePayments';
 import { ApiError } from '../../utils/errors';
 import { computeOrderFees } from '../../utils/fees';
-import { generateTicketAccessToken, hashTicketAccessToken } from '../../utils/ticketAccessToken';
 import type { EventRow, OrderRow, OrganizationRow, TicketTypeRow } from '../../types/db';
 
 export interface CheckoutLineItemInput {
@@ -34,11 +33,6 @@ export interface PublicOrder {
 export interface CheckoutResult {
   order: PublicOrder;
   client_secret: string | null;
-  // Only populated for a fresh order — the raw token is never persisted
-  // (only its hash is), so a replayed Idempotency-Key request can't recover
-  // it a second time. The client is expected to have captured it from the
-  // original response, same as it must for client_secret.
-  ticket_access_token: string | null;
 }
 
 function toPublicOrder(row: OrderRow): PublicOrder {
@@ -177,7 +171,7 @@ export async function createOrder(
     const clientSecret = existingOrder.stripe_payment_intent_id
       ? (await retrievePaymentIntent(existingOrder.stripe_payment_intent_id)).client_secret
       : null;
-    return { order: toPublicOrder(existingOrder), client_secret: clientSecret, ticket_access_token: null };
+    return { order: toPublicOrder(existingOrder), client_secret: clientSecret };
   }
 
   const client = await pool.connect();
@@ -217,20 +211,19 @@ export async function createOrder(
       event.fees_absorbed_by_organizer,
     );
 
-    // Generated once here and never stored — only its hash is. This is the
-    // buyer's proof of ownership for GET /:orderId/tickets, replacing
-    // buyer_email in that route so the address itself no longer needs to
-    // travel in a URL (query strings end up in server logs, Referer
-    // headers, and analytics tooling).
-    const ticketAccessToken = generateTicketAccessToken();
-
+    // ticket_access_token_hash is deliberately NOT set here: the token it
+    // guards is proof that tickets belonging to this order can be viewed,
+    // and no tickets exist yet at order-creation time (payment hasn't even
+    // been attempted). It's minted later, in stripeWebhookService, at the
+    // exact moment payment_intent.succeeded issues the tickets — see
+    // utils/ticketAccessToken.ts.
     const orderResult = await client.query<OrderRow>(
       `INSERT INTO orders (
          event_id, buyer_user_id, buyer_email, subtotal_cents, stripe_fee_cents,
          intahe_fee_cents, total_cents, status, idempotency_key, idempotency_request_hash,
-         reservation_expires_at, ticket_access_token_hash
+         reservation_expires_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10)
        RETURNING *`,
       [
         eventId,
@@ -243,7 +236,6 @@ export async function createOrder(
         idempotencyKey,
         requestHash,
         computeReservationExpiry(),
-        hashTicketAccessToken(ticketAccessToken),
       ],
     );
     const order = orderResult.rows[0];
@@ -269,12 +261,6 @@ export async function createOrder(
       amountCents: totalCents,
       currency,
       orderId: order.id,
-      // The confirmation email is sent later, from the async webhook, which
-      // never sees the raw token above (only its hash is in the database).
-      // Stripe echoes PaymentIntent metadata back on every event for it, so
-      // this is how the same token reaches that later step without ever
-      // persisting it in plaintext ourselves.
-      ticketAccessToken,
       destinationAccountId: canUseDestinationCharge ? organization.stripe_account_id : null,
       applicationFeeCents: canUseDestinationCharge ? intaheFeeCents : undefined,
     });
@@ -290,11 +276,7 @@ export async function createOrder(
 
     await client.query('COMMIT');
 
-    return {
-      order: toPublicOrder(updatedOrder),
-      client_secret: paymentIntent.client_secret,
-      ticket_access_token: ticketAccessToken,
-    };
+    return { order: toPublicOrder(updatedOrder), client_secret: paymentIntent.client_secret };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

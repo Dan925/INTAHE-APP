@@ -5,6 +5,7 @@ import { pool } from '../../config/database';
 import { releaseOrderByPaymentIntentId, reReserveAfterLatePayment } from '../checkout/orderReleaseService';
 import { sendEmail } from '../email/emailClient';
 import { retrieveAccount } from '../stripe/stripeConnect';
+import { generateTicketAccessToken, hashTicketAccessToken } from '../../utils/ticketAccessToken';
 import type { OrderLineItemRow, OrderRow } from '../../types/db';
 
 // This Stripe account's connected accounts were set up as Accounts v2, whose
@@ -22,13 +23,13 @@ interface ConfirmedOrder {
   id: string;
   eventId: string;
   buyerEmail: string;
-  ticketAccessToken: string | undefined;
+  ticketAccessToken: string;
 }
 
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
-    await markOrderPaidAndIssueTickets(paymentIntent.id, paymentIntent.metadata?.['ticket_access_token']);
+    await markOrderPaidAndIssueTickets(paymentIntent.id);
     return;
   }
   // Released immediately rather than waiting for the reservation to time
@@ -74,10 +75,7 @@ async function syncConnectedAccountChargesEnabled(
   ]);
 }
 
-async function markOrderPaidAndIssueTickets(
-  paymentIntentId: string,
-  ticketAccessToken: string | undefined,
-): Promise<void> {
+async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<void> {
   const client = await pool.connect();
   let confirmedOrder: ConfirmedOrder | null = null;
   try {
@@ -108,7 +106,17 @@ async function markOrderPaidAndIssueTickets(
       await reReserveAfterLatePayment(client, order.id);
     }
 
-    await client.query(`UPDATE orders SET status = 'paid' WHERE id = $1`, [order.id]);
+    // Minted here rather than at order creation: it's proof that this
+    // order's tickets can be viewed, and no tickets exist until this exact
+    // point — nothing earlier has any use for it. Only the hash is
+    // persisted; the raw value lives only in memory for the rest of this
+    // request, until it's handed to deliverOrderConfirmationEmail below.
+    const ticketAccessToken = generateTicketAccessToken();
+
+    await client.query(`UPDATE orders SET status = 'paid', ticket_access_token_hash = $2 WHERE id = $1`, [
+      order.id,
+      hashTicketAccessToken(ticketAccessToken),
+    ]);
 
     const lineItemsResult = await client.query<OrderLineItemRow>(
       `SELECT * FROM order_line_items WHERE order_id = $1`,
@@ -161,22 +169,16 @@ async function deliverOrderConfirmationEmail(
   email: string,
   eventId: string,
   orderId: string,
-  ticketAccessToken: string | undefined,
+  ticketAccessToken: string,
 ): Promise<void> {
-  // ticketAccessToken is only missing for an order created before this
-  // token existed (its PaymentIntent metadata predates it) — there's no
-  // buyer_email fallback left to build a working link with, so the email
-  // still confirms the purchase but omits the "View your tickets" link.
-  const ticketsUrl = ticketAccessToken
-    ? `${env.APP_BASE_URL}/events/${eventId}/orders/${orderId}/tickets?token=${encodeURIComponent(ticketAccessToken)}`
-    : null;
+  const ticketsUrl = `${env.APP_BASE_URL}/events/${eventId}/orders/${orderId}/tickets?token=${encodeURIComponent(ticketAccessToken)}`;
   try {
     await sendEmail({
       to: email,
       subject: 'Your Intahe order is confirmed',
       html: `<p>Thanks for your purchase! Your order is confirmed.</p>
 <p>Order reference: <strong>${orderId}</strong></p>
-${ticketsUrl ? `<p><a href="${ticketsUrl}">View your tickets</a></p>` : ''}`,
+<p><a href="${ticketsUrl}">View your tickets</a></p>`,
     });
   } catch (err) {
     console.error('Failed to send order confirmation email:', err);
