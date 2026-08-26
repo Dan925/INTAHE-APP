@@ -1,6 +1,7 @@
 import { createApp } from './app';
 import { env } from './config/env';
 import { runDuePayouts } from './services/payouts/payoutService';
+import { runReconciliationSweep } from './services/reconciliation/paymentReconciliationService';
 
 const app = createApp();
 
@@ -20,3 +21,15 @@ function runPayoutWorkerTick(): void {
 }
 setTimeout(runPayoutWorkerTick, 30_000);
 setInterval(runPayoutWorkerTick, env.PAYOUT_WORKER_INTERVAL_MS);
+
+// Same not-wired-into-createApp() reasoning as the payout worker above —
+// tests must never start a live timer against a mocked Stripe client.
+// Runs shortly after boot, then every RECONCILIATION_WORKER_INTERVAL_MS —
+// see paymentReconciliationService.ts for what this actually checks.
+function runReconciliationWorkerTick(): void {
+  runReconciliationSweep().catch((err) => {
+    console.error('Payment reconciliation worker run failed:', err);
+  });
+}
+setTimeout(runReconciliationWorkerTick, 45_000);
+setInterval(runReconciliationWorkerTick, env.RECONCILIATION_WORKER_INTERVAL_MS);

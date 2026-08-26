@@ -39,6 +39,11 @@
     title.textContent = t('admin_payouts.title');
     container.appendChild(title);
 
+    var reconciliationLink = document.createElement('a');
+    reconciliationLink.href = '/admin/reconciliation';
+    reconciliationLink.textContent = t('admin_payouts.reconciliation_link');
+    container.appendChild(reconciliationLink);
+
     var actionError = document.createElement('div');
     container.appendChild(actionError);
 

@@ -104,6 +104,9 @@ export interface ServerStrings {
   admin_payouts: {
     title: string;
   };
+  admin_reconciliation: {
+    title: string;
+  };
   manage_event: {
     title: string;
   };
@@ -169,6 +172,7 @@ const fr: ServerStrings = {
   event_fees: { title: 'Détail des frais — Intahe' },
   stripe_connect_return: { title: 'Stripe — Intahe' },
   admin_payouts: { title: 'Console d’administration — Versements — Intahe' },
+  admin_reconciliation: { title: 'Console d’administration — Réconciliation — Intahe' },
   manage_event: { title: 'Événement — Intahe' },
   check_in: { title: 'Check-in — Intahe' },
   guest_list: { title: 'Liste des invités — Intahe' },
@@ -220,6 +224,7 @@ const en: ServerStrings = {
   event_fees: { title: 'Fee breakdown — Intahe' },
   stripe_connect_return: { title: 'Stripe — Intahe' },
   admin_payouts: { title: 'Admin console — Payouts — Intahe' },
+  admin_reconciliation: { title: 'Admin console — Reconciliation — Intahe' },
   manage_event: { title: 'Event — Intahe' },
   check_in: { title: 'Check-in — Intahe' },
   guest_list: { title: 'Guest list — Intahe' },

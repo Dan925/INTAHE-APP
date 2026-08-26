@@ -81,7 +81,14 @@ async function syncConnectedAccountChargesEnabled(
   ]);
 }
 
-async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<void> {
+/**
+ * Exported so paymentReconciliationService's admin-triggered reissue action
+ * can go through the exact same transaction as the real webhook path — same
+ * idempotency guard (a 'paid' order is a no-op), same late-payment
+ * re-reservation, same confirmation email — rather than a second
+ * hand-maintained copy of "how a paid order gets its tickets."
+ */
+export async function markOrderPaidAndIssueTickets(paymentIntentId: string): Promise<void> {
   const client = await pool.connect();
   let confirmedOrder: ConfirmedOrder | null = null;
   try {

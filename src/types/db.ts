@@ -182,3 +182,16 @@ export interface PlatformAdminAccessLogRow {
   action: string;
   occurred_at: Date;
 }
+
+export type ReconciliationResolution = 'manual_reissue' | 'webhook_caught_up';
+
+export interface PaymentReconciliationIncidentRow {
+  id: string;
+  order_id: string;
+  stripe_payment_intent_id: string;
+  amount_cents: number;
+  detected_at: Date;
+  resolved_at: Date | null;
+  resolved_by: string | null;
+  resolution: ReconciliationResolution | null;
+}

@@ -437,7 +437,7 @@ full attempt history; `GET /v1/organizations/:organizationId/events/:eventId/fee
 (via the commission grid) + tickets sold, plus the event's cumulative
 gross/Stripe-fee/Intahe-fee/net totals.
 
-## Admin console (backend implemented, UI not built)
+## Admin console (implemented)
 
 A platform-wide, cross-organization view — deliberately separate from the
 per-organization `owner`/`admin`/`staff`/`volunteer` roles, which have no
@@ -480,10 +480,61 @@ concept of "Intahe staff" at all.
     this list being non-empty *is* the "a payout wasn't executed in time"
     alert, rather than a separate notification pipeline), `executed`,
     and `failed`, across every organization.
+  - `POST /v1/admin/orders/:orderId/reconcile` — reissues a stuck order's
+    tickets with no new payment, after re-checking the PaymentIntent
+    against Stripe itself one more time. See "Payment reconciliation"
+    below.
+  - `GET /v1/admin/reconciliation` — open and recently-resolved stuck-payment
+    incidents across every organization.
 - **No buyer personal data.** Nothing here returns an attendee list,
   guest emails, or anything beyond what supervising organizations and
   payouts requires — no export, no plaintext buyer email in any admin
-  screen or response.
+  screen or response. (The reconciliation screen is the one narrow
+  exception: it shows a buyer's email for the one order actually stuck,
+  since resolving it requires identifying who was charged — nothing
+  broader than that single order.)
+
+### Payment reconciliation (implemented)
+
+Exists for exactly one failure mode: a buyer's Stripe PaymentIntent shows
+`succeeded`, but the corresponding order never left `pending`/`expired` —
+meaning the buyer was charged and got nothing, because
+`payment_intent.succeeded` either never arrived or was misconfigured (see
+`docs/stripe-connect-runbook.md`). This is the single most consequential
+bug this platform could ship, so it's covered on three levels:
+
+- **Detection** — `paymentReconciliationService.runReconciliationSweep`,
+  an in-process worker (`src/index.ts`, next to the existing payout
+  worker) running every `RECONCILIATION_WORKER_INTERVAL_MS` (default 5
+  minutes). Each run finds orders still `pending`/`expired` with a
+  PaymentIntent, older than `RECONCILIATION_STALE_MINUTES` (default 10)
+  and not already flagged, and asks **Stripe directly** — never inferred
+  from local state — whether that PaymentIntent actually succeeded. A
+  match is recorded in `payment_reconciliation_incidents` (one open row
+  per order, enforced by a partial unique index). The same sweep also
+  auto-closes any open incident whose order reached `paid` on its own (a
+  delayed webhook retry catching up before anyone had to act) —
+  `resolution = 'webhook_caught_up'`, distinct from a manual fix.
+- **Alerting** — the moment an incident is detected, not batched: a
+  structured `console.error('[payment_reconciliation]', ...)` (the one
+  call site to wire into Sentry/PagerDuty once one is installed, same
+  pattern as `capacityOvershootService`) plus an email to every user with
+  `is_platform_admin = true`.
+- **Fixing it** — `POST /v1/admin/orders/:orderId/reconcile`
+  (`/admin/reconciliation` in the web console) re-verifies the
+  PaymentIntent against Stripe one more time, then runs
+  `markOrderPaidAndIssueTickets` — the **exact same transaction** the real
+  webhook uses (same idempotency guard, same late-payment
+  re-reservation, same confirmation email) — rather than a second,
+  separately-maintained way to issue tickets. No new payment is created.
+  Every reissue, whether triggered by an admin or self-recorded by the
+  fallback described in the runbook, leaves a permanent
+  `payment_reconciliation_incidents` row: who, when, and how it was
+  resolved.
+
+See `docs/stripe-connect-runbook.md`'s "If Step 10 fails" section for the
+exact manual procedure when this can't be fixed through the admin console
+(e.g. the deploy itself is broken).
 
 ## Stripe Connect onboarding (implemented)
 
@@ -1102,4 +1153,10 @@ before that fetch resolves.
 - **`adminPayoutsPage.js`** (`/admin/payouts`) — not linked from the main
   nav (server-side authorization is what actually matters); due payouts
   with an overdue-hours badge and hold/unhold/trigger actions, plus
-  executed and failed history across every organization.
+  executed and failed history across every organization. Cross-links to
+  the reconciliation page below.
+- **`adminReconciliationPage.js`** (`/admin/reconciliation`) — open
+  stuck-payment incidents (buyer, amount, PaymentIntent id, when
+  detected) each with a "Reissue tickets" action, plus resolved history
+  showing whether each was fixed manually or a late webhook caught up on
+  its own. See "Payment reconciliation" above.

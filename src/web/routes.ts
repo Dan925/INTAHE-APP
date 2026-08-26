@@ -252,6 +252,15 @@ router.get('/admin/payouts', (req, res) => {
   });
 });
 
+router.get('/admin/reconciliation', (req, res) => {
+  page(req, res, {
+    title: (s) => s.admin_reconciliation.title,
+    scriptSrc: '/adminReconciliationPage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('admin-reconciliation-container'),
+  });
+});
+
 router.get('/profile', (req, res) => {
   page(req, res, {
     title: (s) => s.profile.title,

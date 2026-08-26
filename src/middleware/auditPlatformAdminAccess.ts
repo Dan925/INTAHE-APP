@@ -45,3 +45,16 @@ export async function resolveOrganizationIdForEvent(req: Request): Promise<strin
   ]);
   return result.rows[0]?.organization_id ?? null;
 }
+
+export async function resolveOrganizationIdForOrder(req: Request): Promise<string | null> {
+  const orderId = req.params['orderId'];
+  if (!orderId) return null;
+  const result = await pool.query<{ organization_id: string }>(
+    `SELECT e.organization_id
+     FROM orders o
+     JOIN events e ON e.id = o.event_id
+     WHERE o.id = $1`,
+    [orderId],
+  );
+  return result.rows[0]?.organization_id ?? null;
+}

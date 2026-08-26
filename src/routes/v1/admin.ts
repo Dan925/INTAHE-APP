@@ -1,9 +1,14 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/auth';
 import { requirePlatformAdmin } from '../../middleware/requirePlatformAdmin';
-import { auditPlatformAdminAccess, resolveOrganizationIdForEvent } from '../../middleware/auditPlatformAdminAccess';
+import {
+  auditPlatformAdminAccess,
+  resolveOrganizationIdForEvent,
+  resolveOrganizationIdForOrder,
+} from '../../middleware/auditPlatformAdminAccess';
 import * as adminService from '../../services/admin/adminService';
 import { triggerPayoutForEvent } from '../../services/payouts/payoutService';
+import { getReconciliationOverview, reconcileOrder } from '../../services/reconciliation/paymentReconciliationService';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 const router = Router();
@@ -61,6 +66,24 @@ router.post(
   auditPlatformAdminAccess('admin.organization.approve', 'approve_organization'),
   asyncHandler(async (req, res) => {
     const result = await adminService.approveOrganization(req.params['organizationId']!);
+    res.status(200).json(result);
+  }),
+);
+
+router.get(
+  '/reconciliation',
+  auditPlatformAdminAccess('admin.reconciliation.overview', 'view'),
+  asyncHandler(async (_req, res) => {
+    const overview = await getReconciliationOverview();
+    res.status(200).json(overview);
+  }),
+);
+
+router.post(
+  '/orders/:orderId/reconcile',
+  auditPlatformAdminAccess('admin.order.reconcile', 'reconcile_order', resolveOrganizationIdForOrder),
+  asyncHandler(async (req, res) => {
+    const result = await reconcileOrder(req.params['orderId']!, req.user!.id);
     res.status(200).json(result);
   }),
 );

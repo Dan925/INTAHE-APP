@@ -101,6 +101,19 @@ const envSchema = z.object({
   // PAYOUT_DELAY_HOURS: this just bounds how late a due payout can be
   // noticed, not how long funds are held.
   PAYOUT_WORKER_INTERVAL_MS: z.coerce.number().default(60 * 60 * 1000),
+  // A 'pending' order whose PaymentIntent already shows 'succeeded' at
+  // Stripe is a real buyer who was charged with no ticket issued — the
+  // payment_intent.succeeded webhook either never arrived or was
+  // misconfigured (see docs/stripe-connect-runbook.md). Ordinary webhook
+  // latency is seconds, not minutes, so this threshold is set well above
+  // that to avoid flagging an order mid-flight, while still catching a
+  // real misconfiguration fast. See paymentReconciliationService.ts.
+  RECONCILIATION_STALE_MINUTES: z.coerce.number().default(10),
+  // How often the in-process reconciliation worker (src/index.ts) sweeps
+  // for stuck payments. Deliberately much shorter than
+  // PAYOUT_WORKER_INTERVAL_MS: a stuck payment means a buyer was charged
+  // with nothing to show for it, so it's worth checking often.
+  RECONCILIATION_WORKER_INTERVAL_MS: z.coerce.number().default(5 * 60 * 1000),
   // Orders at or above this amount request 3D Secure step-up authentication
   // explicitly (payment_method_options.card.request_three_d_secure = 'any')
   // instead of leaving it to Stripe's automatic, risk-based decision — a
