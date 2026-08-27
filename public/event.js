@@ -241,7 +241,15 @@
       let elements;
       let paymentElement;
       try {
-        stripe = Stripe(document.body.dataset.stripePk);
+        // A direct-charge order's PaymentIntent lives in the connected
+        // organizer's own Stripe account, not the platform's — Stripe.js
+        // must be told that account via the `stripeAccount` option, or it
+        // has no way to load/confirm a PaymentIntent it can't see. Omitted
+        // entirely for a 'platform'-mode order (free event fallback),
+        // whose PaymentIntent is on the platform account already.
+        stripe = checkoutResult.stripe_account_id
+          ? Stripe(document.body.dataset.stripePk, { stripeAccount: checkoutResult.stripe_account_id })
+          : Stripe(document.body.dataset.stripePk);
         elements = stripe.elements({ clientSecret: checkoutResult.client_secret });
         paymentElement = elements.create('payment');
         paymentElement.mount(paymentContainer);

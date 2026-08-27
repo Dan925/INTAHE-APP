@@ -71,6 +71,11 @@ describe('POST /v1/events/:eventId/orders (checkout)', () => {
       total_cents: expectedFees.totalCents,
     });
     expect(typeof res.body.client_secret).toBe('string');
+    // Required client-side so Stripe.js can be initialized with the
+    // `stripeAccount` option — without it, the Payment Element has no way
+    // to load a direct charge's PaymentIntent, which lives in the
+    // connected account's own Stripe context rather than the platform's.
+    expect(res.body.stripe_account_id).toBe(`acct_test_fixture_${fixture.organization.id}`);
     expect(mockCreatePaymentIntent).toHaveBeenCalledTimes(1);
     expect(mockCreatePaymentIntent).toHaveBeenCalledWith(
       expect.objectContaining({ amountCents: expectedFees.totalCents, currency: 'usd' }),

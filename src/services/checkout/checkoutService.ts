@@ -57,6 +57,14 @@ export interface PublicOrder {
 export interface CheckoutResult {
   order: PublicOrder;
   client_secret: string | null;
+  // Stripe.js on the client must be initialized with this connected
+  // account's ID (the `stripeAccount` option) whenever set — a direct
+  // charge's PaymentIntent (and its client_secret) lives in that account's
+  // own Stripe context, not the platform's, so the Payment Element can't
+  // load or confirm it otherwise. null for a 'platform'-mode order (free
+  // event fallback), where the PaymentIntent is on the platform account and
+  // the plain publishable key is all Stripe.js needs.
+  stripe_account_id: string | null;
 }
 
 function toPublicOrder(row: OrderRow): PublicOrder {
@@ -193,13 +201,13 @@ export async function createOrder(
       );
     }
     let clientSecret: string | null = null;
+    const connectedAccountId = await connectedAccountIdForOrder(existingOrder);
     if (existingOrder.stripe_payment_intent_id) {
-      const connectedAccountId = await connectedAccountIdForOrder(existingOrder);
       clientSecret = (
         await retrievePaymentIntent(existingOrder.stripe_payment_intent_id, connectedAccountId)
       ).client_secret;
     }
-    return { order: toPublicOrder(existingOrder), client_secret: clientSecret };
+    return { order: toPublicOrder(existingOrder), client_secret: clientSecret, stripe_account_id: connectedAccountId };
   }
 
   const client = await pool.connect();
@@ -326,7 +334,11 @@ export async function createOrder(
 
     await client.query('COMMIT');
 
-    return { order: toPublicOrder(updatedOrder), client_secret: paymentIntent.client_secret };
+    return {
+      order: toPublicOrder(updatedOrder),
+      client_secret: paymentIntent.client_secret,
+      stripe_account_id: canUseDirectCharge ? organization.stripe_account_id : null,
+    };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
