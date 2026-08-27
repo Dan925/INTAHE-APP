@@ -12,8 +12,29 @@
     );
   }
 
+  // timeoutMs is opt-in (only the checkout POST below uses it) — the
+  // discover/confirmation-polling call sites already have their own
+  // timing behavior and shouldn't be affected by adding this.
   async function fetchJson(url, options) {
-    const res = await fetch(url, options);
+    options = options || {};
+    let timeoutId;
+    const controller = options.timeoutMs ? new AbortController() : null;
+    if (controller) {
+      timeoutId = setTimeout(function () {
+        controller.abort();
+      }, options.timeoutMs);
+    }
+    let res;
+    try {
+      res = await fetch(url, controller ? Object.assign({}, options, { signal: controller.signal }) : options);
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        throw new Error(window.intaheT('event.request_timeout'));
+      }
+      throw err;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
     const body = await res.json();
     if (!res.ok) {
       const err = new Error((body.error && body.error.message) || window.intaheT('common.unknown_error'));
@@ -196,6 +217,7 @@
             buyer_email: buyerEmail,
             line_items: [{ ticket_type_id: selectedTicketTypeId, quantity: quantity }],
           }),
+          timeoutMs: 30000,
         });
       } catch (err) {
         orderBtn.disabled = false;
@@ -215,15 +237,53 @@
       form.querySelector('#buyer-email').disabled = true;
       form.querySelector('#quantity').disabled = true;
 
-      const stripe = Stripe(document.body.dataset.stripePk);
-      const elements = stripe.elements({ clientSecret: checkoutResult.client_secret });
-      const paymentElement = elements.create('payment');
-      paymentElement.mount(paymentContainer);
+      let stripe;
+      let elements;
+      let paymentElement;
+      try {
+        stripe = Stripe(document.body.dataset.stripePk);
+        elements = stripe.elements({ clientSecret: checkoutResult.client_secret });
+        paymentElement = elements.create('payment');
+        paymentElement.mount(paymentContainer);
+      } catch (err) {
+        // Stripe(...) throws synchronously on a malformed publishable key —
+        // without this catch, that exception was silently swallowed (an
+        // unhandled rejection in this async click handler), leaving the
+        // buyer looking at an empty page with no card form and no
+        // explanation at all.
+        errorContainer.appendChild(showError((err && err.message) || window.intaheT('event.payment_not_ready')));
+        return;
+      }
 
       const payBtn = document.createElement('button');
       payBtn.textContent = window.intaheT('event.pay_button');
       payBtn.style.marginTop = '16px';
+      payBtn.disabled = true;
       paymentContainer.after(payBtn);
+
+      // The Payment Element loads asynchronously inside its own iframe —
+      // mount() returns immediately regardless of whether that load
+      // actually succeeds. Without gating the pay button on 'ready', a
+      // buyer could click "Payer" against a form that never finished
+      // loading (blank card fields), and confirmPayment() would then have
+      // nothing valid to submit. If 'ready' never fires within a few
+      // seconds (network issue, ad blocker, restrictive proxy), tell the
+      // buyer plainly instead of leaving a live-looking button that does
+      // nothing useful.
+      let paymentElementReady = false;
+      const readyTimeout = setTimeout(function () {
+        if (paymentElementReady) return;
+        errorContainer.appendChild(showError(window.intaheT('event.payment_form_load_error')));
+      }, 10000);
+      paymentElement.on('ready', function () {
+        paymentElementReady = true;
+        clearTimeout(readyTimeout);
+        payBtn.disabled = false;
+      });
+      paymentElement.on('loaderror', function () {
+        clearTimeout(readyTimeout);
+        errorContainer.appendChild(showError(window.intaheT('event.payment_form_load_error')));
+      });
 
       payBtn.addEventListener('click', async function () {
         payBtn.disabled = true;
@@ -235,11 +295,24 @@
         // otherwise, and the polling below picks up from there.
         const returnUrl = location.origin + '/events/' + eventId + '?lang=' + window.intaheLocale();
 
+        // confirmPayment() is never force-cancelled here — a real
+        // in-flight charge attempt must be allowed to finish rather than
+        // being abandoned client-side. This only adds a visible note if
+        // it's taking far longer than a normal confirmation (network
+        // issue, blocked request), so "Paiement en cours..." never sits
+        // there indefinitely with zero feedback.
+        const slowNotice = setTimeout(function () {
+          errorContainer.textContent = '';
+          errorContainer.appendChild(showError(window.intaheT('event.payment_taking_long')));
+        }, 15000);
+
         const { error } = await stripe.confirmPayment({
           elements,
           confirmParams: { return_url: returnUrl },
           redirect: 'if_required',
         });
+        clearTimeout(slowNotice);
+        errorContainer.textContent = '';
 
         if (error) {
           errorContainer.appendChild(showError(error.message || window.intaheT('event.payment_failed')));

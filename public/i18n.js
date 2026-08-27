@@ -27,6 +27,10 @@ window.__INTAHE_I18N__ = {
       payment_failed: 'Le paiement a échoué.',
       payment_confirming: 'Paiement réussi. Préparation de tes billets…',
       payment_succeeded: 'Paiement réussi ! Consulte tes courriels : tes billets t’y attendent.',
+      payment_form_load_error:
+        'Le formulaire de paiement n’a pas pu se charger. Vérifie ta connexion et recharge la page.',
+      payment_taking_long: 'Le paiement prend plus de temps que prévu. Ne ferme pas cette page — patiente encore un peu.',
+      request_timeout: 'La demande a pris trop de temps. Vérifie ta connexion et réessaie.',
       title_suffix: ' — Intahe',
     },
     tickets: {
@@ -374,6 +378,9 @@ window.__INTAHE_I18N__ = {
       payment_failed: 'Payment failed.',
       payment_confirming: 'Payment successful. Preparing your tickets…',
       payment_succeeded: 'Payment successful! Check your email — your tickets are on their way.',
+      payment_form_load_error: 'The payment form could not load. Check your connection and reload the page.',
+      payment_taking_long: "Payment is taking longer than usual. Don't close this page — hang tight a bit longer.",
+      request_timeout: 'The request took too long. Check your connection and try again.',
       title_suffix: ' — Intahe',
     },
     tickets: {
