@@ -40,13 +40,31 @@ export function createApp() {
   // Stripe's CDN, talking to Stripe's API, and opening its 3DS iframe.
   // Directives per Stripe's documented CSP requirements:
   // https://docs.stripe.com/security/guide#content-security-policy
+  //
+  // connect-src includes the broader set of Stripe-owned domains the
+  // Payment Element itself calls for risk/fraud signaling beyond the
+  // core api.stripe.com charge calls (m.stripe.com, m.stripe.network,
+  // errors.stripe.com, r.stripe.com, q.stripe.com) — the narrower list
+  // this used to have (api.stripe.com only) let the element mount but
+  // silently blocked those background calls, which can leave the
+  // element stuck and never firing its 'ready' event, with nothing
+  // surfaced as a catchable JS error since it's the browser silently
+  // enforcing CSP, not Stripe's own code throwing.
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
           ...helmet.contentSecurityPolicy.getDefaultDirectives(),
           'script-src': ["'self'", 'https://js.stripe.com'],
-          'connect-src': ["'self'", 'https://api.stripe.com'],
+          'connect-src': [
+            "'self'",
+            'https://api.stripe.com',
+            'https://m.stripe.com',
+            'https://m.stripe.network',
+            'https://errors.stripe.com',
+            'https://r.stripe.com',
+            'https://q.stripe.com',
+          ],
           'frame-src': ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com'],
           'img-src': ["'self'", 'data:'],
         },
