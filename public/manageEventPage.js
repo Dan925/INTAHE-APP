@@ -433,7 +433,13 @@
           form.querySelector('#buyer-email').disabled = true;
           form.querySelector('#quantity').disabled = true;
 
-          var stripe = Stripe(document.body.dataset.stripePk);
+          // A direct-charge order's PaymentIntent lives in the connected
+          // organizer's own Stripe account, not the platform's — Stripe.js
+          // must be told that account via the `stripeAccount` option, same
+          // fix as the public checkout page (public/event.js).
+          var stripe = checkoutResult.stripe_account_id
+            ? Stripe(document.body.dataset.stripePk, { stripeAccount: checkoutResult.stripe_account_id })
+            : Stripe(document.body.dataset.stripePk);
           var elements = stripe.elements({ clientSecret: checkoutResult.client_secret });
           var paymentElement = elements.create('payment');
           paymentElement.mount(paymentContainer);
