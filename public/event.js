@@ -237,6 +237,32 @@
       form.querySelector('#buyer-email').disabled = true;
       form.querySelector('#quantity').disabled = true;
 
+      // Shown once, right before the card form, so the buyer knows the
+      // final charge amount (subtotal + fees) before entering payment
+      // details — the ticket card above only ever showed the base price.
+      const order = checkoutResult.order;
+      if (order.total_cents !== order.subtotal_cents) {
+        const summary = document.createElement('div');
+        summary.className = 'small text-secondary';
+        summary.style.marginBottom = '8px';
+        const currency = ticketTypes.find((t) => t.id === selectedTicketTypeId).currency;
+        const subtotalLine = document.createElement('p');
+        subtotalLine.textContent = window.intaheT('event.order_summary_subtotal', {
+          amount: formatPrice(order.subtotal_cents, currency),
+        });
+        const feesLine = document.createElement('p');
+        feesLine.textContent = window.intaheT('event.order_summary_fees', {
+          amount: formatPrice(order.total_cents - order.subtotal_cents, currency),
+        });
+        const totalLine = document.createElement('p');
+        totalLine.style.fontWeight = 'bold';
+        totalLine.textContent = window.intaheT('event.order_summary_total', {
+          amount: formatPrice(order.total_cents, currency),
+        });
+        summary.append(subtotalLine, feesLine, totalLine);
+        paymentContainer.before(summary);
+      }
+
       let stripe;
       let elements;
       let paymentElement;

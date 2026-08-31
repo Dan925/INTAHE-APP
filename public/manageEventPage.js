@@ -433,6 +433,36 @@
           form.querySelector('#buyer-email').disabled = true;
           form.querySelector('#quantity').disabled = true;
 
+          // Shown once, right before the card form, so the buyer knows the
+          // final charge amount (subtotal + fees) before entering payment
+          // details — the ticket card above only ever showed the base price.
+          var order = checkoutResult.order;
+          if (order.total_cents !== order.subtotal_cents) {
+            var selectedType = ticketTypes.filter(function (type) {
+              return type.id === selectedTypeId;
+            })[0];
+            var summary = document.createElement('div');
+            summary.className = 'small text-secondary';
+            summary.style.marginBottom = '8px';
+            var subtotalLine = document.createElement('p');
+            subtotalLine.textContent = t('event.order_summary_subtotal', {
+              amount: formatPrice(order.subtotal_cents, selectedType.currency),
+            });
+            var feesLine = document.createElement('p');
+            feesLine.textContent = t('event.order_summary_fees', {
+              amount: formatPrice(order.total_cents - order.subtotal_cents, selectedType.currency),
+            });
+            var totalLine = document.createElement('p');
+            totalLine.style.fontWeight = 'bold';
+            totalLine.textContent = t('event.order_summary_total', {
+              amount: formatPrice(order.total_cents, selectedType.currency),
+            });
+            summary.appendChild(subtotalLine);
+            summary.appendChild(feesLine);
+            summary.appendChild(totalLine);
+            paymentContainer.parentNode.insertBefore(summary, paymentContainer);
+          }
+
           // A direct-charge order's PaymentIntent lives in the connected
           // organizer's own Stripe account, not the platform's — Stripe.js
           // must be told that account via the `stripeAccount` option, same
