@@ -1,4 +1,4 @@
-import { useStripe } from '@stripe/stripe-react-native';
+import { initStripe, useStripe } from '@stripe/stripe-react-native';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
@@ -16,6 +16,8 @@ import { cancelEvent, getEvent, publishEvent, type Event } from '@/lib/events';
 import { formatPrice } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n/context';
 import { createTicketType, listTicketTypes, type TicketType } from '@/lib/ticketTypes';
+
+const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
 export default function EventScreen() {
   const { orgId, eventId } = useLocalSearchParams<{ orgId: string; eventId: string }>();
@@ -146,6 +148,17 @@ export default function EventScreen() {
       setCheckoutResult(result);
 
       if (result.client_secret) {
+        // A direct-charge order's PaymentIntent lives in the connected
+        // organizer's own Stripe account, not the platform's — the SDK
+        // must be reconfigured with that account via initStripe() before
+        // initPaymentSheet(), or it has no way to load/confirm a
+        // PaymentIntent it can't see into. Re-running this per order (vs.
+        // once at app start via StripeProvider) is what lets each
+        // organizer's own account be targeted correctly.
+        await initStripe({
+          publishableKey: stripePublishableKey,
+          stripeAccountId: result.stripe_account_id ?? undefined,
+        });
         const { error: initError } = await initPaymentSheet({
           merchantDisplayName: 'Intahe',
           paymentIntentClientSecret: result.client_secret,

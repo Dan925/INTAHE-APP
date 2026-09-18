@@ -16,6 +16,12 @@ export interface Order {
 export interface CheckoutResult {
   order: Order;
   client_secret: string | null;
+  // The connected organizer account a direct charge's PaymentIntent lives
+  // in — null for a 'platform'-mode order (free event fallback). The
+  // Stripe SDK must be (re-)configured with this via initStripe() before
+  // initPaymentSheet(), or it has no way to load/confirm a PaymentIntent
+  // it can't see into. See the two checkout screens under app/.
+  stripe_account_id: string | null;
 }
 
 export function createOrder(
