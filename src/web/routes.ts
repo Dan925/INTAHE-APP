@@ -88,6 +88,15 @@ function page(
 
 const containerBody = (id: string) => `<div id="${id}"><div class="loader"></div></div>`;
 
+// No dedicated home page — /discover (browse public events) is the closest
+// thing to one, so a visitor landing on the bare domain gets that instead
+// of the JSON 404 every other unmatched route returns. 302, not 301: this
+// is a deliberate routing choice that could change (e.g. a real landing
+// page later), not a permanent move search engines should cache hard.
+router.get('/', (_req, res) => {
+  res.redirect(302, '/discover');
+});
+
 router.get('/discover', (req, res) => {
   page(req, res, {
     title: (s) => `${s.discover.title} — Intahe`,
