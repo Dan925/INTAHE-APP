@@ -4,23 +4,24 @@ import type { Locale } from './i18n';
 // user-controlled data, so no escaping concerns here (unlike the other
 // pages in src/web/, which fetch everything client-side for that reason).
 //
-// DRAFT ONLY: written to accurately reflect what the app's code actually
-// does with personal information, not reviewed by a lawyer. Covers both
-// Canada (PIPEDA federally, Loi 25 specifically for Quebec residents) and
-// the United States (CCPA/CPRA specifically for California residents) at
-// a general level — it does not attempt to enumerate every US state's
-// privacy law, which is a real patchwork; a lawyer needs to confirm
-// what's actually required once the go-to-market states/provinces are
-// locked down. Fields marked [À COMPLÉTER]/[TO COMPLETE] must be filled
-// in before publishing. The English version is a translation of the
-// French draft, not an independently reviewed text — keep them in sync
-// by hand if either changes.
+// Reviewed by legal counsel (see git history for the draft-only version
+// prior to review). Covers both Canada (PIPEDA federally, Loi 25
+// specifically for Quebec residents) and the United States (CCPA/CPRA
+// specifically for California residents) at a general level — it does not
+// attempt to enumerate every US state's privacy law, which is a real
+// patchwork; re-confirm with counsel if the go-to-market states/provinces
+// change. The English version is a translation of the French text, not an
+// independently reviewed one — keep them in sync by hand if either
+// changes. The cookie/local-storage description in section 2 must match
+// src/web/i18n.ts's `lang` cookie and public/session.js's use of
+// localStorage for the auth token exactly — update both together if
+// either changes.
 
 const fr = `
 <h1>Politique de confidentialité</h1>
-<p class="text-secondary small">Dernière mise à jour : 20 août 2026</p>
+<p class="text-secondary small">Dernière mise à jour : 18 septembre 2026</p>
 
-<p><strong>Brouillon — non révisé par un avocat.</strong> Ce document décrit fidèlement ce que l'application Intahe fait réellement avec les renseignements personnels, mais n'a pas encore été révisé par un professionnel du droit de la protection des renseignements personnels. Comme Intahe sert des utilisateurs au Canada et aux États-Unis, plusieurs cadres légaux différents peuvent s'appliquer selon où tu habites (voir section 7) — ce brouillon vise à respecter l'esprit des principaux d'entre eux, mais ne remplace pas une révision juridique propre à chaque marché où l'app est réellement offerte. Les sections marquées [À COMPLÉTER] doivent être remplies avant publication officielle.</p>
+<p>Ce document décrit fidèlement ce que l'application Intahe fait réellement avec les renseignements personnels et a été révisé par un conseiller juridique. Comme Intahe sert des utilisateurs au Canada et aux États-Unis, plusieurs cadres légaux différents peuvent s'appliquer selon où tu habites (voir section 7).</p>
 
 <h2>1. Qui nous sommes</h2>
 <p>Intahe (« nous », « notre ») est une plateforme de billetterie et de gestion d'événements. Le responsable du traitement des renseignements personnels décrits ci-dessous est :</p>
@@ -36,7 +37,7 @@ privacy@syncerainc.com</p>
   <li><strong>Paiement :</strong> nous ne recevons et ne stockons <strong>jamais</strong> ton numéro de carte ni tes renseignements bancaires complets. Le paiement est traité entièrement par Stripe, notre fournisseur de traitement de paiement; nous recevons seulement la confirmation que le paiement a réussi.</li>
   <li><strong>Organisations et événements :</strong> pour les organisateurs — nom de l'organisation, nom et description de l'événement, adresse et coordonnées géographiques de l'événement (si fournies).</li>
   <li><strong>Position géographique :</strong> uniquement si tu l'autorises explicitement, pour te montrer les événements à proximité ou pour situer un événement que tu crées. Optionnel — refuser n'empêche pas d'utiliser l'application.</li>
-  <li><strong>Renseignements techniques :</strong> aucune analyse de comportement ni témoin (cookie) de suivi publicitaire n'est utilisé. Seules les données strictement nécessaires au fonctionnement (ex. : jeton de connexion) sont conservées sur ton appareil.</li>
+  <li><strong>Témoins (cookies) et stockage local :</strong> nous utilisons un seul témoin, nommé <code>lang</code>, pour retenir ta préférence de langue (français/anglais) pendant un an — il n'est pas publicitaire et ne sert à aucun suivi, donc aucun consentement n'est requis pour celui-ci. Ton jeton de connexion (pour rester connecté) est conservé dans le stockage local de ton navigateur, pas dans un témoin. Aucune analyse de comportement ni témoin de suivi publicitaire n'est utilisé.</li>
 </ul>
 
 <h2>3. Pourquoi nous recueillons ces renseignements</h2>
@@ -62,7 +63,7 @@ privacy@syncerainc.com</p>
 <p>Nous ne partageons aucun renseignement personnel à des fins publicitaires.</p>
 
 <h2>5. Où sont hébergées les données</h2>
-<p>Nos serveurs et bases de données sont hébergés chez Render, aux États-Unis (Oregon). Si tu résides au Canada, cela signifie que tes renseignements personnels sont traités et conservés à l'extérieur du pays. [À COMPLÉTER — confirmer qu'une évaluation des facteurs relatifs à la vie privée (EFVP) a été complétée pour ce transfert hors Québec, tel que requis par la Loi 25 pour les résidents du Québec, et résumer ici les mesures de protection contractuelles en place avec Render.]</p>
+<p>Nos serveurs et bases de données sont hébergés chez Render, aux États-Unis (Oregon). Si tu résides au Canada, cela signifie que tes renseignements personnels sont traités et conservés à l'extérieur du pays. Une évaluation des facteurs relatifs à la vie privée a été effectuée pour ce transfert : Render maintient les certifications SOC 2 Type II et ISO 27001, et a accepté une Addendum de traitement des données (DPA) encadrant contractuellement le traitement de ces renseignements — ces protections ont été jugées suffisantes par notre conseiller juridique.</p>
 
 <h2>6. Combien de temps nous conservons tes renseignements</h2>
 <p>Les renseignements de ton compte (nom, courriel, mot de passe, position géographique fournie) sont conservés tant que ton compte est actif. Si tu supprimes ton compte, ces renseignements personnels sont effacés immédiatement de notre base de données active. L'historique de tes commandes et billets est conservé séparément pendant 7 ans après la transaction, à des fins de comptabilité et d'obligations fiscales — même après la suppression de ton compte, cet historique demeure visible aux organisateurs concernés. Comme pour la plupart des services infonuagiques, tes renseignements peuvent aussi subsister temporairement (jusqu'à 30 jours) dans nos copies de sauvegarde de routine après une suppression, le temps que le cycle normal de sauvegarde les remplace.</p>
@@ -77,7 +78,7 @@ privacy@syncerainc.com</p>
   <li>Retirer ton consentement à certains traitements, lorsque applicable</li>
 </ul>
 <p><strong>Canada :</strong> la Loi sur la protection des renseignements personnels et les documents électroniques (LPRPDE) encadre ces droits au niveau fédéral. Si tu résides au Québec, la Loi 25 s'applique en plus et te donne des droits et recours additionnels, y compris auprès de la Commission d'accès à l'information du Québec (voir section 11).</p>
-<p><strong>États-Unis :</strong> si tu résides en Californie, le California Consumer Privacy Act (CCPA/CPRA) te donne le droit de savoir quels renseignements sont recueillis, de les faire supprimer, et de refuser leur « vente » ou leur « partage » (nous ne vendons ni ne partageons de renseignements personnels à des fins publicitaires, voir section 3). D'autres États américains ont des lois similaires; si la tienne t'accorde des droits additionnels, ils s'appliquent aussi. [À COMPLÉTER — confirmer avec un avocat si des mécanismes spécifiques supplémentaires sont requis selon les États où l'app est réellement offerte, par exemple un lien dédié « Do Not Sell or Share My Personal Information ».]</p>
+<p><strong>États-Unis :</strong> si tu résides en Californie, le California Consumer Privacy Act (CCPA/CPRA) te donne le droit de savoir quels renseignements sont recueillis, de les faire supprimer, et de refuser leur « vente » ou leur « partage » (nous ne vendons ni ne partageons de renseignements personnels à des fins publicitaires, voir section 3). D'autres États américains ont des lois similaires; si la tienne t'accorde des droits additionnels, ils s'appliquent aussi. Puisque nous ne vendons ni ne partageons de renseignements personnels, aucun mécanisme distinct « Do Not Sell or Share My Personal Information » n'est nécessaire.</p>
 <p>Pour exercer un de ces droits, peu importe où tu habites, écris-nous à privacy@syncerainc.com.</p>
 
 <h2>8. Sécurité</h2>
@@ -103,9 +104,9 @@ privacy@syncerainc.com</p>
 
 const en = `
 <h1>Privacy policy</h1>
-<p class="text-secondary small">Last updated: August 20, 2026</p>
+<p class="text-secondary small">Last updated: September 18, 2026</p>
 
-<p><strong>Draft — not reviewed by a lawyer.</strong> This document accurately describes what the Intahe app actually does with personal information, but has not yet been reviewed by a privacy law professional. Since Intahe serves users in both Canada and the United States, several different legal frameworks may apply depending on where you live (see section 7) — this draft aims to respect the spirit of the main ones, but does not replace a legal review specific to each market the app is actually offered in. Sections marked [TO COMPLETE] must be filled in before official publication.</p>
+<p>This document accurately describes what the Intahe app actually does with personal information and has been reviewed by legal counsel. Since Intahe serves users in both Canada and the United States, several different legal frameworks may apply depending on where you live (see section 7).</p>
 
 <h2>1. Who we are</h2>
 <p>Intahe ("we", "our") is a ticketing and event management platform. The party responsible for the personal information described below is:</p>
@@ -121,7 +122,7 @@ privacy@syncerainc.com</p>
   <li><strong>Payment:</strong> we <strong>never</strong> receive or store your card number or full banking details. Payment is processed entirely by Stripe, our payment processor; we only receive confirmation that the payment succeeded.</li>
   <li><strong>Organizations and events:</strong> for organizers — organization name, event name and description, event address and coordinates (if provided).</li>
   <li><strong>Location:</strong> only if you explicitly allow it, to show you nearby events or to locate an event you're creating. Optional — declining doesn't prevent you from using the app.</li>
-  <li><strong>Technical information:</strong> no behavioral analytics or advertising tracking cookies are used. Only data strictly necessary for the app to function (e.g. a login token) is kept on your device.</li>
+  <li><strong>Cookies and local storage:</strong> we use a single cookie, named <code>lang</code>, to remember your language preference (French/English) for one year — it isn't advertising-related and isn't used for tracking, so no consent is required for it. Your login token (to keep you signed in) is kept in your browser's local storage, not in a cookie. No behavioral analytics or advertising tracking cookies are used.</li>
 </ul>
 
 <h2>3. Why we collect this information</h2>
@@ -147,7 +148,7 @@ privacy@syncerainc.com</p>
 <p>We do not share any personal information for advertising purposes.</p>
 
 <h2>5. Where data is hosted</h2>
-<p>Our servers and databases are hosted with Render, in the United States (Oregon). If you reside in Canada, this means your personal information is processed and stored outside the country. [TO COMPLETE — confirm that a privacy impact assessment has been completed for this transfer outside Quebec, as required by Loi 25 for Quebec residents, and summarize the contractual safeguards in place with Render.]</p>
+<p>Our servers and databases are hosted with Render, in the United States (Oregon). If you reside in Canada, this means your personal information is processed and stored outside the country. A privacy impact assessment was carried out for this transfer: Render maintains SOC 2 Type II and ISO 27001 certifications, and has agreed to a Data Processing Addendum (DPA) that contractually governs how this information is handled — these safeguards were assessed as sufficient by our legal counsel.</p>
 
 <h2>6. How long we keep your information</h2>
 <p>Your account information (name, email, password, any location you provide) is kept for as long as your account is active. If you delete your account, that personal information is erased immediately from our active database. Your order and ticket history is kept separately for 7 years after the transaction, for accounting and tax purposes — even after your account is deleted, this history remains visible to the relevant organizers. As with most cloud services, your information may also persist temporarily (up to 30 days) in our routine backup copies after a deletion, until the normal backup cycle replaces them.</p>
@@ -162,7 +163,7 @@ privacy@syncerainc.com</p>
   <li>Withdraw your consent to certain processing, where applicable</li>
 </ul>
 <p><strong>Canada:</strong> the Personal Information Protection and Electronic Documents Act (PIPEDA) governs these rights federally. If you reside in Quebec, Loi 25 also applies and gives you additional rights and recourse, including with the Commission d'accès à l'information du Québec (see section 11).</p>
-<p><strong>United States:</strong> if you reside in California, the California Consumer Privacy Act (CCPA/CPRA) gives you the right to know what information is collected, to have it deleted, and to opt out of its "sale" or "sharing" (we don't sell or share personal information for advertising purposes, see section 3). Other U.S. states have similar laws; if yours grants you additional rights, those apply too. [TO COMPLETE — confirm with a lawyer whether additional specific mechanisms are required depending on the states the app is actually offered in, e.g. a dedicated "Do Not Sell or Share My Personal Information" link.]</p>
+<p><strong>United States:</strong> if you reside in California, the California Consumer Privacy Act (CCPA/CPRA) gives you the right to know what information is collected, to have it deleted, and to opt out of its "sale" or "sharing" (we don't sell or share personal information for advertising purposes, see section 3). Other U.S. states have similar laws; if yours grants you additional rights, those apply too. Since we do not sell or share personal information, no separate "Do Not Sell or Share My Personal Information" mechanism is needed.</p>
 <p>To exercise any of these rights, no matter where you live, write to us at privacy@syncerainc.com.</p>
 
 <h2>8. Security</h2>
