@@ -51,6 +51,7 @@ export function renderPage(options: {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${options.title}</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="/i18n.js"></script>
   <script src="https://js.stripe.com/v3/"></script>
