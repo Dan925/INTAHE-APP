@@ -1,6 +1,9 @@
 import path from 'node:path';
 import express, { Router } from 'express';
 import type { Request, Response } from 'express';
+import { env } from '../config/env';
+import * as eventService from '../services/events/eventService';
+import { asyncHandler } from '../utils/asyncHandler';
 import { resolveLocale, serverStrings, type Locale, type ServerStrings } from './i18n';
 import { renderPage } from './layout';
 import { privacyPolicyHtml } from './privacyContent';
@@ -9,6 +12,44 @@ import { refundPolicyHtml } from './refundContent';
 const router = Router();
 
 router.use(express.static(path.join(__dirname, '../../public')));
+
+// SITEMAP_EVENT_LIMIT is generous rather than tuned: search engines cap how
+// much of a sitemap they'll actually crawl anyway, and this is a single flat
+// list (no pagination) matching listDiscoverableEvents' own "deliberately
+// out of scope for the first version" stance — reconsider if the event
+// count ever grows enough for this to matter.
+const SITEMAP_EVENT_LIMIT = 500;
+
+// A static public/robots.txt would be wrong on staging: it's served from
+// the exact same codebase/public folder as production, so a hardcoded
+// "Allow: /" would invite crawlers onto the test environment too. Disallow
+// everything outside production instead of only conditionally allowing it,
+// so a future environment (or NODE_ENV misconfiguration) fails closed.
+router.get('/robots.txt', (_req, res) => {
+  const body =
+    env.NODE_ENV === 'production'
+      ? `User-agent: *\nAllow: /\n\nSitemap: ${env.APP_BASE_URL}/sitemap.xml\n`
+      : `User-agent: *\nDisallow: /\n`;
+  res.type('text/plain').send(body);
+});
+
+router.get('/sitemap.xml', asyncHandler(async (_req, res) => {
+  const base = env.APP_BASE_URL;
+  const staticPaths = ['/discover', '/login', '/signup', '/privacy', '/refunds'];
+  const events = await eventService.listDiscoverableEvents({ limit: SITEMAP_EVENT_LIMIT });
+
+  const urlEntries = [
+    ...staticPaths.map((p) => `  <url><loc>${base}${p}</loc></url>`),
+    ...events.map(
+      (event) =>
+        `  <url><loc>${base}/events/${event.id}</loc><lastmod>${event.created_at.slice(0, 10)}</lastmod></url>`,
+    ),
+  ].join('\n');
+
+  res.type('application/xml').send(
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlEntries}\n</urlset>\n`,
+  );
+}));
 
 /**
  * Shared plumbing for every route below: resolve locale, look up its
