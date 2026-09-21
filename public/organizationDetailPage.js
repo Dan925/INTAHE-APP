@@ -228,6 +228,15 @@
     });
     navRow.appendChild(payoutsBtn);
 
+    var quickSaleBtn = document.createElement('button');
+    quickSaleBtn.type = 'button';
+    quickSaleBtn.className = 'ghost';
+    quickSaleBtn.textContent = t('organization_detail.quick_sale_button');
+    quickSaleBtn.addEventListener('click', function () {
+      location.href = '/organizations/' + orgId + '/quick-sale';
+    });
+    navRow.appendChild(quickSaleBtn);
+
     container.appendChild(navRow);
 
     container.appendChild(renderStripeSection());

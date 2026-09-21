@@ -96,6 +96,9 @@ export interface ServerStrings {
   org_payouts: {
     title: string;
   };
+  quick_sale: {
+    title: string;
+  };
   event_fees: {
     title: string;
   };
@@ -171,6 +174,7 @@ const fr: ServerStrings = {
   org_members: { title: 'Membres — Intahe' },
   org_dashboard: { title: 'Tableau de bord — Intahe' },
   org_payouts: { title: 'Versements — Intahe' },
+  quick_sale: { title: 'Vente rapide — Intahe' },
   event_fees: { title: 'Détail des frais — Intahe' },
   stripe_connect_return: { title: 'Stripe — Intahe' },
   admin_payouts: { title: 'Console d’administration — Versements — Intahe' },
@@ -224,6 +228,7 @@ const en: ServerStrings = {
   org_members: { title: 'Members — Intahe' },
   org_dashboard: { title: 'Dashboard — Intahe' },
   org_payouts: { title: 'Payouts — Intahe' },
+  quick_sale: { title: 'Quick sale — Intahe' },
   event_fees: { title: 'Fee breakdown — Intahe' },
   stripe_connect_return: { title: 'Stripe — Intahe' },
   admin_payouts: { title: 'Admin console — Payouts — Intahe' },

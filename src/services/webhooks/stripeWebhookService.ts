@@ -11,6 +11,7 @@ import {
 import { sendEmail } from '../email/emailClient';
 import { retrieveAccount } from '../stripe/stripeConnect';
 import { generateTicketAccessToken, hashTicketAccessToken } from '../../utils/ticketAccessToken';
+import { markQuickSaleFailed, markQuickSalePaidAndPayOut } from '../quickSales/quickSaleService';
 import type { OrderLineItemRow, OrderRow } from '../../types/db';
 
 // This Stripe account's connected accounts were set up as Accounts v2, whose
@@ -35,7 +36,15 @@ interface ConfirmedOrder {
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
-    await markOrderPaidAndIssueTickets(paymentIntent.id);
+    // metadata.quick_sale_id vs. order_id is how a single webhook endpoint
+    // tells a ticket-order PaymentIntent apart from a quick-sale one — see
+    // stripePayments.createPaymentIntent/createQuickSalePaymentIntent,
+    // the only two places that set this metadata.
+    if (paymentIntent.metadata?.['quick_sale_id']) {
+      await markQuickSalePaidAndPayOut(paymentIntent.id);
+    } else {
+      await markOrderPaidAndIssueTickets(paymentIntent.id);
+    }
     return;
   }
   // Released immediately rather than waiting for the reservation to time
@@ -47,7 +56,11 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   // confirmed payment.
   if (event.type === 'payment_intent.canceled' || event.type === 'payment_intent.payment_failed') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
-    await releaseOrderByPaymentIntentId(paymentIntent.id);
+    if (paymentIntent.metadata?.['quick_sale_id']) {
+      await markQuickSaleFailed(paymentIntent.id);
+    } else {
+      await releaseOrderByPaymentIntentId(paymentIntent.id);
+    }
     return;
   }
   if (event.type === 'account.updated') {

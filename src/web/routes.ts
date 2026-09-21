@@ -242,6 +242,15 @@ router.get('/organizations/:orgId/payouts', (req, res) => {
   });
 });
 
+router.get('/organizations/:orgId/quick-sale', (req, res) => {
+  page(req, res, {
+    title: (s) => s.quick_sale.title,
+    scriptSrc: '/quickSalePage.js',
+    requireAuth: true,
+    bodyHtml: () => containerBody('quick-sale-container'),
+  });
+});
+
 router.get('/organizations/:orgId/events/:eventId', (req, res) => {
   page(req, res, {
     title: (s) => s.manage_event.title,

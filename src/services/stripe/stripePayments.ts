@@ -3,26 +3,33 @@ import { env } from '../../config/env';
 import { buildStatementDescriptorSuffix } from '../../utils/statementDescriptor';
 import { stripeClient } from './stripeClient';
 
-export interface CreatePaymentIntentInput {
+interface BasePaymentIntentInput {
   amountCents: number;
   currency: string;
-  orderId: string;
   connectedAccountId?: string | null | undefined;
   applicationFeeCents?: number | undefined;
-  // The event's own name, so the buyer's bank statement shows what they
-  // actually bought instead of just "INTAHE" — see ../../utils/
-  // statementDescriptor.ts. Optional because not every caller has an event
-  // name handy (e.g. it isn't needed to retrieve/refund an existing
-  // PaymentIntent), and buildStatementDescriptorSuffix itself can still
-  // decide there's nothing usable to send.
-  eventName?: string | undefined;
 }
 
-export async function createPaymentIntent(input: CreatePaymentIntentInput): Promise<Stripe.PaymentIntent> {
+/**
+ * Shared by createPaymentIntent (tickets) and createQuickSalePaymentIntent
+ * (quick sales) — everything about how a direct-charge PaymentIntent is
+ * built is identical between the two; only the metadata key that lets the
+ * webhook tell which kind of PaymentIntent it's looking at differs.
+ */
+function buildPaymentIntentCreateParams(
+  input: BasePaymentIntentInput,
+  metadata: Record<string, string>,
+  // So the buyer's bank statement shows what they actually bought instead
+  // of just "INTAHE" — see ../../utils/statementDescriptor.ts. Optional
+  // because not every caller has one handy, and
+  // buildStatementDescriptorSuffix itself can still decide there's nothing
+  // usable to send.
+  statementDescriptorSource?: string | undefined,
+): { params: Stripe.PaymentIntentCreateParams; options: Stripe.RequestOptions } {
   const params: Stripe.PaymentIntentCreateParams = {
     amount: input.amountCents,
     currency: input.currency,
-    metadata: { order_id: input.orderId },
+    metadata,
   };
   const options: Stripe.RequestOptions = {};
 
@@ -43,8 +50,8 @@ export async function createPaymentIntent(input: CreatePaymentIntentInput): Prom
     }
   }
 
-  if (input.eventName) {
-    const suffix = buildStatementDescriptorSuffix(input.eventName);
+  if (statementDescriptorSource) {
+    const suffix = buildStatementDescriptorSuffix(statementDescriptorSource);
     if (suffix) {
       params.statement_descriptor_suffix = suffix;
     }
@@ -62,6 +69,35 @@ export async function createPaymentIntent(input: CreatePaymentIntentInput): Prom
     };
   }
 
+  return { params, options };
+}
+
+export interface CreatePaymentIntentInput extends BasePaymentIntentInput {
+  orderId: string;
+  // The event's own name — optional because not every caller has one handy
+  // (e.g. it isn't needed to retrieve/refund an existing PaymentIntent).
+  eventName?: string | undefined;
+}
+
+export async function createPaymentIntent(input: CreatePaymentIntentInput): Promise<Stripe.PaymentIntent> {
+  const { params, options } = buildPaymentIntentCreateParams(input, { order_id: input.orderId }, input.eventName);
+  return stripeClient.paymentIntents.create(params, options);
+}
+
+export interface CreateQuickSalePaymentIntentInput extends BasePaymentIntentInput {
+  quickSaleId: string;
+  itemName?: string | undefined;
+}
+
+/** See stripeWebhookService.handleStripeEvent — it reads metadata.quick_sale_id to route here rather than to the ticket-order path. */
+export async function createQuickSalePaymentIntent(
+  input: CreateQuickSalePaymentIntentInput,
+): Promise<Stripe.PaymentIntent> {
+  const { params, options } = buildPaymentIntentCreateParams(
+    input,
+    { quick_sale_id: input.quickSaleId },
+    input.itemName,
+  );
   return stripeClient.paymentIntents.create(params, options);
 }
 

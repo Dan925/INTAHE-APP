@@ -15,6 +15,14 @@ export interface CreatePayoutInput {
   connectedAccountId: string;
   amountCents: number;
   currency: string;
+  // 'standard' (the default if omitted) settles on Stripe's normal payout
+  // timeline (~2 business days) to a bank account. 'instant' pays out
+  // within minutes to a debit card instead — only usable against currently
+  // *available* balance (never "pending"), and only if the connected
+  // account has an eligible debit card as an external account; Stripe
+  // rejects the request outright otherwise, which callers must handle
+  // (see quickSaleService.attemptInstantPayout).
+  method?: 'standard' | 'instant' | undefined;
 }
 
 /**
@@ -23,11 +31,12 @@ export interface CreatePayoutInput {
  * script for existing accounts. On a Stripe account still on an automatic
  * schedule, this competes with Stripe's own scheduled payouts rather than
  * replacing them, defeating the "funds stay put until 48h after the event"
- * guarantee.
+ * guarantee (for the deferred ticketing payout) or double-paying (for an
+ * instant quick-sale payout Stripe would also sweep on its own schedule).
  */
 export async function createPayout(input: CreatePayoutInput): Promise<Stripe.Payout> {
   return stripeClient.payouts.create(
-    { amount: input.amountCents, currency: input.currency },
+    { amount: input.amountCents, currency: input.currency, ...(input.method ? { method: input.method } : {}) },
     { stripeAccount: input.connectedAccountId },
   );
 }

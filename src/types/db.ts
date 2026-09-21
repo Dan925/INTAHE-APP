@@ -195,3 +195,35 @@ export interface PaymentReconciliationIncidentRow {
   resolved_by: string | null;
   resolution: ReconciliationResolution | null;
 }
+
+export interface QuickSaleItemRow {
+  id: string;
+  organization_id: string;
+  name: string;
+  price_cents: number;
+  currency: string;
+  deleted_at: Date | null;
+  created_at: Date;
+}
+
+export type QuickSaleStatus = 'pending' | 'paid' | 'failed';
+export type QuickSalePayoutStatus = 'not_attempted' | 'succeeded' | 'failed';
+
+export interface QuickSaleRow {
+  id: string;
+  organization_id: string;
+  quick_sale_item_id: string | null;
+  item_name: string;
+  subtotal_cents: number;
+  stripe_fee_cents: number;
+  intahe_fee_cents: number;
+  total_cents: number;
+  currency: string;
+  status: QuickSaleStatus;
+  stripe_payment_intent_id: string | null;
+  payout_status: QuickSalePayoutStatus;
+  stripe_payout_id: string | null;
+  payout_error_message: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
