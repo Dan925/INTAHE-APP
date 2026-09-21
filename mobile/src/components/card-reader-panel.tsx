@@ -1,4 +1,4 @@
-import { useStripeTerminal, type Reader } from '@stripe/stripe-terminal-react-native';
+import { requestNeededAndroidPermissions, useStripeTerminal, type Reader } from '@stripe/stripe-terminal-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
@@ -36,6 +36,7 @@ export function CardReaderPanel({ orgId, token }: { orgId: string; token: string
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
 
+  const [connectionMethod, setConnectionMethod] = useState<'internet' | 'bluetoothScan'>('internet');
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [readerError, setReaderError] = useState<string | null>(null);
@@ -105,9 +106,24 @@ export function CardReaderPanel({ orgId, token }: { orgId: string; token: string
   async function onDiscoverAndConnect() {
     if (!locationId) return;
     setReaderError(null);
+
+    // Only bluetoothScan needs these — internet discovery talks to Stripe's
+    // servers over Wi-Fi/Ethernet, not the device's own Bluetooth radio, so
+    // it never touches these Android 12+ runtime permissions at all.
+    if (connectionMethod === 'bluetoothScan') {
+      const permissionResult = await requestNeededAndroidPermissions();
+      if (permissionResult.error) {
+        setReaderError(t('card_reader.bluetooth_permission_error'));
+        return;
+      }
+    }
+
     setIsDiscovering(true);
     try {
-      const discovery = await discoverReaders({ discoveryMethod: 'internet', locationId, timeout: 0 });
+      const discovery =
+        connectionMethod === 'internet'
+          ? await discoverReaders({ discoveryMethod: 'internet', locationId, timeout: 0 })
+          : await discoverReaders({ discoveryMethod: 'bluetoothScan', timeout: 0 });
       if (discovery.error) {
         setReaderError(discovery.error.message);
         setIsDiscovering(false);
@@ -127,10 +143,19 @@ export function CardReaderPanel({ orgId, token }: { orgId: string; token: string
   }, [discoveredReaders]);
 
   async function onConnect(reader: Reader.Type) {
+    if (!locationId) return;
     setIsConnecting(true);
     setReaderError(null);
     try {
-      const result = await connectReader({ discoveryMethod: 'internet', reader, failIfInUse: false });
+      const result =
+        connectionMethod === 'internet'
+          ? await connectReader({ discoveryMethod: 'internet', reader, failIfInUse: false })
+          : await connectReader({
+              discoveryMethod: 'bluetoothScan',
+              reader,
+              locationId,
+              autoReconnectOnUnexpectedDisconnect: true,
+            });
       if (result.error) setReaderError(result.error.message);
     } catch (err) {
       setReaderError(err instanceof Error ? err.message : t('card_reader.connect_error'));
@@ -195,6 +220,22 @@ export function CardReaderPanel({ orgId, token }: { orgId: string; token: string
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
+      {!isDiscovering && discoveredReaders.length === 0 ? (
+        <View style={styles.methodRow}>
+          <Button
+            title={t('card_reader.method_internet')}
+            variant={connectionMethod === 'internet' ? 'primary' : 'ghost'}
+            onPress={() => setConnectionMethod('internet')}
+            style={styles.methodButton}
+          />
+          <Button
+            title={t('card_reader.method_bluetooth')}
+            variant={connectionMethod === 'bluetoothScan' ? 'primary' : 'ghost'}
+            onPress={() => setConnectionMethod('bluetoothScan')}
+            style={styles.methodButton}
+          />
+        </View>
+      ) : null}
       {readerError ? (
         <ThemedText type="small" themeColor="destructive" style={styles.error}>
           {readerError}
@@ -244,5 +285,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  methodRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  methodButton: {
+    flex: 1,
   },
 });

@@ -252,6 +252,8 @@ export interface Translations {
     address_postal_code_label: string;
     setup_submit: string;
     setup_error: string;
+    method_internet: string;
+    method_bluetooth: string;
     connect_button: string;
     connecting: string;
     discovering: string;
@@ -261,6 +263,7 @@ export interface Translations {
     connect_error: string;
     collect_error: string;
     confirm_error: string;
+    bluetooth_permission_error: string;
   };
   door_sale: {
     title: string;
@@ -532,6 +535,8 @@ export const fr: Translations = {
     address_postal_code_label: 'Code postal',
     setup_submit: 'Enregistrer',
     setup_error: 'Impossible de configurer le lecteur.',
+    method_internet: 'Internet (WisePOS E)',
+    method_bluetooth: 'Bluetooth',
     connect_button: 'Connecter un lecteur',
     connecting: 'Connexion…',
     discovering: 'Recherche de lecteurs…',
@@ -541,6 +546,7 @@ export const fr: Translations = {
     connect_error: 'Impossible de se connecter au lecteur.',
     collect_error: 'La carte a été refusée ou la lecture a échoué.',
     confirm_error: 'Impossible de confirmer le paiement.',
+    bluetooth_permission_error: 'Permissions Bluetooth/position refusées — impossible de rechercher un lecteur.',
   },
   door_sale: {
     title: 'Vente à la porte',
@@ -810,6 +816,8 @@ export const en: Translations = {
     address_postal_code_label: 'Postal/ZIP code',
     setup_submit: 'Save',
     setup_error: 'Unable to set up the reader.',
+    method_internet: 'Internet (WisePOS E)',
+    method_bluetooth: 'Bluetooth',
     connect_button: 'Connect a reader',
     connecting: 'Connecting…',
     discovering: 'Discovering readers…',
@@ -819,6 +827,7 @@ export const en: Translations = {
     connect_error: 'Unable to connect to the reader.',
     collect_error: 'The card was declined or the read failed.',
     confirm_error: 'Unable to confirm the payment.',
+    bluetooth_permission_error: 'Bluetooth/location permissions denied — cannot search for a reader.',
   },
   door_sale: {
     title: 'Door sale',
