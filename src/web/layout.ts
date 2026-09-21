@@ -114,6 +114,7 @@ ${options.bodyHtml}
   <footer class="site-footer">
     <a href="/privacy">${options.strings.footer.privacy_link}</a>
     <a href="/refunds">${options.strings.footer.refund_link}</a>
+    <a href="/terms">${options.strings.footer.terms_link}</a>
   </footer>
 ${allScripts.map((src) => `  <script src="${src}" defer></script>`).join('\n')}
 </body>

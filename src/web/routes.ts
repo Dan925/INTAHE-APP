@@ -8,6 +8,7 @@ import { resolveLocale, serverStrings, type Locale, type ServerStrings } from '.
 import { renderPage } from './layout';
 import { privacyPolicyHtml } from './privacyContent';
 import { refundPolicyHtml } from './refundContent';
+import { termsOfServiceHtml } from './termsContent';
 
 const router = Router();
 
@@ -35,7 +36,7 @@ router.get('/robots.txt', (_req, res) => {
 
 router.get('/sitemap.xml', asyncHandler(async (_req, res) => {
   const base = env.APP_BASE_URL;
-  const staticPaths = ['/discover', '/login', '/signup', '/privacy', '/refunds'];
+  const staticPaths = ['/discover', '/login', '/signup', '/privacy', '/refunds', '/terms'];
   const events = await eventService.listDiscoverableEvents({ limit: SITEMAP_EVENT_LIMIT });
 
   const urlEntries = [
@@ -174,6 +175,13 @@ router.get('/refunds', (req, res) => {
   page(req, res, {
     title: (s) => s.refund.title,
     bodyHtml: (_s, locale) => refundPolicyHtml(locale),
+  });
+});
+
+router.get('/terms', (req, res) => {
+  page(req, res, {
+    title: (s) => s.terms.title,
+    bodyHtml: (_s, locale) => termsOfServiceHtml(locale),
   });
 });
 

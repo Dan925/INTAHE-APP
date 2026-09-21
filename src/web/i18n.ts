@@ -65,9 +65,13 @@ export interface ServerStrings {
   refund: {
     title: string;
   };
+  terms: {
+    title: string;
+  };
   footer: {
     privacy_link: string;
     refund_link: string;
+    terms_link: string;
   };
   nav: {
     organizations: string;
@@ -157,9 +161,13 @@ const fr: ServerStrings = {
   refund: {
     title: 'Politique de remboursement — Intahé',
   },
+  terms: {
+    title: 'Conditions d’utilisation — Intahé',
+  },
   footer: {
     privacy_link: 'Confidentialité',
     refund_link: 'Remboursements',
+    terms_link: 'Conditions d’utilisation',
   },
   nav: {
     organizations: 'Organisations',
@@ -211,9 +219,13 @@ const en: ServerStrings = {
   refund: {
     title: 'Refund policy — Intahé',
   },
+  terms: {
+    title: 'Terms of Service — Intahé',
+  },
   footer: {
     privacy_link: 'Privacy',
     refund_link: 'Refunds',
+    terms_link: 'Terms of Service',
   },
   nav: {
     organizations: 'Organizations',
