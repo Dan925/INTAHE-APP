@@ -1,5 +1,5 @@
 import { stripeClient } from '../src/services/stripe/stripeClient';
-import { createPaymentIntent, retrievePaymentIntent } from '../src/services/stripe/stripePayments';
+import { createOrderReaderPaymentIntent, createPaymentIntent, retrievePaymentIntent } from '../src/services/stripe/stripePayments';
 
 jest.mock('../src/services/stripe/stripeClient', () => ({
   stripeClient: {
@@ -78,6 +78,31 @@ describe('createPaymentIntent', () => {
   it('leaves 3D Secure to Stripe’s automatic decision below the configured threshold', async () => {
     await createPaymentIntent({ amountCents: 14_999, currency: 'usd', orderId: 'order_1' });
 
+    const [params] = mockCreate.mock.calls[0];
+    expect(params.payment_method_options).toBeUndefined();
+  });
+});
+
+describe('createOrderReaderPaymentIntent', () => {
+  it('creates a card_present PaymentIntent in the connected account context, ignoring the 3DS threshold', async () => {
+    await createOrderReaderPaymentIntent({
+      amountCents: 15_000,
+      currency: 'usd',
+      orderId: 'order_1',
+      connectedAccountId: 'acct_123',
+      applicationFeeCents: 200,
+    });
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 15_000,
+        currency: 'usd',
+        application_fee_amount: 200,
+        payment_method_types: ['card_present'],
+        capture_method: 'automatic',
+      }),
+      { stripeAccount: 'acct_123' },
+    );
     const [params] = mockCreate.mock.calls[0];
     expect(params.payment_method_options).toBeUndefined();
   });

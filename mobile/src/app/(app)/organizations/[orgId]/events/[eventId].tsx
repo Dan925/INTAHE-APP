@@ -276,6 +276,17 @@ export default function EventScreen() {
                 })
               }
             />
+            <Button
+              title={t('manage_event.door_sale_button')}
+              variant="ghost"
+              style={styles.managementButton}
+              onPress={() =>
+                router.push({
+                  pathname: '/organizations/[orgId]/events/[eventId]/door-sale',
+                  params: { orgId, eventId },
+                })
+              }
+            />
           </View>
         </View>
 

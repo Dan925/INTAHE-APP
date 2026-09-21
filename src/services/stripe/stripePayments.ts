@@ -72,6 +72,25 @@ function buildPaymentIntentCreateParams(
   return { params, options };
 }
 
+/**
+ * Overwrites a would-be online PaymentIntent's params to instead be
+ * confirmed by a Stripe Terminal reader (e.g. a WisePOS E) — used by both
+ * createOrderReaderPaymentIntent (tickets) and
+ * createQuickSaleReaderPaymentIntent (quick sales). payment_method_types:
+ * ['card_present'] is what tells Stripe this PaymentIntent will be
+ * confirmed by the Terminal SDK's collectPaymentMethod/confirmPaymentIntent,
+ * not Stripe.js/PaymentSheet — request_three_d_secure
+ * (buildPaymentIntentCreateParams' high-value branch) is a
+ * card-not-present concept and doesn't apply here, so it's overwritten back
+ * off rather than threaded through buildPaymentIntentCreateParams as
+ * another special case.
+ */
+function applyCardPresentOverrides(params: Stripe.PaymentIntentCreateParams): void {
+  params.payment_method_types = ['card_present'];
+  params.capture_method = 'automatic';
+  delete params.payment_method_options;
+}
+
 export interface CreatePaymentIntentInput extends BasePaymentIntentInput {
   orderId: string;
   // The event's own name — optional because not every caller has one handy
@@ -81,6 +100,13 @@ export interface CreatePaymentIntentInput extends BasePaymentIntentInput {
 
 export async function createPaymentIntent(input: CreatePaymentIntentInput): Promise<Stripe.PaymentIntent> {
   const { params, options } = buildPaymentIntentCreateParams(input, { order_id: input.orderId }, input.eventName);
+  return stripeClient.paymentIntents.create(params, options);
+}
+
+/** Same ticket-order direct charge as createPaymentIntent, but taken on a physical Stripe Terminal reader — see doorSaleService.ts. */
+export async function createOrderReaderPaymentIntent(input: CreatePaymentIntentInput): Promise<Stripe.PaymentIntent> {
+  const { params, options } = buildPaymentIntentCreateParams(input, { order_id: input.orderId }, input.eventName);
+  applyCardPresentOverrides(params);
   return stripeClient.paymentIntents.create(params, options);
 }
 
@@ -101,17 +127,7 @@ export async function createQuickSalePaymentIntent(
   return stripeClient.paymentIntents.create(params, options);
 }
 
-/**
- * Same connected-account direct charge as createQuickSalePaymentIntent, but
- * for a card physically tapped/inserted/swiped on a Stripe Terminal reader
- * (e.g. a WisePOS E) instead of typed into a browser/app card form.
- * payment_method_types: ['card_present'] is what tells Stripe this
- * PaymentIntent will be confirmed by the Terminal SDK's
- * collectPaymentMethod/confirmPaymentIntent, not Stripe.js/PaymentSheet —
- * request_three_d_secure (buildPaymentIntentCreateParams' high-value branch)
- * is a card-not-present concept and doesn't apply here, so it's overwritten
- * back off below rather than threaded through as another special case.
- */
+/** Same connected-account direct charge as createQuickSalePaymentIntent, but taken on a physical Stripe Terminal reader — see applyCardPresentOverrides. */
 export async function createQuickSaleReaderPaymentIntent(
   input: CreateQuickSalePaymentIntentInput,
 ): Promise<Stripe.PaymentIntent> {
@@ -120,9 +136,7 @@ export async function createQuickSaleReaderPaymentIntent(
     { quick_sale_id: input.quickSaleId },
     input.itemName,
   );
-  params.payment_method_types = ['card_present'];
-  params.capture_method = 'automatic';
-  delete params.payment_method_options;
+  applyCardPresentOverrides(params);
   return stripeClient.paymentIntents.create(params, options);
 }
 

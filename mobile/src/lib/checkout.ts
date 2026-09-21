@@ -39,6 +39,20 @@ export function createOrder(
   });
 }
 
+/** Staff-operated, org-scoped counterpart to createOrder — takes payment on a physical Stripe Terminal reader instead of Stripe.js/PaymentSheet. See doorSaleService.ts on the backend. */
+export function createDoorSale(
+  token: string,
+  organizationId: string,
+  eventId: string,
+  input: { buyer_email: string; line_items: { ticket_type_id: string; quantity: number }[] },
+): Promise<CheckoutResult> {
+  return apiRequest(`/v1/organizations/${organizationId}/events/${eventId}/door-sales`, {
+    method: 'POST',
+    body: input,
+    token,
+  });
+}
+
 export type OrderConfirmationStatus = 'pending' | 'ready' | 'already_retrieved' | 'expired';
 
 export interface OrderConfirmation {

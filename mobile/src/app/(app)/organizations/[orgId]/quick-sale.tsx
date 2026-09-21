@@ -1,9 +1,10 @@
-import { useStripeTerminal, type Reader } from '@stripe/stripe-terminal-react-native';
+import { useStripeTerminal } from '@stripe/stripe-terminal-react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { CardReaderPanel } from '@/components/card-reader-panel';
 import { ListItem } from '@/components/list-item';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
@@ -17,15 +18,12 @@ import {
   createQuickSale,
   createQuickSaleItem,
   deleteQuickSaleItem,
-  getReaderLocationId,
   listQuickSaleItems,
   listQuickSales,
   retryQuickSalePayout,
-  setUpReaderLocation,
   type QuickSale,
   type QuickSaleItem,
 } from '@/lib/quickSales';
-import { setTerminalSession } from '@/lib/terminalSession';
 
 function StatusPill({ label, tone }: { label: string; tone: 'neutral' | 'success' | 'destructive' }) {
   const theme = useTheme();
@@ -45,22 +43,8 @@ export default function QuickSaleScreen() {
 
   const [items, setItems] = useState<QuickSaleItem[]>([]);
   const [sales, setSales] = useState<QuickSale[]>([]);
-  const [locationId, setLocationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [showReaderSetup, setShowReaderSetup] = useState(false);
-  const [setupName, setSetupName] = useState('');
-  const [setupLine1, setSetupLine1] = useState('');
-  const [setupCity, setSetupCity] = useState('');
-  const [setupState, setSetupState] = useState('');
-  const [setupPostalCode, setSetupPostalCode] = useState('');
-  const [isSettingUp, setIsSettingUp] = useState(false);
-  const [setupError, setSetupError] = useState<string | null>(null);
-
-  const [isDiscovering, setIsDiscovering] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [readerError, setReaderError] = useState<string | null>(null);
 
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
@@ -72,57 +56,23 @@ export default function QuickSaleScreen() {
   const [saleError, setSaleError] = useState<string | null>(null);
   const [retryingSaleId, setRetryingSaleId] = useState<string | null>(null);
 
-  const {
-    initialize,
-    discoverReaders,
-    connectReader,
-    disconnectReader,
-    retrievePaymentIntent,
-    collectPaymentMethod,
-    confirmPaymentIntent,
-    connectedReader,
-    discoveredReaders,
-    isInitialized,
-  } = useStripeTerminal();
-
-  // The SDK's global tokenProvider (wired once at the app root — see
-  // _layout.tsx) has no per-call arguments, so it reads this org's id/token
-  // from a module-level holder instead. Set on focus, cleared on leaving so
-  // a stale organization never leaks into some other screen's reconnect.
-  useEffect(() => {
-    setTerminalSession(session?.token ?? null, orgId);
-    return () => setTerminalSession(null, null);
-  }, [session, orgId]);
-
-  const didInitRef = useRef(false);
-  useEffect(() => {
-    if (didInitRef.current || !session) return;
-    didInitRef.current = true;
-    initialize().then((result) => {
-      if (result.error) setReaderError(result.error.message);
-    });
-  }, [session, initialize]);
-
-  useEffect(() => {
-    return () => {
-      if (connectedReader) disconnectReader();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // CardReaderPanel (rendered below) owns the reader's connection lifecycle
+  // — this call shares the same underlying StripeTerminalProvider context,
+  // so connectedReader/the payment functions here reflect whatever the
+  // panel just connected to.
+  const { connectedReader, retrievePaymentIntent, collectPaymentMethod, confirmPaymentIntent } = useStripeTerminal();
 
   const load = useCallback(async () => {
     if (!session) return;
     setIsLoading(true);
     setError(null);
     try {
-      const [itemsResult, salesResult, locationResult] = await Promise.all([
+      const [itemsResult, salesResult] = await Promise.all([
         listQuickSaleItems(session.token, orgId),
         listQuickSales(session.token, orgId),
-        getReaderLocationId(session.token, orgId),
       ]);
       setItems(itemsResult.items);
       setSales(salesResult.items);
-      setLocationId(locationResult.location_id);
     } catch {
       setError(t('quick_sale.load_error'));
     } finally {
@@ -133,69 +83,6 @@ export default function QuickSaleScreen() {
   useEffect(() => {
     load();
   }, [load]);
-
-  async function onSetUpReader() {
-    if (!session || !setupName.trim() || !setupLine1.trim() || !setupCity.trim() || !setupPostalCode.trim()) return;
-    setIsSettingUp(true);
-    setSetupError(null);
-    try {
-      await setUpReaderLocation(session.token, orgId, {
-        display_name: setupName.trim(),
-        address: {
-          line1: setupLine1.trim(),
-          city: setupCity.trim(),
-          ...(setupState.trim() ? { state: setupState.trim() } : {}),
-          postal_code: setupPostalCode.trim(),
-          country: 'CA',
-        },
-      });
-      setShowReaderSetup(false);
-      await load();
-    } catch (err) {
-      setSetupError(err instanceof Error ? err.message : t('quick_sale.reader_setup_error'));
-    } finally {
-      setIsSettingUp(false);
-    }
-  }
-
-  async function onDiscoverAndConnect() {
-    if (!locationId) return;
-    setReaderError(null);
-    setIsDiscovering(true);
-    try {
-      const discovery = await discoverReaders({ discoveryMethod: 'internet', locationId, timeout: 0 });
-      if (discovery.error) {
-        setReaderError(discovery.error.message);
-        setIsDiscovering(false);
-        return;
-      }
-    } catch (err) {
-      setReaderError(err instanceof Error ? err.message : t('quick_sale.reader_connect_error'));
-      setIsDiscovering(false);
-    }
-  }
-
-  // discoverReaders streams results into discoveredReaders rather than
-  // resolving with them — stop showing the "discovering" state once at
-  // least one reader has shown up, or leave it running so the merchant can
-  // still retry if none appear yet.
-  useEffect(() => {
-    if (discoveredReaders.length > 0) setIsDiscovering(false);
-  }, [discoveredReaders]);
-
-  async function onConnect(reader: Reader.Type) {
-    setIsConnecting(true);
-    setReaderError(null);
-    try {
-      const result = await connectReader({ discoveryMethod: 'internet', reader, failIfInUse: false });
-      if (result.error) setReaderError(result.error.message);
-    } catch (err) {
-      setReaderError(err instanceof Error ? err.message : t('quick_sale.reader_connect_error'));
-    } finally {
-      setIsConnecting(false);
-      setIsDiscovering(false);
-    }
-  }
 
   async function onAddItem() {
     if (!session) return;
@@ -260,13 +147,13 @@ export default function QuickSaleScreen() {
 
       const collectResult = await collectPaymentMethod({ paymentIntent: retrieveResult.paymentIntent });
       if (collectResult.error || !collectResult.paymentIntent) {
-        setSaleError(collectResult.error?.message ?? t('quick_sale.reader_collect_error'));
+        setSaleError(collectResult.error?.message ?? t('card_reader.collect_error'));
         return;
       }
 
       const confirmResult = await confirmPaymentIntent({ paymentIntent: collectResult.paymentIntent });
       if (confirmResult.error) {
-        setSaleError(confirmResult.error.message ?? t('quick_sale.reader_confirm_error'));
+        setSaleError(confirmResult.error.message ?? t('card_reader.confirm_error'));
         return;
       }
 
@@ -291,7 +178,7 @@ export default function QuickSaleScreen() {
     }
   }
 
-  if (isLoading) {
+  if (isLoading || !session) {
     return (
       <ThemedView style={styles.container}>
         <ActivityIndicator style={styles.loader} />
@@ -309,93 +196,9 @@ export default function QuickSaleScreen() {
         ) : null}
 
         <ThemedText type="subtitle" style={styles.sectionTitle}>
-          {t('quick_sale.reader_section_title')}
+          {t('card_reader.section_title')}
         </ThemedText>
-
-        {!locationId ? (
-          showReaderSetup ? (
-            <ThemedView type="backgroundElement" style={styles.card}>
-              <TextField
-                label={t('quick_sale.reader_display_name_label')}
-                value={setupName}
-                onChangeText={setSetupName}
-              />
-              <TextField
-                label={t('quick_sale.reader_address_line1_label')}
-                value={setupLine1}
-                onChangeText={setSetupLine1}
-              />
-              <TextField label={t('quick_sale.reader_address_city_label')} value={setupCity} onChangeText={setSetupCity} />
-              <TextField
-                label={t('quick_sale.reader_address_state_label')}
-                value={setupState}
-                onChangeText={setSetupState}
-              />
-              <TextField
-                label={t('quick_sale.reader_address_postal_code_label')}
-                value={setupPostalCode}
-                onChangeText={setSetupPostalCode}
-              />
-              {setupError ? (
-                <ThemedText type="small" themeColor="destructive" style={styles.error}>
-                  {setupError}
-                </ThemedText>
-              ) : null}
-              <Button
-                title={t('quick_sale.reader_setup_submit')}
-                onPress={onSetUpReader}
-                loading={isSettingUp}
-                disabled={!setupName.trim() || !setupLine1.trim() || !setupCity.trim() || !setupPostalCode.trim()}
-              />
-            </ThemedView>
-          ) : (
-            <ThemedView type="backgroundElement" style={styles.card}>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.cardText}>
-                {t('quick_sale.reader_not_set_up')}
-              </ThemedText>
-              <Button title={t('quick_sale.reader_setup_button')} variant="ghost" onPress={() => setShowReaderSetup(true)} />
-            </ThemedView>
-          )
-        ) : connectedReader ? (
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <ThemedText type="small">
-              {t('quick_sale.reader_connected_prefix', { label: connectedReader.label ?? connectedReader.serialNumber })}
-            </ThemedText>
-            <Button title={t('quick_sale.reader_disconnect_button')} variant="ghost" onPress={() => disconnectReader()} />
-          </ThemedView>
-        ) : (
-          <ThemedView type="backgroundElement" style={styles.card}>
-            {readerError ? (
-              <ThemedText type="small" themeColor="destructive" style={styles.error}>
-                {readerError}
-              </ThemedText>
-            ) : null}
-            {discoveredReaders.length > 0 ? (
-              discoveredReaders.map((reader) => (
-                <ListItem
-                  key={reader.id}
-                  title={reader.label ?? reader.serialNumber}
-                  onPress={() => onConnect(reader)}
-                  right={isConnecting ? <ActivityIndicator size="small" /> : undefined}
-                />
-              ))
-            ) : isDiscovering ? (
-              <View style={styles.discoveringRow}>
-                <ActivityIndicator size="small" />
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t('quick_sale.reader_discovering')}
-                </ThemedText>
-              </View>
-            ) : (
-              <Button
-                title={t('quick_sale.reader_connect_button')}
-                variant="ghost"
-                onPress={onDiscoverAndConnect}
-                disabled={!isInitialized}
-              />
-            )}
-          </ThemedView>
-        )}
+        <CardReaderPanel orgId={orgId} token={session.token} />
 
         <ThemedText type="subtitle" style={styles.sectionTitle}>
           {t('quick_sale.catalog_title')}
@@ -420,12 +223,7 @@ export default function QuickSaleScreen() {
                     disabled={!connectedReader || activeSaleItemId !== null}
                     style={styles.sellButton}
                   />
-                  <Button
-                    title="×"
-                    variant="ghost"
-                    onPress={() => onDeleteItem(item)}
-                    style={styles.deleteButton}
-                  />
+                  <Button title="×" variant="ghost" onPress={() => onDeleteItem(item)} style={styles.deleteButton} />
                 </View>
               }
             />
@@ -538,14 +336,6 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: Radius.medium,
     padding: Spacing.three,
-    gap: Spacing.two,
-  },
-  cardText: {
-    marginBottom: Spacing.two,
-  },
-  discoveringRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: Spacing.two,
   },
   itemActions: {

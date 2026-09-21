@@ -166,6 +166,7 @@ export interface Translations {
     orders_button: string;
     guest_list_button: string;
     check_in_button: string;
+    door_sale_button: string;
     ticket_types_title: string;
     add_button: string;
     ticket_name_label: string;
@@ -238,26 +239,39 @@ export interface Translations {
     payout_status_failed: string;
     retry_payout_button: string;
     retry_payout_error: string;
-    reader_section_title: string;
-    reader_not_set_up: string;
-    reader_setup_button: string;
-    reader_setup_title: string;
-    reader_display_name_label: string;
-    reader_address_line1_label: string;
-    reader_address_city_label: string;
-    reader_address_state_label: string;
-    reader_address_postal_code_label: string;
-    reader_setup_submit: string;
-    reader_setup_error: string;
-    reader_connect_button: string;
-    reader_connecting: string;
-    reader_discovering: string;
-    reader_no_readers_found: string;
-    reader_connected_prefix: string;
-    reader_disconnect_button: string;
-    reader_connect_error: string;
-    reader_collect_error: string;
-    reader_confirm_error: string;
+  };
+  card_reader: {
+    section_title: string;
+    not_set_up: string;
+    setup_button: string;
+    setup_title: string;
+    display_name_label: string;
+    address_line1_label: string;
+    address_city_label: string;
+    address_state_label: string;
+    address_postal_code_label: string;
+    setup_submit: string;
+    setup_error: string;
+    connect_button: string;
+    connecting: string;
+    discovering: string;
+    no_readers_found: string;
+    connected_prefix: string;
+    disconnect_button: string;
+    connect_error: string;
+    collect_error: string;
+    confirm_error: string;
+  };
+  door_sale: {
+    title: string;
+    load_error: string;
+    ticket_types_empty: string;
+    buyer_email_label: string;
+    quantity_label: string;
+    sell_button: string;
+    sell_error: string;
+    payment_not_ready: string;
+    payment_succeeded: string;
   };
 }
 
@@ -432,6 +446,7 @@ export const fr: Translations = {
     orders_button: 'Commandes',
     guest_list_button: 'Liste des invités',
     check_in_button: 'Check-in',
+    door_sale_button: 'Vente à la porte',
     ticket_types_title: 'Types de billets',
     add_button: 'Ajouter',
     ticket_name_label: 'Nom',
@@ -504,26 +519,39 @@ export const fr: Translations = {
     payout_status_failed: 'Versement échoué',
     retry_payout_button: 'Réessayer le versement',
     retry_payout_error: 'Impossible de réessayer le versement.',
-    reader_section_title: 'Lecteur de carte',
-    reader_not_set_up: 'Aucun lecteur configuré pour cette organisation.',
-    reader_setup_button: 'Configurer un lecteur',
-    reader_setup_title: 'Configurer le lecteur',
-    reader_display_name_label: 'Nom (ex. Salon principal)',
-    reader_address_line1_label: 'Adresse',
-    reader_address_city_label: 'Ville',
-    reader_address_state_label: 'Province (optionnel)',
-    reader_address_postal_code_label: 'Code postal',
-    reader_setup_submit: 'Enregistrer',
-    reader_setup_error: 'Impossible de configurer le lecteur.',
-    reader_connect_button: 'Connecter un lecteur',
-    reader_connecting: 'Connexion…',
-    reader_discovering: 'Recherche de lecteurs…',
-    reader_no_readers_found: 'Aucun lecteur trouvé sur le réseau.',
-    reader_connected_prefix: 'Lecteur connecté : {{label}}',
-    reader_disconnect_button: 'Déconnecter',
-    reader_connect_error: 'Impossible de se connecter au lecteur.',
-    reader_collect_error: 'La carte a été refusée ou la lecture a échoué.',
-    reader_confirm_error: 'Impossible de confirmer le paiement.',
+  },
+  card_reader: {
+    section_title: 'Lecteur de carte',
+    not_set_up: 'Aucun lecteur configuré pour cette organisation.',
+    setup_button: 'Configurer un lecteur',
+    setup_title: 'Configurer le lecteur',
+    display_name_label: 'Nom (ex. Salon principal)',
+    address_line1_label: 'Adresse',
+    address_city_label: 'Ville',
+    address_state_label: 'Province (optionnel)',
+    address_postal_code_label: 'Code postal',
+    setup_submit: 'Enregistrer',
+    setup_error: 'Impossible de configurer le lecteur.',
+    connect_button: 'Connecter un lecteur',
+    connecting: 'Connexion…',
+    discovering: 'Recherche de lecteurs…',
+    no_readers_found: 'Aucun lecteur trouvé sur le réseau.',
+    connected_prefix: 'Lecteur connecté : {{label}}',
+    disconnect_button: 'Déconnecter',
+    connect_error: 'Impossible de se connecter au lecteur.',
+    collect_error: 'La carte a été refusée ou la lecture a échoué.',
+    confirm_error: 'Impossible de confirmer le paiement.',
+  },
+  door_sale: {
+    title: 'Vente à la porte',
+    load_error: 'Impossible de charger les types de billets.',
+    ticket_types_empty: 'Aucun type de billet pour cet événement.',
+    buyer_email_label: 'Email de l’acheteur',
+    quantity_label: 'Quantité',
+    sell_button: 'Vendre',
+    sell_error: 'Impossible de créer la vente.',
+    payment_not_ready: 'Le paiement n’est pas prêt. Réessaie.',
+    payment_succeeded: 'Paiement réussi',
   },
 };
 
@@ -696,6 +724,7 @@ export const en: Translations = {
     orders_button: 'Orders',
     guest_list_button: 'Guest list',
     check_in_button: 'Check-in',
+    door_sale_button: 'Door sale',
     ticket_types_title: 'Ticket types',
     add_button: 'Add',
     ticket_name_label: 'Name',
@@ -768,26 +797,39 @@ export const en: Translations = {
     payout_status_failed: 'Payout failed',
     retry_payout_button: 'Retry payout',
     retry_payout_error: 'Unable to retry the payout.',
-    reader_section_title: 'Card reader',
-    reader_not_set_up: 'No reader set up for this organization yet.',
-    reader_setup_button: 'Set up a reader',
-    reader_setup_title: 'Set up the reader',
-    reader_display_name_label: 'Name (e.g. Main location)',
-    reader_address_line1_label: 'Address',
-    reader_address_city_label: 'City',
-    reader_address_state_label: 'State/Province (optional)',
-    reader_address_postal_code_label: 'Postal/ZIP code',
-    reader_setup_submit: 'Save',
-    reader_setup_error: 'Unable to set up the reader.',
-    reader_connect_button: 'Connect a reader',
-    reader_connecting: 'Connecting…',
-    reader_discovering: 'Discovering readers…',
-    reader_no_readers_found: 'No readers found on the network.',
-    reader_connected_prefix: 'Connected reader: {{label}}',
-    reader_disconnect_button: 'Disconnect',
-    reader_connect_error: 'Unable to connect to the reader.',
-    reader_collect_error: 'The card was declined or the read failed.',
-    reader_confirm_error: 'Unable to confirm the payment.',
+  },
+  card_reader: {
+    section_title: 'Card reader',
+    not_set_up: 'No reader set up for this organization yet.',
+    setup_button: 'Set up a reader',
+    setup_title: 'Set up the reader',
+    display_name_label: 'Name (e.g. Main location)',
+    address_line1_label: 'Address',
+    address_city_label: 'City',
+    address_state_label: 'State/Province (optional)',
+    address_postal_code_label: 'Postal/ZIP code',
+    setup_submit: 'Save',
+    setup_error: 'Unable to set up the reader.',
+    connect_button: 'Connect a reader',
+    connecting: 'Connecting…',
+    discovering: 'Discovering readers…',
+    no_readers_found: 'No readers found on the network.',
+    connected_prefix: 'Connected reader: {{label}}',
+    disconnect_button: 'Disconnect',
+    connect_error: 'Unable to connect to the reader.',
+    collect_error: 'The card was declined or the read failed.',
+    confirm_error: 'Unable to confirm the payment.',
+  },
+  door_sale: {
+    title: 'Door sale',
+    load_error: 'Unable to load ticket types.',
+    ticket_types_empty: 'No ticket types for this event.',
+    buyer_email_label: 'Buyer email',
+    quantity_label: 'Quantity',
+    sell_button: 'Sell',
+    sell_error: 'Unable to create the sale.',
+    payment_not_ready: 'Payment is not ready. Try again.',
+    payment_succeeded: 'Payment succeeded',
   },
 };
 

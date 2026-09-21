@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { pool } from '../../config/database';
 import { computeReservationExpiry, releaseExpiredReservations } from './orderReleaseService';
-import { createPaymentIntent, retrievePaymentIntent } from '../stripe/stripePayments';
+import { createOrderReaderPaymentIntent, createPaymentIntent, retrievePaymentIntent } from '../stripe/stripePayments';
 import { ApiError } from '../../utils/errors';
 import { computeOrderFees } from '../../utils/fees';
 import type { EventRow, OrderRow, OrganizationRow, StripeChargeMode, TicketTypeRow } from '../../types/db';
@@ -39,6 +39,11 @@ export interface CheckoutLineItemInput {
 export interface CreateOrderInput {
   buyer_email: string;
   line_items: CheckoutLineItemInput[];
+  // True only for doorSaleService's org-staff-operated, physical-reader
+  // sale — never set by the public checkout route, so the online buyer
+  // flow's behavior can't change based on client input. See
+  // stripePayments.createOrderReaderPaymentIntent.
+  in_person?: boolean | undefined;
 }
 
 export interface PublicOrder {
@@ -314,7 +319,8 @@ export async function createOrder(
       );
     }
 
-    const paymentIntent = await createPaymentIntent({
+    const createPaymentIntentFn = input.in_person ? createOrderReaderPaymentIntent : createPaymentIntent;
+    const paymentIntent = await createPaymentIntentFn({
       amountCents: totalCents,
       currency,
       orderId: order.id,
