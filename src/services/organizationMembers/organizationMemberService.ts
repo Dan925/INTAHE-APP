@@ -54,7 +54,7 @@ async function getActiveUserByEmail(email: string): Promise<UserRow | undefined>
 export async function inviteMember(organizationId: string, input: InviteMemberInput): Promise<PublicMember> {
   const user = await getActiveUserByEmail(input.email);
   if (!user) {
-    throw new ApiError(404, 'invitee_not_found', 'No Intahe account exists for this email yet.', 'email');
+    throw new ApiError(404, 'invitee_not_found', 'No Intahé account exists for this email yet.', 'email');
   }
 
   const existingResult = await pool.query<OrganizationMemberRow>(

@@ -160,7 +160,7 @@ export default function EventScreen() {
           stripeAccountId: result.stripe_account_id ?? undefined,
         });
         const { error: initError } = await initPaymentSheet({
-          merchantDisplayName: 'Intahe',
+          merchantDisplayName: 'Intahé',
           paymentIntentClientSecret: result.client_secret,
         });
         if (initError) {

@@ -283,7 +283,7 @@ export const fr: Translations = {
     error_generic: 'Une erreur est survenue. Réessaie.',
   },
   login: {
-    brand: 'Intahe',
+    brand: 'Intahé',
     subtitle: 'Connecte-toi pour gérer tes événements ou tes billets.',
     email: 'Email',
     password: 'Mot de passe',
@@ -411,7 +411,7 @@ export const fr: Translations = {
   org_members: {
     load_error: 'Impossible de charger les membres.',
     invite_error_generic: "Impossible d'inviter cette personne.",
-    invite_error_not_found: "Aucun compte Intahe n'existe avec cet email.",
+    invite_error_not_found: "Aucun compte Intahé n'existe avec cet email.",
     invite_error_already_member: 'Cette personne est déjà membre de l’organisation.',
     invite_error_already_pending: 'Une invitation est déjà en attente pour cette personne.',
     role_update_error: 'Impossible de modifier ce rôle.',
@@ -566,7 +566,7 @@ export const en: Translations = {
     error_generic: 'Something went wrong. Try again.',
   },
   login: {
-    brand: 'Intahe',
+    brand: 'Intahé',
     subtitle: 'Sign in to manage your events or tickets.',
     email: 'Email',
     password: 'Password',
@@ -692,7 +692,7 @@ export const en: Translations = {
   org_members: {
     load_error: 'Unable to load members.',
     invite_error_generic: 'Unable to invite this person.',
-    invite_error_not_found: 'No Intahe account exists with this email.',
+    invite_error_not_found: 'No Intahé account exists with this email.',
     invite_error_already_member: 'This person is already a member of the organization.',
     invite_error_already_pending: 'An invite is already pending for this person.',
     role_update_error: 'Unable to change this role.',

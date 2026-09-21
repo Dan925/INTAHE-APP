@@ -21,10 +21,10 @@ const fr = `
 <h1>Politique de confidentialité</h1>
 <p class="text-secondary small">Dernière mise à jour : 18 septembre 2026</p>
 
-<p>Ce document décrit fidèlement ce que l'application Intahe fait réellement avec les renseignements personnels et a été révisé par un conseiller juridique. Comme Intahe sert des utilisateurs au Canada et aux États-Unis, plusieurs cadres légaux différents peuvent s'appliquer selon où tu habites (voir section 7).</p>
+<p>Ce document décrit fidèlement ce que l'application Intahé fait réellement avec les renseignements personnels et a été révisé par un conseiller juridique. Comme Intahé sert des utilisateurs au Canada et aux États-Unis, plusieurs cadres légaux différents peuvent s'appliquer selon où tu habites (voir section 7).</p>
 
 <h2>1. Qui nous sommes</h2>
-<p>Intahe (« nous », « notre ») est une plateforme de billetterie et de gestion d'événements. Le responsable du traitement des renseignements personnels décrits ci-dessous est :</p>
+<p>Intahé (« nous », « notre ») est une plateforme de billetterie et de gestion d'événements. Le responsable du traitement des renseignements personnels décrits ci-dessous est :</p>
 <p>Syncera Digital LLC<br/>
 1309 Coffeen Avenue, Ste 1200, Sheridan, WY 82801, États-Unis<br/>
 privacy@syncerainc.com</p>
@@ -69,7 +69,7 @@ privacy@syncerainc.com</p>
 <p>Les renseignements de ton compte (nom, courriel, mot de passe, position géographique fournie) sont conservés tant que ton compte est actif. Si tu supprimes ton compte, ces renseignements personnels sont effacés immédiatement de notre base de données active. L'historique de tes commandes et billets est conservé séparément pendant 7 ans après la transaction, à des fins de comptabilité et d'obligations fiscales — même après la suppression de ton compte, cet historique demeure visible aux organisateurs concernés. Comme pour la plupart des services infonuagiques, tes renseignements peuvent aussi subsister temporairement (jusqu'à 30 jours) dans nos copies de sauvegarde de routine après une suppression, le temps que le cycle normal de sauvegarde les remplace.</p>
 
 <h2>7. Tes droits selon où tu habites</h2>
-<p>Intahe sert des utilisateurs au Canada et aux États-Unis; les droits ci-dessous varient selon ta province, ton État, et la loi qui s'applique à toi. En général, tu peux :</p>
+<p>Intahé sert des utilisateurs au Canada et aux États-Unis; les droits ci-dessous varient selon ta province, ton État, et la loi qui s'applique à toi. En général, tu peux :</p>
 <ul>
   <li>Accéder aux renseignements personnels que nous détenons à ton sujet</li>
   <li>Faire corriger un renseignement inexact ou incomplet</li>
@@ -106,10 +106,10 @@ const en = `
 <h1>Privacy policy</h1>
 <p class="text-secondary small">Last updated: September 18, 2026</p>
 
-<p>This document accurately describes what the Intahe app actually does with personal information and has been reviewed by legal counsel. Since Intahe serves users in both Canada and the United States, several different legal frameworks may apply depending on where you live (see section 7).</p>
+<p>This document accurately describes what the Intahé app actually does with personal information and has been reviewed by legal counsel. Since Intahé serves users in both Canada and the United States, several different legal frameworks may apply depending on where you live (see section 7).</p>
 
 <h2>1. Who we are</h2>
-<p>Intahe ("we", "our") is a ticketing and event management platform. The party responsible for the personal information described below is:</p>
+<p>Intahé ("we", "our") is a ticketing and event management platform. The party responsible for the personal information described below is:</p>
 <p>Syncera Digital LLC<br/>
 1309 Coffeen Avenue, Ste 1200, Sheridan, WY 82801, USA<br/>
 privacy@syncerainc.com</p>
@@ -154,7 +154,7 @@ privacy@syncerainc.com</p>
 <p>Your account information (name, email, password, any location you provide) is kept for as long as your account is active. If you delete your account, that personal information is erased immediately from our active database. Your order and ticket history is kept separately for 7 years after the transaction, for accounting and tax purposes — even after your account is deleted, this history remains visible to the relevant organizers. As with most cloud services, your information may also persist temporarily (up to 30 days) in our routine backup copies after a deletion, until the normal backup cycle replaces them.</p>
 
 <h2>7. Your rights depending on where you live</h2>
-<p>Intahe serves users in Canada and the United States; the rights below vary depending on your province, state, and which law applies to you. In general, you can:</p>
+<p>Intahé serves users in Canada and the United States; the rights below vary depending on your province, state, and which law applies to you. In general, you can:</p>
 <ul>
   <li>Access the personal information we hold about you</li>
   <li>Have inaccurate or incomplete information corrected</li>

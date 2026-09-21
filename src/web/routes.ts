@@ -103,7 +103,7 @@ router.get('/', (_req, res) => {
 
 router.get('/discover', (req, res) => {
   page(req, res, {
-    title: (s) => `${s.discover.title} — Intahe`,
+    title: (s) => `${s.discover.title} — Intahé`,
     scriptSrc: '/discover.js',
     bodyHtml: (s) => `
     <h1>${s.discover.title}</h1>
@@ -138,7 +138,7 @@ router.get(
     const event = await eventService.getPublicEvent(eventId).catch(() => null);
 
     page(req, res, {
-      title: (s) => (event ? `${event.name} — Intahe` : s.event.title),
+      title: (s) => (event ? `${event.name} — Intahé` : s.event.title),
       scriptSrc: '/event.js',
       meta: {
         description: (s) => (event?.description ? truncateForMeta(event.description) : s.event.share_description_fallback),

@@ -185,7 +185,7 @@
 
     Promise.all([api('/v1/organizations/' + orgId), api('/v1/organizations/' + orgId + '/events')])
       .then(function (results) {
-        document.title = results[0].organization.name + ' — Intahe';
+        document.title = results[0].organization.name + ' — Intahé';
         render(results[1].items);
       })
       .catch(function () {

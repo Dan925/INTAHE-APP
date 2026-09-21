@@ -217,7 +217,7 @@ async function deliverOrderConfirmationEmail(
   try {
     await sendEmail({
       to: email,
-      subject: 'Your Intahe order is confirmed',
+      subject: 'Your Intahé order is confirmed',
       html: `<p>Thanks for your purchase! Your order is confirmed.</p>
 <p>Order reference: <strong>${orderId}</strong></p>
 <p><a href="${ticketsUrl}">View your tickets</a></p>`,

@@ -281,7 +281,7 @@ async function deliverRefundConfirmationEmail(
   try {
     await sendEmail({
       to: email,
-      subject: 'Your Intahe refund confirmation',
+      subject: 'Your Intahé refund confirmation',
       html: `<p>Your refund has been processed.</p>
 <p>Order reference: <strong>${orderId}</strong></p>
 <p>Amount refunded: <strong>${formattedAmount}</strong></p>

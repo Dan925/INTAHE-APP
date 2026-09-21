@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Intahe",
+    "name": "Intahé",
     "slug": "intahe",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -39,15 +39,15 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Intahe utilise ta position pour te montrer les événements à proximité."
+          "locationWhenInUsePermission": "Intahé utilise ta position pour te montrer les événements à proximité."
         }
       ],
       [
         "@stripe/stripe-terminal-react-native",
         {
-          "locationWhenInUsePermission": "Intahe utilise ta position pour te montrer les événements à proximité et pour te connecter à un lecteur de carte Bluetooth à proximité.",
-          "bluetoothPeripheralPermission": "Intahe utilise le Bluetooth pour se connecter à un lecteur de carte.",
-          "bluetoothAlwaysUsagePermission": "Intahe utilise le Bluetooth pour se connecter à un lecteur de carte."
+          "locationWhenInUsePermission": "Intahé utilise ta position pour te montrer les événements à proximité et pour te connecter à un lecteur de carte Bluetooth à proximité.",
+          "bluetoothPeripheralPermission": "Intahé utilise le Bluetooth pour se connecter à un lecteur de carte.",
+          "bluetoothAlwaysUsagePermission": "Intahé utilise le Bluetooth pour se connecter à un lecteur de carte."
         }
       ]
     ],

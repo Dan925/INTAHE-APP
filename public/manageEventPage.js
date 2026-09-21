@@ -69,7 +69,7 @@
       }),
     ])
       .then(function (results) {
-        document.title = results[0].event.name + ' — Intahe';
+        document.title = results[0].event.name + ' — Intahé';
         ticketTypes = results[1].items;
         if (results[2] && typeof results[2].min_ticket_price_cents === 'number') {
           minTicketPriceCents = results[2].min_ticket_price_cents;

@@ -336,7 +336,7 @@ async function deliverPasswordResetEmail(email: string, rawToken: string): Promi
   try {
     await sendEmail({
       to: email,
-      subject: 'Reset your Intahe password',
+      subject: 'Reset your Intahé password',
       html: `<p>Someone requested a password reset for this account.</p>
 <p><a href="${resetUrl}">Reset your password</a>. This link expires in ${env.PASSWORD_RESET_TOKEN_TTL_MINUTES} minutes.</p>
 <p>If you didn't request this, you can safely ignore this email.</p>`,

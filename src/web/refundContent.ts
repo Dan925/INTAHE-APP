@@ -17,19 +17,19 @@ const fr = `
 <p class="text-secondary small">Dernière mise à jour : 20 août 2026</p>
 
 <h2>1. Principe général : ventes finales</h2>
-<p>Sauf indication contraire de l'organisateur pour un événement précis, les ventes de billets sur Intahe sont finales. Cela reflète la pratique courante en billetterie d'événements : une fois un billet acheté, une place a été retenue pour toi et retirée de l'inventaire disponible.</p>
+<p>Sauf indication contraire de l'organisateur pour un événement précis, les ventes de billets sur Intahé sont finales. Cela reflète la pratique courante en billetterie d'événements : une fois un billet acheté, une place a été retenue pour toi et retirée de l'inventaire disponible.</p>
 
 <h2>2. Si l'événement est annulé</h2>
-<p>Si l'organisateur annule l'événement, il est responsable d'émettre les remboursements aux personnes ayant acheté un billet. Intahe fournit à l'organisateur les outils pour le faire (remboursement total ou partiel, directement via Stripe). Si un événement que tu as payé est annulé et que tu ne reçois pas de remboursement dans un délai raisonnable, écris-nous à support@syncerainc.com — nous allons contacter l'organisateur en ton nom.</p>
+<p>Si l'organisateur annule l'événement, il est responsable d'émettre les remboursements aux personnes ayant acheté un billet. Intahé fournit à l'organisateur les outils pour le faire (remboursement total ou partiel, directement via Stripe). Si un événement que tu as payé est annulé et que tu ne reçois pas de remboursement dans un délai raisonnable, écris-nous à support@syncerainc.com — nous allons contacter l'organisateur en ton nom.</p>
 
 <h2>3. Si l'événement est reporté</h2>
 <p>Si l'organisateur reporte un événement à une date ultérieure, ton billet demeure valide pour la nouvelle date, sauf si l'organisateur choisit d'offrir des remboursements. Vérifie les communications de l'organisateur pour les détails propres à l'événement.</p>
 
 <h2>4. Remboursements à la discrétion de l'organisateur</h2>
-<p>Un organisateur peut choisir, à sa discrétion, d'offrir un remboursement total ou partiel même sans annulation (par exemple en cas d'erreur d'achat ou de situation exceptionnelle). Adresse-toi directement à l'organisateur de l'événement pour ce type de demande — c'est lui qui contrôle sa politique de vente, Intahe fournit seulement la plateforme et les outils de paiement.</p>
+<p>Un organisateur peut choisir, à sa discrétion, d'offrir un remboursement total ou partiel même sans annulation (par exemple en cas d'erreur d'achat ou de situation exceptionnelle). Adresse-toi directement à l'organisateur de l'événement pour ce type de demande — c'est lui qui contrôle sa politique de vente, Intahé fournit seulement la plateforme et les outils de paiement.</p>
 
 <h2>5. Frais de service</h2>
-<p>Lorsqu'un remboursement est accordé, le ou les frais Stripe déjà engagés sur la transaction originale ne sont généralement pas récupérables par Intahe ni par l'organisateur; ils peuvent donc ne pas être inclus dans le montant remboursé, selon ce que l'organisateur choisit.</p>
+<p>Lorsqu'un remboursement est accordé, le ou les frais Stripe déjà engagés sur la transaction originale ne sont généralement pas récupérables par Intahé ni par l'organisateur; ils peuvent donc ne pas être inclus dans le montant remboursé, selon ce que l'organisateur choisit.</p>
 
 <h2>6. Erreurs techniques</h2>
 <p>Si tu as été facturé deux fois pour le même billet, si le paiement a échoué mais que le montant a tout de même été débité, ou si tu rencontres tout autre problème technique lié à un paiement, écris-nous à support@syncerainc.com — ce type de situation est corrigé rapidement, peu importe la politique de vente de l'événement.</p>
@@ -46,19 +46,19 @@ const en = `
 <p class="text-secondary small">Last updated: August 20, 2026</p>
 
 <h2>1. General rule: sales are final</h2>
-<p>Unless an organizer states otherwise for a specific event, ticket sales on Intahe are final. This reflects standard practice for event ticketing: once a ticket is purchased, a spot has been held for you and removed from available inventory.</p>
+<p>Unless an organizer states otherwise for a specific event, ticket sales on Intahé are final. This reflects standard practice for event ticketing: once a ticket is purchased, a spot has been held for you and removed from available inventory.</p>
 
 <h2>2. If the event is cancelled</h2>
-<p>If the organizer cancels the event, they are responsible for issuing refunds to people who bought a ticket. Intahe gives the organizer the tools to do this (full or partial refund, directly through Stripe). If an event you paid for is cancelled and you don't receive a refund within a reasonable time, write to us at support@syncerainc.com — we'll follow up with the organizer on your behalf.</p>
+<p>If the organizer cancels the event, they are responsible for issuing refunds to people who bought a ticket. Intahé gives the organizer the tools to do this (full or partial refund, directly through Stripe). If an event you paid for is cancelled and you don't receive a refund within a reasonable time, write to us at support@syncerainc.com — we'll follow up with the organizer on your behalf.</p>
 
 <h2>3. If the event is postponed</h2>
 <p>If the organizer postpones an event to a later date, your ticket stays valid for the new date, unless the organizer chooses to offer refunds instead. Check the organizer's communications for event-specific details.</p>
 
 <h2>4. Refunds at the organizer's discretion</h2>
-<p>An organizer may choose, at their discretion, to offer a full or partial refund even without a cancellation (for example for a purchase mistake or an exceptional situation). Reach out to the event's organizer directly for this kind of request — they control their own sales policy, Intahe only provides the platform and payment tools.</p>
+<p>An organizer may choose, at their discretion, to offer a full or partial refund even without a cancellation (for example for a purchase mistake or an exceptional situation). Reach out to the event's organizer directly for this kind of request — they control their own sales policy, Intahé only provides the platform and payment tools.</p>
 
 <h2>5. Service fees</h2>
-<p>When a refund is granted, the Stripe processing fees already incurred on the original transaction are generally not recoverable by Intahe or the organizer, and may therefore not be included in the refunded amount, depending on what the organizer decides.</p>
+<p>When a refund is granted, the Stripe processing fees already incurred on the original transaction are generally not recoverable by Intahé or the organizer, and may therefore not be included in the refunded amount, depending on what the organizer decides.</p>
 
 <h2>6. Technical errors</h2>
 <p>If you were charged twice for the same ticket, if a payment failed but you were still charged, or if you run into any other payment-related technical issue, write to us at support@syncerainc.com — this kind of issue gets fixed promptly, regardless of the event's sales policy.</p>
