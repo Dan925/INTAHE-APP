@@ -1,5 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { StripeProvider } from '@stripe/stripe-react-native';
+import { StripeTerminalProvider } from '@stripe/stripe-terminal-react-native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -7,6 +8,7 @@ import { useColorScheme, View } from 'react-native';
 
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { I18nProvider } from '@/lib/i18n/context';
+import { terminalTokenProvider } from '@/lib/terminalSession';
 
 const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
@@ -39,13 +41,15 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
     <StripeProvider publishableKey={stripePublishableKey}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <I18nProvider>
-          <AuthProvider>
-            <RootNavigator />
-          </AuthProvider>
-        </I18nProvider>
-      </ThemeProvider>
+      <StripeTerminalProvider tokenProvider={terminalTokenProvider}>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <I18nProvider>
+            <AuthProvider>
+              <RootNavigator />
+            </AuthProvider>
+          </I18nProvider>
+        </ThemeProvider>
+      </StripeTerminalProvider>
     </StripeProvider>
   );
 }

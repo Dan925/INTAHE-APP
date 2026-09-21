@@ -36,6 +36,7 @@ export interface OrganizationRow {
   contact_email: string | null;
   stripe_account_id: string | null;
   stripe_charges_enabled: boolean;
+  stripe_terminal_location_id: string | null;
   // Set only by the admin console's "approve an organizer" action. No
   // enforcement is wired to this anywhere yet — see the migration.
   platform_approved_at: Date | null;

@@ -102,6 +102,31 @@ export async function createQuickSalePaymentIntent(
 }
 
 /**
+ * Same connected-account direct charge as createQuickSalePaymentIntent, but
+ * for a card physically tapped/inserted/swiped on a Stripe Terminal reader
+ * (e.g. a WisePOS E) instead of typed into a browser/app card form.
+ * payment_method_types: ['card_present'] is what tells Stripe this
+ * PaymentIntent will be confirmed by the Terminal SDK's
+ * collectPaymentMethod/confirmPaymentIntent, not Stripe.js/PaymentSheet —
+ * request_three_d_secure (buildPaymentIntentCreateParams' high-value branch)
+ * is a card-not-present concept and doesn't apply here, so it's overwritten
+ * back off below rather than threaded through as another special case.
+ */
+export async function createQuickSaleReaderPaymentIntent(
+  input: CreateQuickSalePaymentIntentInput,
+): Promise<Stripe.PaymentIntent> {
+  const { params, options } = buildPaymentIntentCreateParams(
+    input,
+    { quick_sale_id: input.quickSaleId },
+    input.itemName,
+  );
+  params.payment_method_types = ['card_present'];
+  params.capture_method = 'automatic';
+  delete params.payment_method_options;
+  return stripeClient.paymentIntents.create(params, options);
+}
+
+/**
  * connectedAccountId must be omitted (or null) for a 'platform' or legacy
  * 'destination' order — both have their PaymentIntent on the platform
  * account — and must be the organization's stripe_account_id for a

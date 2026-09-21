@@ -41,6 +41,14 @@
         {
           "locationWhenInUsePermission": "Intahe utilise ta position pour te montrer les événements à proximité."
         }
+      ],
+      [
+        "@stripe/stripe-terminal-react-native",
+        {
+          "locationWhenInUsePermission": "Intahe utilise ta position pour te montrer les événements à proximité et pour te connecter à un lecteur de carte Bluetooth à proximité.",
+          "bluetoothPeripheralPermission": "Intahe utilise le Bluetooth pour se connecter à un lecteur de carte.",
+          "bluetoothAlwaysUsagePermission": "Intahe utilise le Bluetooth pour se connecter à un lecteur de carte."
+        }
       ]
     ],
     "experiments": {

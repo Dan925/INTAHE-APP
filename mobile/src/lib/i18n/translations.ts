@@ -111,6 +111,7 @@ export interface Translations {
     create_event_error: string;
     members_button: string;
     dashboard_button: string;
+    quick_sale_button: string;
     event_name_label: string;
     start_label: string;
     end_label: string;
@@ -206,6 +207,57 @@ export interface Translations {
     empty: string;
     scanned: string;
     not_scanned: string;
+  };
+  quick_sale: {
+    load_error: string;
+    catalog_title: string;
+    catalog_empty: string;
+    item_name_label: string;
+    item_price_label: string;
+    item_currency_cad: string;
+    item_currency_usd: string;
+    add_item_button: string;
+    create_item_error: string;
+    delete_item_confirm_title: string;
+    delete_item_confirm_message: string;
+    delete_item_confirm_cancel: string;
+    delete_item_confirm_delete: string;
+    delete_item_error: string;
+    sell_button: string;
+    sell_error: string;
+    payment_not_ready: string;
+    payment_succeeded: string;
+    payment_failed: string;
+    recent_sales_title: string;
+    recent_sales_empty: string;
+    status_pending: string;
+    status_paid: string;
+    status_failed: string;
+    payout_status_not_attempted: string;
+    payout_status_succeeded: string;
+    payout_status_failed: string;
+    retry_payout_button: string;
+    retry_payout_error: string;
+    reader_section_title: string;
+    reader_not_set_up: string;
+    reader_setup_button: string;
+    reader_setup_title: string;
+    reader_display_name_label: string;
+    reader_address_line1_label: string;
+    reader_address_city_label: string;
+    reader_address_state_label: string;
+    reader_address_postal_code_label: string;
+    reader_setup_submit: string;
+    reader_setup_error: string;
+    reader_connect_button: string;
+    reader_connecting: string;
+    reader_discovering: string;
+    reader_no_readers_found: string;
+    reader_connected_prefix: string;
+    reader_disconnect_button: string;
+    reader_connect_error: string;
+    reader_collect_error: string;
+    reader_confirm_error: string;
   };
 }
 
@@ -325,6 +377,7 @@ export const fr: Translations = {
     create_event_error: "Impossible de créer l'événement.",
     members_button: 'Membres',
     dashboard_button: 'Tableau de bord',
+    quick_sale_button: 'Vente rapide',
     event_name_label: "Nom de l'événement",
     start_label: 'Début',
     end_label: 'Fin',
@@ -420,6 +473,57 @@ export const fr: Translations = {
     empty: 'Aucun billet pour cette commande pour l’instant.',
     scanned: 'Scanné',
     not_scanned: 'Pas encore scanné',
+  },
+  quick_sale: {
+    load_error: 'Impossible de charger la vente rapide.',
+    catalog_title: 'Catalogue',
+    catalog_empty: 'Aucun produit pour l’instant — ajoutes-en un ci-dessous.',
+    item_name_label: 'Nom',
+    item_price_label: 'Prix',
+    item_currency_cad: 'CAD',
+    item_currency_usd: 'USD',
+    add_item_button: 'Ajouter',
+    create_item_error: 'Impossible de créer ce produit.',
+    delete_item_confirm_title: 'Supprimer ce produit ?',
+    delete_item_confirm_message: 'Ce produit sera retiré du catalogue.',
+    delete_item_confirm_cancel: 'Annuler',
+    delete_item_confirm_delete: 'Supprimer',
+    delete_item_error: 'Impossible de supprimer ce produit.',
+    sell_button: 'Vendre',
+    sell_error: 'Impossible de créer la vente.',
+    payment_not_ready: 'Le paiement n’est pas prêt. Réessaie.',
+    payment_succeeded: 'Paiement réussi',
+    payment_failed: 'Le paiement a échoué.',
+    recent_sales_title: 'Ventes récentes',
+    recent_sales_empty: 'Aucune vente pour l’instant.',
+    status_pending: 'En attente',
+    status_paid: 'Payée',
+    status_failed: 'Échouée',
+    payout_status_not_attempted: 'Versement non tenté',
+    payout_status_succeeded: 'Versement réussi',
+    payout_status_failed: 'Versement échoué',
+    retry_payout_button: 'Réessayer le versement',
+    retry_payout_error: 'Impossible de réessayer le versement.',
+    reader_section_title: 'Lecteur de carte',
+    reader_not_set_up: 'Aucun lecteur configuré pour cette organisation.',
+    reader_setup_button: 'Configurer un lecteur',
+    reader_setup_title: 'Configurer le lecteur',
+    reader_display_name_label: 'Nom (ex. Salon principal)',
+    reader_address_line1_label: 'Adresse',
+    reader_address_city_label: 'Ville',
+    reader_address_state_label: 'Province (optionnel)',
+    reader_address_postal_code_label: 'Code postal',
+    reader_setup_submit: 'Enregistrer',
+    reader_setup_error: 'Impossible de configurer le lecteur.',
+    reader_connect_button: 'Connecter un lecteur',
+    reader_connecting: 'Connexion…',
+    reader_discovering: 'Recherche de lecteurs…',
+    reader_no_readers_found: 'Aucun lecteur trouvé sur le réseau.',
+    reader_connected_prefix: 'Lecteur connecté : {{label}}',
+    reader_disconnect_button: 'Déconnecter',
+    reader_connect_error: 'Impossible de se connecter au lecteur.',
+    reader_collect_error: 'La carte a été refusée ou la lecture a échoué.',
+    reader_confirm_error: 'Impossible de confirmer le paiement.',
   },
 };
 
@@ -537,6 +641,7 @@ export const en: Translations = {
     create_event_error: 'Unable to create the event.',
     members_button: 'Members',
     dashboard_button: 'Dashboard',
+    quick_sale_button: 'Quick sale',
     event_name_label: 'Event name',
     start_label: 'Start',
     end_label: 'End',
@@ -632,6 +737,57 @@ export const en: Translations = {
     empty: 'No tickets for this order yet.',
     scanned: 'Scanned',
     not_scanned: 'Not scanned yet',
+  },
+  quick_sale: {
+    load_error: 'Unable to load Quick Sale.',
+    catalog_title: 'Catalog',
+    catalog_empty: 'No products yet — add one below.',
+    item_name_label: 'Name',
+    item_price_label: 'Price',
+    item_currency_cad: 'CAD',
+    item_currency_usd: 'USD',
+    add_item_button: 'Add',
+    create_item_error: 'Unable to create this product.',
+    delete_item_confirm_title: 'Delete this product?',
+    delete_item_confirm_message: 'It will be removed from the catalog.',
+    delete_item_confirm_cancel: 'Cancel',
+    delete_item_confirm_delete: 'Delete',
+    delete_item_error: 'Unable to delete this product.',
+    sell_button: 'Sell',
+    sell_error: 'Unable to create the sale.',
+    payment_not_ready: 'Payment is not ready. Try again.',
+    payment_succeeded: 'Payment succeeded',
+    payment_failed: 'The payment failed.',
+    recent_sales_title: 'Recent sales',
+    recent_sales_empty: 'No sales yet.',
+    status_pending: 'Pending',
+    status_paid: 'Paid',
+    status_failed: 'Failed',
+    payout_status_not_attempted: 'Payout not attempted',
+    payout_status_succeeded: 'Payout succeeded',
+    payout_status_failed: 'Payout failed',
+    retry_payout_button: 'Retry payout',
+    retry_payout_error: 'Unable to retry the payout.',
+    reader_section_title: 'Card reader',
+    reader_not_set_up: 'No reader set up for this organization yet.',
+    reader_setup_button: 'Set up a reader',
+    reader_setup_title: 'Set up the reader',
+    reader_display_name_label: 'Name (e.g. Main location)',
+    reader_address_line1_label: 'Address',
+    reader_address_city_label: 'City',
+    reader_address_state_label: 'State/Province (optional)',
+    reader_address_postal_code_label: 'Postal/ZIP code',
+    reader_setup_submit: 'Save',
+    reader_setup_error: 'Unable to set up the reader.',
+    reader_connect_button: 'Connect a reader',
+    reader_connecting: 'Connecting…',
+    reader_discovering: 'Discovering readers…',
+    reader_no_readers_found: 'No readers found on the network.',
+    reader_connected_prefix: 'Connected reader: {{label}}',
+    reader_disconnect_button: 'Disconnect',
+    reader_connect_error: 'Unable to connect to the reader.',
+    reader_collect_error: 'The card was declined or the read failed.',
+    reader_confirm_error: 'Unable to confirm the payment.',
   },
 };
 

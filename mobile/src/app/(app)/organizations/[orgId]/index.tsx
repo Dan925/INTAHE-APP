@@ -118,6 +118,12 @@ export default function OrganizationScreen() {
             style={styles.orgActionButton}
             onPress={() => router.push({ pathname: '/organizations/[orgId]/dashboard', params: { orgId } })}
           />
+          <Button
+            title={t('organization_detail.quick_sale_button')}
+            variant="ghost"
+            style={styles.orgActionButton}
+            onPress={() => router.push({ pathname: '/organizations/[orgId]/quick-sale', params: { orgId } })}
+          />
         </View>
 
         {error ? (

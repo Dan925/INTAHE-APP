@@ -1,6 +1,6 @@
 import { pool } from '../../config/database';
 import { createPayout, retrieveBalance } from '../stripe/stripePayouts';
-import { createQuickSalePaymentIntent } from '../stripe/stripePayments';
+import { createQuickSalePaymentIntent, createQuickSaleReaderPaymentIntent } from '../stripe/stripePayments';
 import { getActiveQuickSaleItem } from './quickSaleItemService';
 import { ApiError } from '../../utils/errors';
 import { computeOrderFees } from '../../utils/fees';
@@ -8,6 +8,11 @@ import type { OrganizationRow, QuickSaleRow } from '../../types/db';
 
 export interface CreateQuickSaleInput {
   quick_sale_item_id: string;
+  // True when this sale is being taken on a physical Stripe Terminal reader
+  // (e.g. a WisePOS E) rather than a card form on screen — see
+  // stripePayments.createQuickSaleReaderPaymentIntent for what that changes
+  // about the PaymentIntent itself.
+  in_person?: boolean | undefined;
 }
 
 export interface PublicQuickSale {
@@ -113,7 +118,8 @@ export async function createQuickSale(
     throw new Error('Insert into quick_sales did not return a row.');
   }
 
-  const paymentIntent = await createQuickSalePaymentIntent({
+  const createPaymentIntentFn = input.in_person ? createQuickSaleReaderPaymentIntent : createQuickSalePaymentIntent;
+  const paymentIntent = await createPaymentIntentFn({
     amountCents: totalCents,
     currency: item.currency,
     quickSaleId: quickSale.id,
