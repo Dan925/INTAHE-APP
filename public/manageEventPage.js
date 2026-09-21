@@ -108,6 +108,37 @@
     });
     container.appendChild(dates);
 
+    if (event.status === 'published') {
+      var shareBtn = document.createElement('button');
+      shareBtn.type = 'button';
+      shareBtn.className = 'ghost small-btn';
+      shareBtn.textContent = t('event.share_button');
+      shareBtn.addEventListener('click', function () {
+        // The shareable link is the public event page, not this
+        // management page's own URL.
+        var publicUrl = location.origin + '/events/' + eventId;
+        if (navigator.share) {
+          navigator.share({ title: event.name, url: publicUrl }).catch(function () {
+            // AbortError when the organizer cancels the share sheet.
+          });
+          return;
+        }
+        navigator.clipboard
+          .writeText(publicUrl)
+          .then(function () {
+            var original = shareBtn.textContent;
+            shareBtn.textContent = t('event.share_copied');
+            setTimeout(function () {
+              shareBtn.textContent = original;
+            }, 2000);
+          })
+          .catch(function () {
+            // Clipboard unavailable/denied — no further fallback.
+          });
+      });
+      container.appendChild(shareBtn);
+    }
+
     if (event.description) {
       var description = document.createElement('p');
       description.textContent = event.description;
