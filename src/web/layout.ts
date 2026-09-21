@@ -5,6 +5,13 @@ function escapeHtmlAttribute(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
 
+// Separate from escapeHtmlAttribute: text content (e.g. <title>…</title>)
+// also needs < and > escaped, since those are structurally significant in
+// text content but not inside an already-quoted attribute value.
+function escapeHtmlText(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 /**
  * Every dynamic value shown on these pages (event name, description,
  * ticket type names...) is fetched client-side via JS and written with
@@ -24,6 +31,19 @@ export function renderPage(options: {
   requireAuth?: boolean;
   /** Pulls in session.js (for window.intaheSession) without the auth-guard redirect or the nav bar — for /login and /signup, which need to read/write the session but must never redirect an anonymous visitor away from themselves. */
   needsSession?: boolean;
+  /**
+   * Open Graph / Twitter Card tags — unlike the rest of this file's
+   * templates, this carries real user-controlled data (an organizer's
+   * event name/description), so every field here goes through
+   * escapeHtmlAttribute. Social platforms and chat apps (Facebook,
+   * WhatsApp, iMessage, Slack) fetch the raw HTML server-side to build
+   * their link preview card — they never run event.js's client-side
+   * fetch, so without this the shared link just shows a bare URL.
+   */
+  meta?: {
+    description: string;
+    image?: string | undefined;
+  };
 }): string {
   const otherLocale = options.locale === 'fr' ? 'en' : 'fr';
   const separator = options.currentPath.includes('?') ? '&' : '?';
@@ -45,14 +65,35 @@ export function renderPage(options: {
   </nav>`
     : '';
 
+  const canonicalUrl = `${env.APP_BASE_URL}${options.currentPath}`;
+  const escapedTitle = escapeHtmlText(options.title);
+  const metaHtml = options.meta
+    ? `
+  <meta name="description" content="${escapeHtmlAttribute(options.meta.description)}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="${escapeHtmlAttribute(options.title)}" />
+  <meta property="og:description" content="${escapeHtmlAttribute(options.meta.description)}" />
+  <meta property="og:url" content="${escapeHtmlAttribute(canonicalUrl)}" />
+  <meta name="twitter:card" content="${options.meta.image ? 'summary_large_image' : 'summary'}" />
+  <meta name="twitter:title" content="${escapeHtmlAttribute(options.title)}" />
+  <meta name="twitter:description" content="${escapeHtmlAttribute(options.meta.description)}" />${
+    options.meta.image
+      ? `
+  <meta property="og:image" content="${escapeHtmlAttribute(options.meta.image)}" />
+  <meta name="twitter:image" content="${escapeHtmlAttribute(options.meta.image)}" />`
+      : ''
+  }`
+    : '';
+
   return `<!doctype html>
 <html lang="${options.locale}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${options.title}</title>
+  <title>${escapedTitle}</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="canonical" href="${escapeHtmlAttribute(canonicalUrl)}" />${metaHtml}
   <script src="/i18n.js"></script>
   <script src="https://js.stripe.com/v3/"></script>
 </head>

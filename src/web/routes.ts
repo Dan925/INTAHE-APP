@@ -67,6 +67,7 @@ function page(
     scriptSrc?: string | string[];
     requireAuth?: boolean;
     needsSession?: boolean;
+    meta?: { description: (strings: ServerStrings) => string; image?: string | undefined };
     bodyHtml: (strings: ServerStrings, locale: Locale) => string;
   },
 ): void {
@@ -78,6 +79,9 @@ function page(
       ...(opts.scriptSrc !== undefined ? { scriptSrc: opts.scriptSrc } : {}),
       ...(opts.requireAuth !== undefined ? { requireAuth: opts.requireAuth } : {}),
       ...(opts.needsSession !== undefined ? { needsSession: opts.needsSession } : {}),
+      ...(opts.meta !== undefined
+        ? { meta: { description: opts.meta.description(strings), ...(opts.meta.image !== undefined ? { image: opts.meta.image } : {}) } }
+        : {}),
       locale,
       currentPath: req.path,
       strings,
@@ -112,16 +116,41 @@ router.get('/discover', (req, res) => {
   });
 });
 
-router.get('/events/:eventId', (req, res) => {
-  page(req, res, {
-    title: (s) => s.event.title,
-    scriptSrc: '/event.js',
-    bodyHtml: (s) => `
+const META_DESCRIPTION_MAX_LENGTH = 200;
+
+function truncateForMeta(text: string): string {
+  const collapsed = text.replace(/\s+/g, ' ').trim();
+  return collapsed.length > META_DESCRIPTION_MAX_LENGTH
+    ? `${collapsed.slice(0, META_DESCRIPTION_MAX_LENGTH - 1)}…`
+    : collapsed;
+}
+
+router.get(
+  '/events/:eventId',
+  asyncHandler(async (req, res) => {
+    const eventId = req.params['eventId']!;
+    // Fetched server-side (unlike the rest of this page, which loads via
+    // event.js client-side) because link-preview crawlers — Facebook,
+    // WhatsApp, iMessage, Slack — read the raw HTML response and never run
+    // client-side JS. A missing/unpublished event isn't fatal here: the
+    // page still renders with generic metadata, and event.js's own fetch
+    // shows the real "not found" state to the visitor.
+    const event = await eventService.getPublicEvent(eventId).catch(() => null);
+
+    page(req, res, {
+      title: (s) => (event ? `${event.name} — Intahe` : s.event.title),
+      scriptSrc: '/event.js',
+      meta: {
+        description: (s) => (event?.description ? truncateForMeta(event.description) : s.event.share_description_fallback),
+        image: event?.cover_image_url ?? undefined,
+      },
+      bodyHtml: (s) => `
     <div id="event-container">
       <div class="loader">${s.event.loading}</div>
     </div>`,
-  });
-});
+    });
+  }),
+);
 
 router.get('/events/:eventId/orders/:orderId/tickets', (req, res) => {
   page(req, res, {

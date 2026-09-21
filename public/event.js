@@ -127,6 +127,39 @@
       container.appendChild(address);
     }
 
+    const shareBtn = document.createElement('button');
+    shareBtn.type = 'button';
+    shareBtn.className = 'ghost small-btn';
+    shareBtn.textContent = window.intaheT('event.share_button');
+    shareBtn.addEventListener('click', async function () {
+      // navigator.share opens the native share sheet (works on most mobile
+      // browsers, and some desktop ones) — the only real fallback when it's
+      // unavailable is copying the link, since there's no cross-platform
+      // way to open a specific social network's share dialog without their
+      // own SDK/popup (which would need real API keys per network).
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: event.name, url: location.href });
+        } catch {
+          // AbortError when the visitor cancels the share sheet — not a
+          // real error, nothing to show for it.
+        }
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(location.href);
+        const original = shareBtn.textContent;
+        shareBtn.textContent = window.intaheT('event.share_copied');
+        setTimeout(function () {
+          shareBtn.textContent = original;
+        }, 2000);
+      } catch {
+        // Clipboard API unavailable or permission denied — no further
+        // fallback; the visitor can still copy the URL from the address bar.
+      }
+    });
+    container.appendChild(shareBtn);
+
     if (event.description) {
       const description = document.createElement('p');
       description.textContent = event.description;

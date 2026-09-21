@@ -53,6 +53,7 @@ export interface ServerStrings {
   event: {
     title: string;
     loading: string;
+    share_description_fallback: string;
   };
   tickets: {
     title: string;
@@ -141,6 +142,7 @@ const fr: ServerStrings = {
   event: {
     title: 'Événement — Intahe',
     loading: 'Chargement…',
+    share_description_fallback: 'Achète tes billets sur Intahe.',
   },
   tickets: {
     title: 'Mes billets — Intahe',
@@ -193,6 +195,7 @@ const en: ServerStrings = {
   event: {
     title: 'Event — Intahe',
     loading: 'Loading…',
+    share_description_fallback: 'Get your tickets on Intahe.',
   },
   tickets: {
     title: 'My tickets — Intahe',
