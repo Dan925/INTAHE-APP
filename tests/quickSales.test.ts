@@ -53,7 +53,7 @@ describe('quick sale items', () => {
       .set('Authorization', `Bearer ${owner.accessToken}`)
       .send({ name: 'Haircut', price_cents: 3000 });
     expect(createRes.status).toBe(201);
-    expect(createRes.body.quick_sale_item).toMatchObject({ name: 'Haircut', price_cents: 3000, currency: 'usd' });
+    expect(createRes.body.quick_sale_item).toMatchObject({ name: 'Haircut', price_cents: 3000, currency: 'cad' });
 
     const listRes = await request(app)
       .get(`/v1/organizations/${organization.id}/quick-sale-items`)
@@ -166,7 +166,7 @@ describe('payment_intent.succeeded for a quick sale', () => {
     const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
     const { owner, organization, quickSale } = await createPendingQuickSale(paymentIntentId);
 
-    mockRetrieveBalance.mockResolvedValueOnce({ available: [{ amount: 3000, currency: 'usd' }] } as never);
+    mockRetrieveBalance.mockResolvedValueOnce({ available: [{ amount: 3000, currency: 'cad' }] } as never);
     mockCreatePayout.mockResolvedValueOnce({ id: 'po_test_instant' } as never);
 
     const res = await signedWebhookRequest({
@@ -177,7 +177,7 @@ describe('payment_intent.succeeded for a quick sale', () => {
     expect(res.status).toBe(200);
 
     expect(mockCreatePayout).toHaveBeenCalledWith(
-      expect.objectContaining({ amountCents: 3000, currency: 'usd', method: 'instant' }),
+      expect.objectContaining({ amountCents: 3000, currency: 'cad', method: 'instant' }),
     );
 
     const listRes = await request(app)
@@ -190,7 +190,7 @@ describe('payment_intent.succeeded for a quick sale', () => {
     const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
     const { owner, organization, quickSale } = await createPendingQuickSale(paymentIntentId);
 
-    mockRetrieveBalance.mockResolvedValueOnce({ available: [{ amount: 0, currency: 'usd' }] } as never);
+    mockRetrieveBalance.mockResolvedValueOnce({ available: [{ amount: 0, currency: 'cad' }] } as never);
 
     await signedWebhookRequest({
       id: `evt_${crypto.randomBytes(6).toString('hex')}`,
@@ -204,7 +204,7 @@ describe('payment_intent.succeeded for a quick sale', () => {
       .set('Authorization', `Bearer ${owner.accessToken}`);
     expect(afterWebhook.body.items[0]).toMatchObject({ status: 'paid', payout_status: 'failed' });
 
-    mockRetrieveBalance.mockResolvedValueOnce({ available: [{ amount: 3000, currency: 'usd' }] } as never);
+    mockRetrieveBalance.mockResolvedValueOnce({ available: [{ amount: 3000, currency: 'cad' }] } as never);
     mockCreatePayout.mockResolvedValueOnce({ id: 'po_test_retry' } as never);
 
     const retryRes = await request(app)
@@ -218,7 +218,7 @@ describe('payment_intent.succeeded for a quick sale', () => {
     const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
     const { quickSale } = await createPendingQuickSale(paymentIntentId);
 
-    mockRetrieveBalance.mockResolvedValue({ available: [{ amount: 3000, currency: 'usd' }] } as never);
+    mockRetrieveBalance.mockResolvedValue({ available: [{ amount: 3000, currency: 'cad' }] } as never);
     mockCreatePayout.mockResolvedValueOnce({ id: 'po_test_once' } as never);
 
     const eventPayload = {

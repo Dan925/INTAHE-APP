@@ -40,7 +40,7 @@ export async function createQuickSaleItem(
     `INSERT INTO quick_sale_items (organization_id, name, price_cents, currency)
      VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [organizationId, input.name, input.price_cents, input.currency ?? 'usd'],
+    [organizationId, input.name, input.price_cents, input.currency ?? 'cad'],
   );
   const row = result.rows[0];
   if (!row) {

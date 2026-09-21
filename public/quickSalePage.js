@@ -133,7 +133,15 @@
       '" />' +
       '<input id="new-item-price" type="number" min="0.01" step="0.01" placeholder="' +
       t('quick_sale.item_price_label') +
-      '" style="max-width: 120px;" />';
+      '" style="max-width: 120px;" />' +
+      '<select id="new-item-currency" style="max-width: 90px;">' +
+      '<option value="cad">' +
+      t('quick_sale.item_currency_cad') +
+      '</option>' +
+      '<option value="usd">' +
+      t('quick_sale.item_currency_usd') +
+      '</option>' +
+      '</select>';
     var addBtn = document.createElement('button');
     addBtn.type = 'button';
     addBtn.textContent = t('quick_sale.add_item_button');
@@ -147,9 +155,13 @@
       formError.textContent = '';
       var name = form.querySelector('#new-item-name').value.trim();
       var priceCents = Math.round(Number(form.querySelector('#new-item-price').value) * 100);
+      var currency = form.querySelector('#new-item-currency').value;
       if (!name || !Number.isFinite(priceCents) || priceCents < 1) return;
       addBtn.disabled = true;
-      api('/v1/organizations/' + orgId + '/quick-sale-items', { method: 'POST', body: { name: name, price_cents: priceCents } })
+      api('/v1/organizations/' + orgId + '/quick-sale-items', {
+        method: 'POST',
+        body: { name: name, price_cents: priceCents, currency: currency },
+      })
         .then(load)
         .catch(function (err) {
           addBtn.disabled = false;
