@@ -76,6 +76,17 @@ const envSchema = z.object({
   // separate, individually-small orders adding up.
   CHECKOUT_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
   CHECKOUT_RATE_LIMIT_MAX: z.coerce.number().default(20),
+  // Rate limiting on POST /v1/organizations/:organizationId/quick-sales and
+  // .../door-sales — both are authenticated (staff/volunteer role or
+  // higher), so this is keyed by the authenticated user's id rather than
+  // IP: a busy venue with several staff on the same Wi-Fi shouldn't throttle
+  // each other, but any one account (including a stolen/leaked token)
+  // shouldn't be able to hammer either endpoint into generating unbounded
+  // real Stripe PaymentIntents. Higher max than checkout's since a
+  // legitimate door/counter shift can reasonably ring through many sales in
+  // 15 minutes.
+  SALE_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
+  SALE_RATE_LIMIT_MAX: z.coerce.number().default(60),
   // Placeholders let the app boot without real Stripe credentials; the
   // Stripe SDK requires a non-empty string but nothing calls the real API
   // until a genuine sk_test_/whsec_ value is configured.

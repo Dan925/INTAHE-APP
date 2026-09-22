@@ -129,3 +129,14 @@ export const checkoutRateLimitByIp = wired(
 export const checkoutRateLimitByEmail = wired(
   createTargetRateLimiter(env.CHECKOUT_RATE_LIMIT_WINDOW_MS, env.CHECKOUT_RATE_LIMIT_MAX, bodyBuyerEmail),
 );
+
+// Quick Sale and Door Sale are authenticated (staff/volunteer+), so keyed
+// by the caller's user id (set by requireAuth, which both routers apply
+// before this) rather than IP — see env.ts's SALE_RATE_LIMIT_* comment.
+function authenticatedUserId(req: Request): string | undefined {
+  return req.user?.id;
+}
+
+export const saleRateLimitByUser = wired(
+  createTargetRateLimiter(env.SALE_RATE_LIMIT_WINDOW_MS, env.SALE_RATE_LIMIT_MAX, authenticatedUserId),
+);

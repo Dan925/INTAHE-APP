@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../../middleware/auth';
 import { requireOrgRole } from '../../middleware/requireOrgRole';
+import { saleRateLimitByUser } from '../../middleware/rateLimit';
 import * as quickSaleItemService from '../../services/quickSales/quickSaleItemService';
 import * as quickSaleService from '../../services/quickSales/quickSaleService';
 import * as quickSaleReaderService from '../../services/quickSales/quickSaleReaderService';
@@ -57,6 +58,7 @@ const createSaleSchema = z.object({
 router.post(
   '/quick-sales',
   requireOrgRole('volunteer'),
+  saleRateLimitByUser,
   validateBody(createSaleSchema),
   asyncHandler(async (req, res) => {
     const result = await quickSaleService.createQuickSale(req.params['organizationId']!, req.body);
@@ -94,6 +96,7 @@ router.post(
 router.post(
   '/quick-sale-reader/connection-token',
   requireOrgRole('volunteer'),
+  saleRateLimitByUser,
   asyncHandler(async (req, res) => {
     const secret = await quickSaleReaderService.getReaderConnectionTokenSecret(req.params['organizationId']!);
     res.status(200).json({ secret });

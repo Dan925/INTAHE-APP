@@ -15,13 +15,16 @@ import request from 'supertest';
 import { createApp } from '../src/app';
 import { pool } from '../src/config/database';
 import { createIpRateLimiter, createTargetRateLimiter } from '../src/middleware/rateLimit';
-import { createPaymentIntent } from '../src/services/stripe/stripePayments';
+import { createPaymentIntent, createQuickSalePaymentIntent } from '../src/services/stripe/stripePayments';
 import { truncateAllTables } from './helpers/db';
 import { createOrgAndPublishedEvent, createTicketType } from './helpers/checkoutFixtures';
 
 jest.mock('../src/services/stripe/stripePayments');
 
 const mockCreatePaymentIntent = createPaymentIntent as jest.MockedFunction<typeof createPaymentIntent>;
+const mockCreateQuickSalePaymentIntent = createQuickSalePaymentIntent as jest.MockedFunction<
+  typeof createQuickSalePaymentIntent
+>;
 
 const app = createApp();
 
@@ -29,6 +32,10 @@ beforeEach(async () => {
   await truncateAllTables();
   jest.clearAllMocks();
   mockCreatePaymentIntent.mockImplementation(async () => {
+    const id = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
+    return { id, client_secret: `${id}_secret` } as never;
+  });
+  mockCreateQuickSalePaymentIntent.mockImplementation(async () => {
     const id = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
     return { id, client_secret: `${id}_secret` } as never;
   });
@@ -336,6 +343,35 @@ describe('rate limiting wired onto the real routes', () => {
         buyer_email: uniqueEmail('checkout-ip-last'),
         line_items: [{ ticket_type_id: ticketType.id, quantity: 1 }],
       });
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers['retry-after']).toBeDefined();
+  });
+
+  it('POST /v1/organizations/:organizationId/quick-sales blocks repeated sales from the same authenticated user, across different IPs', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    const itemRes = await request(app)
+      .post(`/v1/organizations/${fixture.organization.id}/quick-sale-items`)
+      .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
+      .send({ name: 'Coupe', price_cents: 3000 });
+    const itemId = itemRes.body.quick_sale_item.id;
+
+    // SALE_RATE_LIMIT_MAX defaults to 60 — keyed by user id (see
+    // authenticatedUserId in src/middleware/rateLimit.ts), so varying the
+    // IP per request proves this isn't secretly still IP-keyed.
+    for (let i = 0; i < 60; i++) {
+      const res = await request(app)
+        .post(`/v1/organizations/${fixture.organization.id}/quick-sales`)
+        .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
+        .set('X-Forwarded-For', `10.9.0.${i % 250}`)
+        .send({ quick_sale_item_id: itemId });
+      expect(res.status).not.toBe(429);
+    }
+
+    const blocked = await request(app)
+      .post(`/v1/organizations/${fixture.organization.id}/quick-sales`)
+      .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
+      .set('X-Forwarded-For', '10.9.1.250')
+      .send({ quick_sale_item_id: itemId });
     expect(blocked.status).toBe(429);
     expect(blocked.headers['retry-after']).toBeDefined();
   });

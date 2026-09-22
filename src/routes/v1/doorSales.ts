@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { env } from '../../config/env';
 import { requireAuth } from '../../middleware/auth';
 import { requireOrgRole } from '../../middleware/requireOrgRole';
+import { saleRateLimitByUser } from '../../middleware/rateLimit';
 import * as doorSaleService from '../../services/checkout/doorSaleService';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { validateBody } from '../../utils/validate';
@@ -40,6 +41,7 @@ const createDoorSaleSchema = z
 router.post(
   '/',
   requireOrgRole('volunteer'),
+  saleRateLimitByUser,
   validateBody(createDoorSaleSchema),
   asyncHandler(async (req, res) => {
     const result = await doorSaleService.createDoorSale(
