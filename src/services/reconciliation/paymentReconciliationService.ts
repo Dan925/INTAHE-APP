@@ -1,5 +1,6 @@
 import { pool } from '../../config/database';
 import { env } from '../../config/env';
+import { captureAlert } from '../../config/sentry';
 import { sendEmail } from '../email/emailClient';
 import { retrievePaymentIntent } from '../stripe/stripePayments';
 import { markOrderPaidAndIssueTickets } from '../webhooks/stripeWebhookService';
@@ -23,23 +24,22 @@ function connectedAccountIdFor(row: CandidateOrderRow): string | null {
 }
 
 /**
- * console.error with a structured, greppable payload — same pattern as
- * capacityOvershootService's logCapacityOvershootAlert. This is the one
- * call site to swap for a paging tool (Sentry, PagerDuty) once one is
- * installed; a stuck successful payment is a "buyer charged, nothing
- * delivered" incident and belongs on-call, not just in a log.
+ * console.error with a structured, greppable payload, plus captureAlert
+ * (config/sentry.ts) — same pattern as capacityOvershootService's
+ * logCapacityOvershootAlert. A stuck successful payment is a "buyer
+ * charged, nothing delivered" incident and belongs on-call, not just in a
+ * log, once Sentry (or a paging tool wired to it) is configured.
  */
 function logReconciliationAlert(incident: PaymentReconciliationIncidentRow): void {
-  console.error(
-    '[payment_reconciliation]',
-    JSON.stringify({
-      level: 'alert',
-      order_id: incident.order_id,
-      stripe_payment_intent_id: incident.stripe_payment_intent_id,
-      amount_cents: incident.amount_cents,
-      detected_at: incident.detected_at.toISOString(),
-    }),
-  );
+  const payload = {
+    level: 'alert',
+    order_id: incident.order_id,
+    stripe_payment_intent_id: incident.stripe_payment_intent_id,
+    amount_cents: incident.amount_cents,
+    detected_at: incident.detected_at.toISOString(),
+  };
+  console.error('[payment_reconciliation]', JSON.stringify(payload));
+  captureAlert(`Payment stuck in reconciliation: order ${incident.order_id}`, payload);
 }
 
 async function platformAdminEmails(): Promise<string[]> {

@@ -75,6 +75,10 @@ services:
         value: '900000'
       - key: CHECKOUT_RATE_LIMIT_MAX
         value: '20'
+      - key: SALE_RATE_LIMIT_WINDOW_MS
+        value: '900000'
+      - key: SALE_RATE_LIMIT_MAX
+        value: '60'
       - key: PAYOUT_DELAY_HOURS
         value: '48'
       - key: PAYOUT_WORKER_INTERVAL_MS
@@ -94,6 +98,14 @@ services:
       - key: GOOGLE_OAUTH_CLIENT_IDS
         sync: false
       - key: APPLE_CLIENT_IDS
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM_ADDRESS
+        value: no-reply@intahe.app
+      - key: EMAIL_FROM_NAME
+        value: Intahé
+      - key: SENTRY_DSN
         sync: false
 
   - type: web
@@ -151,6 +163,10 @@ services:
         value: '900000'
       - key: CHECKOUT_RATE_LIMIT_MAX
         value: '20'
+      - key: SALE_RATE_LIMIT_WINDOW_MS
+        value: '900000'
+      - key: SALE_RATE_LIMIT_MAX
+        value: '60'
       - key: PAYOUT_DELAY_HOURS
         value: '48'
       - key: PAYOUT_WORKER_INTERVAL_MS
@@ -171,6 +187,22 @@ services:
         sync: false
       - key: APPLE_CLIENT_IDS
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM_ADDRESS
+        value: no-reply@intahe.app
+      - key: EMAIL_FROM_NAME
+        value: Intahé
+      - key: SENTRY_DSN
+        sync: false
+      # Must be the custom domain, not left to the RENDER_EXTERNAL_URL
+      # fallback (env.ts) — that resolves to the raw *.onrender.com URL,
+      # which broke confirmation-email links the first time this was
+      # missed. Staging deliberately has no override here: its raw Render
+      # URL in an email link is an acceptable rough edge for a
+      # non-customer-facing environment.
+      - key: APP_BASE_URL
+        value: https://intahe.app
 
 databases:
   - name: intahe-db-staging

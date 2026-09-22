@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from 'express';
+import { captureError } from '../config/sentry';
 import { ApiError } from '../utils/errors';
 
 // Postgres error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
@@ -8,7 +9,7 @@ function isPgError(err: unknown): err is { code: string } {
   return typeof err === 'object' && err !== null && 'code' in err && typeof (err as { code: unknown }).code === 'string';
 }
 
-export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   if (err instanceof ApiError) {
     res.status(err.statusCode).json({
       error: { code: err.code, message: err.message, field: err.field },
@@ -26,7 +27,7 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
-  console.error(err);
+  captureError(err, { method: req.method, path: req.originalUrl });
   res.status(500).json({
     error: { code: 'internal_error', message: 'Something went wrong.', field: null },
   });

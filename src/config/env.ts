@@ -146,6 +146,12 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().min(1).default('re_placeholder'),
   EMAIL_FROM_ADDRESS: z.string().email().default('no-reply@intahe.app'),
   EMAIL_FROM_NAME: z.string().min(1).default('Intahé'),
+  // Empty string is the "not configured" sentinel (see config/sentry.ts) —
+  // the app boots and runs fine without it, errors just only reach
+  // console.error/stdout (Render logs) instead of also being reported to
+  // Sentry for alerting. Get a free DSN at sentry.io and set this in
+  // Render once an account exists; nothing else needs to change.
+  SENTRY_DSN: z.string().default(''),
   // Frontend route the password reset email's link points to — a
   // placeholder until a frontend exists to own it.
   PASSWORD_RESET_URL: z.string().url().default('http://localhost:3000/reset-password'),

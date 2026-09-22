@@ -68,11 +68,19 @@ database, not just different env vars on a shared one.
    `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PUBLISHABLE_KEY`
    (safe client-side, but still per-environment since it must match the
    secret key's account/mode), `STRIPE_CONNECT_REFRESH_URL`,
-   `STRIPE_CONNECT_RETURN_URL`, `GOOGLE_OAUTH_CLIENT_IDS`. `JWT_SECRET` is
-   auto-generated per environment by Render itself — staging and
-   production never share one. `APP_BASE_URL` doesn't need setting on
-   Render — it defaults to the `RENDER_EXTERNAL_URL` Render injects
-   automatically on every web service.
+   `STRIPE_CONNECT_RETURN_URL`, `GOOGLE_OAUTH_CLIENT_IDS`,
+   `RESEND_API_KEY`, and optionally `SENTRY_DSN` (error alerting — the app
+   runs fine without it, just with no reporting; see
+   `src/config/sentry.ts`). `JWT_SECRET` is auto-generated per environment
+   by Render itself — staging and production never share one.
+   **`APP_BASE_URL` for production is set explicitly in `render.yaml`
+   to `https://intahe.app` — do not remove that override.** Leaving it
+   unset falls back to the `RENDER_EXTERNAL_URL` Render injects
+   automatically, which is the raw `*.onrender.com` URL, not the custom
+   domain — this broke confirmation-email links once already (see
+   `docs/render-disaster-recovery-runbook.md`). Staging has no override
+   and uses the Render-provided URL, which is fine for a non-customer-
+   facing environment.
 3. Migrations run via `startCommand` (`npm run migrate:up && npm start`),
    not `preDeployCommand` — that's a paid-plan-only feature on Render and
    staging runs on the free tier. `node-pg-migrate` tracks what's already
@@ -84,10 +92,18 @@ database, not just different env vars on a shared one.
    someone deliberately promoting it from the Render dashboard once
    staging looks right.
 5. Point each environment's Stripe webhook (in the Stripe dashboard) at
-   `https://<that-service>.onrender.com/v1/stripe/webhook`, and each
-   environment's Google Cloud OAuth client at the corresponding
-   `STRIPE_CONNECT_RETURN_URL`/`STRIPE_CONNECT_REFRESH_URL` /whatever
-   frontend eventually owns those redirects.
+   `https://intahe.app/v1/stripe/webhook` for production (the custom
+   domain, attached separately in Render's dashboard under Custom
+   Domains — see `docs/render-disaster-recovery-runbook.md` if this ever
+   needs redoing) and `https://<service>.onrender.com/v1/stripe/webhook`
+   for staging, and each environment's Google Cloud OAuth client at the
+   corresponding `STRIPE_CONNECT_RETURN_URL`/`STRIPE_CONNECT_REFRESH_URL`
+   /whatever frontend eventually owns those redirects.
+
+If Render infrastructure is ever lost entirely (services and/or databases
+gone, not just a bad deploy), see
+`docs/render-disaster-recovery-runbook.md` instead of redoing the above
+from memory — it's written from the one time this already happened.
 
 **Fly.io / Railway / anywhere else that wants a container**: use the
 `Dockerfile` instead — multi-stage build, production dependencies only,
@@ -1038,6 +1054,27 @@ rather than allowed to propagate:
   would make Stripe retry, and the retry would just hit the
   `status === 'paid'` idempotency guard and return early — never actually
   retrying the email it seemed to be asking for.
+
+## Error monitoring (implemented)
+
+`src/config/sentry.ts` is the equivalent single wrapper for
+[Sentry](https://sentry.io), same "boots fine without it" contract as
+`RESEND_API_KEY` above: with `SENTRY_DSN` unset (the default), `initSentry()`
+is a no-op and `captureError`/`captureAlert` fall back to plain
+`console.error` — identical to this codebase's pre-Sentry behavior. Three
+kinds of call sites report through it once a real DSN is configured:
+
+- Any unhandled exception reaching `errorHandler.ts`'s generic 500 branch.
+- The deferred-payout and payment-reconciliation background workers'
+  per-tick failures (`index.ts`) — these run unattended on a timer, so a
+  silent failure here is the kind of thing that would otherwise only
+  surface when an organizer notices they were never paid.
+- Two specific business-level alerts that aren't exceptions at all: a
+  ticket type oversold past capacity (`capacityOvershootService.ts`) and a
+  payment stuck in reconciliation — "buyer charged, nothing delivered"
+  (`paymentReconciliationService.ts`). Both already had a
+  `// swap this for Sentry once installed`-style comment before Sentry was
+  actually wired in.
 
 ## Out of scope for this MVP
 

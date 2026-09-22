@@ -1,3 +1,10 @@
+import { initSentry, captureError } from './config/sentry';
+
+// Must run before createApp()/anything under services/ is imported, so
+// Sentry's automatic instrumentation (HTTP, Postgres via pg) attaches to
+// the real modules rather than ones already loaded without it.
+initSentry();
+
 import { createApp } from './app';
 import { env } from './config/env';
 import { runDuePayouts } from './services/payouts/payoutService';
@@ -16,7 +23,7 @@ app.listen(env.PORT, () => {
 // on PAYOUT_WORKER_INTERVAL_MS after that.
 function runPayoutWorkerTick(): void {
   runDuePayouts().catch((err) => {
-    console.error('Deferred payout worker run failed:', err);
+    captureError(err, { message: 'Deferred payout worker run failed' });
   });
 }
 setTimeout(runPayoutWorkerTick, 30_000);
@@ -28,7 +35,7 @@ setInterval(runPayoutWorkerTick, env.PAYOUT_WORKER_INTERVAL_MS);
 // see paymentReconciliationService.ts for what this actually checks.
 function runReconciliationWorkerTick(): void {
   runReconciliationSweep().catch((err) => {
-    console.error('Payment reconciliation worker run failed:', err);
+    captureError(err, { message: 'Payment reconciliation worker run failed' });
   });
 }
 setTimeout(runReconciliationWorkerTick, 45_000);

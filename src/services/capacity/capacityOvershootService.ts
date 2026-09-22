@@ -1,4 +1,5 @@
 import { pool } from '../../config/database';
+import { captureAlert } from '../../config/sentry';
 import { sendEmail } from '../email/emailClient';
 import type { CapacityOvershootIncident } from '../checkout/orderReleaseService';
 
@@ -29,27 +30,25 @@ interface IncidentDetailRow {
 /**
  * console.error with a structured, greppable payload — the same
  * error-class-event pattern already used throughout this codebase (see
- * errorHandler.ts, authService.ts's token-verification failures). This is
- * the one call site to swap for Sentry.captureMessage(..., 'error') once
- * Sentry is installed; everything upstream of this function (detection,
- * persistence) doesn't need to change.
+ * errorHandler.ts, authService.ts's token-verification failures) — plus
+ * captureAlert (config/sentry.ts), so this also reaches Sentry once it's
+ * configured, not just Render's logs.
  */
 function logCapacityOvershootAlert(incident: CapacityOvershootIncident): void {
-  console.error(
-    '[capacity_overshoot]',
-    JSON.stringify({
-      level: 'alert',
-      organization_id: incident.organizationId,
-      event_id: incident.eventId,
-      ticket_type_id: incident.ticketTypeId,
-      ticket_type_name: incident.ticketTypeName,
-      order_id: incident.orderId,
-      quantity_sold: incident.quantitySold,
-      quantity_total: incident.quantityTotal,
-      overshoot_quantity: incident.overshootQuantity,
-      created_at: incident.createdAt.toISOString(),
-    }),
-  );
+  const payload = {
+    level: 'alert',
+    organization_id: incident.organizationId,
+    event_id: incident.eventId,
+    ticket_type_id: incident.ticketTypeId,
+    ticket_type_name: incident.ticketTypeName,
+    order_id: incident.orderId,
+    quantity_sold: incident.quantitySold,
+    quantity_total: incident.quantityTotal,
+    overshoot_quantity: incident.overshootQuantity,
+    created_at: incident.createdAt.toISOString(),
+  };
+  console.error('[capacity_overshoot]', JSON.stringify(payload));
+  captureAlert(`Capacity overshoot: "${incident.ticketTypeName}" by ${incident.overshootQuantity}`, payload);
 }
 
 // contact_email is the organizer's preferred address if they set one;
