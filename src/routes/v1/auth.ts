@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import * as authService from '../../services/auth/authService';
+import * as tokenRevocationService from '../../services/auth/tokenRevocationService';
+import { requireAuth } from '../../middleware/auth';
 import {
   loginRateLimitByEmail,
   loginRateLimitByIp,
@@ -97,6 +99,16 @@ router.post(
     const { email } = req.body as z.infer<typeof passwordResetRequestSchema>;
     await authService.requestPasswordReset(email);
     res.status(200).json({ message: 'If an account exists for this email, a reset link has been sent.' });
+  }),
+);
+
+router.post(
+  '/logout',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    // requireAuth always sets these together — see middleware/auth.ts.
+    await tokenRevocationService.revokeToken(req.tokenJti!, new Date(req.tokenExp! * 1000));
+    res.status(204).send();
   }),
 );
 

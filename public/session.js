@@ -107,8 +107,17 @@
     var logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
       logoutBtn.addEventListener('click', function () {
-        clear();
-        location.href = '/login';
+        // Best-effort: revoke the token server-side so it can't be reused
+        // if it leaked, but still clear locally and leave even if this
+        // call fails (offline, token already expired) — there's nothing
+        // to retry from a page the user is navigating away from anyway.
+        window.intaheSession
+          .apiRequest('/v1/auth/logout', { method: 'POST' })
+          .catch(function () {})
+          .then(function () {
+            clear();
+            location.href = '/login';
+          });
       });
     }
   });

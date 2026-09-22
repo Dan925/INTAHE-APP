@@ -101,9 +101,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    if (session) {
+      try {
+        await apiRequest('/v1/auth/logout', { method: 'POST', token: session.token });
+      } catch {
+        // Best-effort: revoke the token server-side so it can't be reused
+        // if it leaked, but still clear locally even if this call fails
+        // (offline, token already expired) — nothing to retry here.
+      }
+    }
     setSession(null);
     await persistSession(null);
-  }, []);
+  }, [session]);
 
   const deleteAccount = useCallback(
     async (password?: string) => {

@@ -104,6 +104,43 @@ describe('POST /v1/auth/login', () => {
   });
 });
 
+describe('POST /v1/auth/logout', () => {
+  it('revokes the token server-side — it can no longer authenticate', async () => {
+    const signupRes = await request(app).post('/v1/auth/signup').send(validSignup);
+    const token = signupRes.body.access_token;
+
+    const beforeLogout = await request(app).get('/v1/me/invites').set('Authorization', `Bearer ${token}`);
+    expect(beforeLogout.status).toBe(200);
+
+    const logoutRes = await request(app).post('/v1/auth/logout').set('Authorization', `Bearer ${token}`);
+    expect(logoutRes.status).toBe(204);
+
+    const afterLogout = await request(app).get('/v1/me/invites').set('Authorization', `Bearer ${token}`);
+    expect(afterLogout.status).toBe(401);
+    expect(afterLogout.body.error.code).toBe('unauthorized');
+  });
+
+  it("does not revoke a different token belonging to the same user (other devices stay logged in)", async () => {
+    const signupRes = await request(app).post('/v1/auth/signup').send(validSignup);
+    const tokenA = signupRes.body.access_token;
+    const loginRes = await request(app)
+      .post('/v1/auth/login')
+      .send({ email: validSignup.email, password: validSignup.password });
+    const tokenB = loginRes.body.access_token;
+    expect(tokenB).not.toBe(tokenA);
+
+    await request(app).post('/v1/auth/logout').set('Authorization', `Bearer ${tokenA}`);
+
+    const stillWorks = await request(app).get('/v1/me/invites').set('Authorization', `Bearer ${tokenB}`);
+    expect(stillWorks.status).toBe(200);
+  });
+
+  it('requires authentication', async () => {
+    const res = await request(app).post('/v1/auth/logout');
+    expect(res.status).toBe(401);
+  });
+});
+
 describe('password reset flow', () => {
   beforeEach(async () => {
     await request(app).post('/v1/auth/signup').send(validSignup);
