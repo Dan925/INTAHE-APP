@@ -479,17 +479,26 @@
             subtotalLine.textContent = t('event.order_summary_subtotal', {
               amount: formatPrice(order.subtotal_cents, selectedType.currency),
             });
+            summary.appendChild(subtotalLine);
+            (order.tax_lines || []).forEach(function (taxLine) {
+              var taxLineEl = document.createElement('p');
+              taxLineEl.textContent = t('event.order_summary_tax_line', {
+                label: taxLine.label,
+                rate: taxLine.rate_percent,
+                amount: formatPrice(taxLine.amount_cents, selectedType.currency),
+              });
+              summary.appendChild(taxLineEl);
+            });
             var feesLine = document.createElement('p');
             feesLine.textContent = t('event.order_summary_fees', {
-              amount: formatPrice(order.total_cents - order.subtotal_cents, selectedType.currency),
+              amount: formatPrice(order.total_cents - order.subtotal_cents - order.tax_cents, selectedType.currency),
             });
+            summary.appendChild(feesLine);
             var totalLine = document.createElement('p');
             totalLine.style.fontWeight = 'bold';
             totalLine.textContent = t('event.order_summary_total', {
               amount: formatPrice(order.total_cents, selectedType.currency),
             });
-            summary.appendChild(subtotalLine);
-            summary.appendChild(feesLine);
             summary.appendChild(totalLine);
             paymentContainer.parentNode.insertBefore(summary, paymentContainer);
           }

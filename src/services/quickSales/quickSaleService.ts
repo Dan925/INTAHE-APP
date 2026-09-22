@@ -4,7 +4,7 @@ import { createQuickSalePaymentIntent, createQuickSaleReaderPaymentIntent } from
 import { getActiveQuickSaleItem } from './quickSaleItemService';
 import { ApiError } from '../../utils/errors';
 import { computeOrderFees } from '../../utils/fees';
-import type { OrganizationRow, QuickSaleRow } from '../../types/db';
+import type { AppliedTaxLine, OrganizationRow, QuickSaleRow } from '../../types/db';
 
 export interface CreateQuickSaleInput {
   quick_sale_item_id: string;
@@ -22,6 +22,8 @@ export interface PublicQuickSale {
   subtotal_cents: number;
   stripe_fee_cents: number;
   intahe_fee_cents: number;
+  tax_cents: number;
+  tax_lines: AppliedTaxLine[];
   total_cents: number;
   currency: string;
   status: string;
@@ -47,6 +49,8 @@ function toPublic(row: QuickSaleRow, stripeAccountId: string | null): PublicQuic
     subtotal_cents: row.subtotal_cents,
     stripe_fee_cents: row.stripe_fee_cents,
     intahe_fee_cents: row.intahe_fee_cents,
+    tax_cents: row.tax_cents,
+    tax_lines: row.tax_lines,
     total_cents: row.total_cents,
     currency: row.currency,
     status: row.status,
@@ -99,19 +103,31 @@ export async function createQuickSale(
   const organization = await getConnectedOrganization(organizationId);
   const item = await getActiveQuickSaleItem(organizationId, input.quick_sale_item_id);
 
-  const { stripeFeeCents, intaheFeeCents, totalCents } = computeOrderFees(
+  const { stripeFeeCents, intaheFeeCents, taxCents, appliedTaxLines, totalCents } = computeOrderFees(
     [{ priceCents: item.price_cents, quantity: 1 }],
     false,
+    organization.tax_lines,
   );
 
   const insertResult = await pool.query<QuickSaleRow>(
     `INSERT INTO quick_sales (
        organization_id, quick_sale_item_id, item_name, subtotal_cents,
-       stripe_fee_cents, intahe_fee_cents, total_cents, currency, status
+       stripe_fee_cents, intahe_fee_cents, tax_cents, tax_lines, total_cents, currency, status
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, 'pending')
      RETURNING *`,
-    [organizationId, item.id, item.name, item.price_cents, stripeFeeCents, intaheFeeCents, totalCents, item.currency],
+    [
+      organizationId,
+      item.id,
+      item.name,
+      item.price_cents,
+      stripeFeeCents,
+      intaheFeeCents,
+      taxCents,
+      JSON.stringify(appliedTaxLines),
+      totalCents,
+      item.currency,
+    ],
   );
   const quickSale = insertResult.rows[0];
   if (!quickSale) {
@@ -162,8 +178,11 @@ async function attemptInstantPayout(quickSale: QuickSaleRow, stripeAccountId: st
     // application_fee_amount never land on the connected account's balance
     // in the first place (see stripePayments.createQuickSalePaymentIntent),
     // so requesting total_cents here would overshoot whatever is actually
-    // available and fail.
-    const merchantCents = quickSale.subtotal_cents;
+    // available and fail. Tax IS included: it's a pass-through collected on
+    // the organizer's behalf for them to remit, not a platform fee — Stripe
+    // never deducts it, so it lands on the connected account's balance
+    // exactly like the subtotal does.
+    const merchantCents = quickSale.subtotal_cents + quickSale.tax_cents;
     if (availableCents < merchantCents) {
       // Not necessarily permanent — this specific charge's funds may still
       // be in Stripe's "pending" bucket rather than "available" yet, which

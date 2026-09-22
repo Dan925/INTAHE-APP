@@ -264,15 +264,34 @@ export default function PublicEventScreen() {
             {checkoutResult ? (
               <ThemedView type="backgroundElement" style={styles.receipt}>
                 <ThemedText type="smallBold">{t('event_detail.order_created')}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t('event_detail.total', {
-                    amount: formatPrice(
-                      checkoutResult.order.total_cents,
-                      ticketTypes.find((tt) => tt.id === selectedTypeId)?.currency ?? 'CAD',
-                      localeTag,
-                    ),
-                  })}
-                </ThemedText>
+                {(() => {
+                  const currency = ticketTypes.find((tt) => tt.id === selectedTypeId)?.currency ?? 'CAD';
+                  return (
+                    <>
+                      {checkoutResult.order.tax_cents > 0 ? (
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {t('event_detail.subtotal', {
+                            amount: formatPrice(checkoutResult.order.subtotal_cents, currency, localeTag),
+                          })}
+                        </ThemedText>
+                      ) : null}
+                      {checkoutResult.order.tax_lines.map((taxLine) => (
+                        <ThemedText key={taxLine.label} type="small" themeColor="textSecondary">
+                          {t('event_detail.tax_line', {
+                            label: taxLine.label,
+                            rate: taxLine.rate_percent,
+                            amount: formatPrice(taxLine.amount_cents, currency, localeTag),
+                          })}
+                        </ThemedText>
+                      ))}
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {t('event_detail.total', {
+                          amount: formatPrice(checkoutResult.order.total_cents, currency, localeTag),
+                        })}
+                      </ThemedText>
+                    </>
+                  );
+                })()}
 
                 {paymentError ? (
                   <ThemedText type="small" themeColor="destructive" style={styles.paymentNote}>

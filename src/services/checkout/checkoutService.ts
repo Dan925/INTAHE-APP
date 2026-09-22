@@ -5,7 +5,7 @@ import { computeReservationExpiry, releaseExpiredReservations } from './orderRel
 import { createOrderReaderPaymentIntent, createPaymentIntent, retrievePaymentIntent } from '../stripe/stripePayments';
 import { ApiError } from '../../utils/errors';
 import { computeOrderFees } from '../../utils/fees';
-import type { EventRow, OrderRow, OrganizationRow, StripeChargeMode, TicketTypeRow } from '../../types/db';
+import type { AppliedTaxLine, EventRow, OrderRow, OrganizationRow, StripeChargeMode, TicketTypeRow } from '../../types/db';
 
 /**
  * Only a 'direct' charge's PaymentIntent lives in the connected account's
@@ -54,6 +54,8 @@ export interface PublicOrder {
   subtotal_cents: number;
   stripe_fee_cents: number;
   intahe_fee_cents: number;
+  tax_cents: number;
+  tax_lines: AppliedTaxLine[];
   total_cents: number;
   status: string;
   created_at: string;
@@ -81,6 +83,8 @@ function toPublicOrder(row: OrderRow): PublicOrder {
     subtotal_cents: row.subtotal_cents,
     stripe_fee_cents: row.stripe_fee_cents,
     intahe_fee_cents: row.intahe_fee_cents,
+    tax_cents: row.tax_cents,
+    tax_lines: row.tax_lines,
     total_cents: row.total_cents,
     status: row.status,
     created_at: row.created_at.toISOString(),
@@ -246,9 +250,10 @@ export async function createOrder(
       input.line_items,
     );
 
-    const { stripeFeeCents, intaheFeeCents, totalCents } = computeOrderFees(
+    const { stripeFeeCents, intaheFeeCents, taxCents, appliedTaxLines, totalCents } = computeOrderFees(
       lines.map((line) => ({ priceCents: line.priceCents, quantity: line.quantity })),
       event.fees_absorbed_by_organizer,
+      organization.tax_lines,
     );
 
     // A connected account existing isn't enough — onboarding can be started
@@ -287,10 +292,10 @@ export async function createOrder(
     const orderResult = await client.query<OrderRow>(
       `INSERT INTO orders (
          event_id, buyer_user_id, buyer_email, subtotal_cents, stripe_fee_cents,
-         intahe_fee_cents, total_cents, status, idempotency_key, idempotency_request_hash,
-         reservation_expires_at, stripe_charge_mode
+         intahe_fee_cents, tax_cents, tax_lines, total_cents, status, idempotency_key,
+         idempotency_request_hash, reservation_expires_at, stripe_charge_mode
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, 'pending', $10, $11, $12, $13)
        RETURNING *`,
       [
         eventId,
@@ -299,6 +304,8 @@ export async function createOrder(
         subtotalCents,
         stripeFeeCents,
         intaheFeeCents,
+        taxCents,
+        JSON.stringify(appliedTaxLines),
         totalCents,
         idempotencyKey,
         requestHash,

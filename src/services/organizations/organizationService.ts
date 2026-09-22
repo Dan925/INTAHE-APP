@@ -3,7 +3,7 @@ import { pool } from '../../config/database';
 import { ApiError } from '../../utils/errors';
 import { buildPage, decodeCursor, encodeCursor, type CursorPage } from '../../utils/pagination';
 import { slugify } from '../../utils/slug';
-import type { OrganizationRow } from '../../types/db';
+import type { OrganizationRow, TaxLine } from '../../types/db';
 
 export interface CreateOrganizationInput {
   name: string;
@@ -16,6 +16,8 @@ export interface UpdateOrganizationInput {
   name?: string | undefined;
   logo_url?: string | null | undefined;
   contact_email?: string | null | undefined;
+  // Undefined leaves tax_lines untouched; [] explicitly turns tax off.
+  tax_lines?: TaxLine[] | undefined;
 }
 
 export interface PublicOrganization {
@@ -24,6 +26,7 @@ export interface PublicOrganization {
   slug: string;
   logo_url: string | null;
   contact_email: string | null;
+  tax_lines: TaxLine[];
   created_at: string;
 }
 
@@ -34,6 +37,7 @@ function toPublicOrganization(row: OrganizationRow): PublicOrganization {
     slug: row.slug,
     logo_url: row.logo_url,
     contact_email: row.contact_email,
+    tax_lines: row.tax_lines,
     created_at: row.created_at.toISOString(),
   };
 }
@@ -124,12 +128,15 @@ export async function updateOrganization(
   if ('name' in patch) fields.push(['name', patch.name]);
   if ('logo_url' in patch) fields.push(['logo_url', patch.logo_url]);
   if ('contact_email' in patch) fields.push(['contact_email', patch.contact_email]);
+  if ('tax_lines' in patch) fields.push(['tax_lines', JSON.stringify(patch.tax_lines)]);
 
   if (fields.length === 0) {
     throw new ApiError(400, 'validation_error', 'At least one field must be provided.', null);
   }
 
-  const setClause = fields.map(([column], i) => `${column} = $${i + 2}`).join(', ');
+  const setClause = fields
+    .map(([column], i) => (column === 'tax_lines' ? `tax_lines = $${i + 2}::jsonb` : `${column} = $${i + 2}`))
+    .join(', ');
   const values = fields.map(([, value]) => value);
 
   const result = await pool.query<OrganizationRow>(

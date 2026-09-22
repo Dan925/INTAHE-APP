@@ -177,6 +177,122 @@
     body.appendChild(active);
   }
 
+  // Ordinary array rows ([{ label, rate_percent }, ...]) rather than a
+  // separate GST/QST-shaped structure — a fixed schema couldn't express
+  // every province's actual combination (some have one HST line, some
+  // have two separate GST+PST/QST lines), so this stays whatever the
+  // organizer configures. Empty by default: see the migration comment on
+  // organizations.tax_lines.
+  function renderTaxSection(organization) {
+    var wrap = document.createElement('div');
+    wrap.className = 'card';
+    wrap.style.marginBottom = '24px';
+    var heading = document.createElement('h2');
+    heading.style.margin = '0 0 8px';
+    heading.textContent = t('org_tax.section_title');
+    wrap.appendChild(heading);
+
+    var intro = document.createElement('p');
+    intro.className = 'small text-secondary';
+    intro.textContent = t('org_tax.intro');
+    wrap.appendChild(intro);
+
+    var rowsContainer = document.createElement('div');
+    wrap.appendChild(rowsContainer);
+
+    var errorContainer = document.createElement('div');
+    wrap.appendChild(errorContainer);
+
+    function addRow(line) {
+      var row = document.createElement('div');
+      row.className = 'row';
+      row.style.alignItems = 'center';
+      row.style.marginBottom = '8px';
+
+      var labelInput = document.createElement('input');
+      labelInput.type = 'text';
+      labelInput.placeholder = t('org_tax.label_placeholder');
+      labelInput.value = (line && line.label) || '';
+      labelInput.style.flex = '2';
+
+      var rateInput = document.createElement('input');
+      rateInput.type = 'number';
+      rateInput.step = 'any';
+      rateInput.min = '0';
+      rateInput.max = '100';
+      rateInput.placeholder = t('org_tax.rate_placeholder');
+      rateInput.value = line && typeof line.rate_percent === 'number' ? String(line.rate_percent) : '';
+      rateInput.style.flex = '1';
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'ghost';
+      removeBtn.textContent = t('org_tax.remove_line');
+      removeBtn.addEventListener('click', function () {
+        row.remove();
+      });
+
+      row.appendChild(labelInput);
+      row.appendChild(rateInput);
+      row.appendChild(removeBtn);
+      row._labelInput = labelInput;
+      row._rateInput = rateInput;
+      rowsContainer.appendChild(row);
+    }
+
+    (organization.tax_lines || []).forEach(addRow);
+
+    var addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'ghost';
+    addBtn.textContent = t('org_tax.add_line');
+    addBtn.style.marginBottom = '16px';
+    addBtn.addEventListener('click', function () {
+      addRow(null);
+    });
+    wrap.appendChild(addBtn);
+
+    var saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = t('org_tax.save_button');
+    wrap.appendChild(saveBtn);
+
+    saveBtn.addEventListener('click', function () {
+      errorContainer.textContent = '';
+      var rows = Array.prototype.slice.call(rowsContainer.children);
+      var taxLines = [];
+      for (var i = 0; i < rows.length; i++) {
+        var labelValue = rows[i]._labelInput.value.trim();
+        var rateValue = parseFloat(rows[i]._rateInput.value);
+        if (!labelValue) {
+          showError(errorContainer, t('org_tax.validation_label_required'));
+          return;
+        }
+        if (!isFinite(rateValue) || rateValue < 0 || rateValue > 100) {
+          showError(errorContainer, t('org_tax.validation_rate_invalid'));
+          return;
+        }
+        taxLines.push({ label: labelValue, rate_percent: rateValue });
+      }
+
+      saveBtn.disabled = true;
+      api('/v1/organizations/' + orgId, { method: 'PATCH', body: { tax_lines: taxLines } })
+        .then(function () {
+          saveBtn.disabled = false;
+          var success = document.createElement('p');
+          success.className = 'small';
+          success.textContent = t('org_tax.save_success');
+          errorContainer.appendChild(success);
+        })
+        .catch(function (err) {
+          saveBtn.disabled = false;
+          showError(errorContainer, (err && err.message) || t('org_tax.save_error'));
+        });
+    });
+
+    return wrap;
+  }
+
   function load() {
     container.textContent = '';
     var loader = document.createElement('div');
@@ -186,7 +302,7 @@
     Promise.all([api('/v1/organizations/' + orgId), api('/v1/organizations/' + orgId + '/events')])
       .then(function (results) {
         document.title = results[0].organization.name + ' — Intahé';
-        render(results[1].items);
+        render(results[1].items, results[0].organization);
       })
       .catch(function () {
         container.textContent = '';
@@ -194,7 +310,7 @@
       });
   }
 
-  function render(events) {
+  function render(events, organization) {
     container.textContent = '';
 
     var navRow = document.createElement('div');
@@ -240,6 +356,7 @@
     container.appendChild(navRow);
 
     container.appendChild(renderStripeSection());
+    container.appendChild(renderTaxSection(organization));
 
     var createWrap = document.createElement('div');
     createWrap.style.marginBottom = '24px';

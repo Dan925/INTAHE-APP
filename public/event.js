@@ -283,16 +283,25 @@
         subtotalLine.textContent = window.intaheT('event.order_summary_subtotal', {
           amount: formatPrice(order.subtotal_cents, currency),
         });
+        const taxLines = (order.tax_lines || []).map(function (taxLine) {
+          const p = document.createElement('p');
+          p.textContent = window.intaheT('event.order_summary_tax_line', {
+            label: taxLine.label,
+            rate: taxLine.rate_percent,
+            amount: formatPrice(taxLine.amount_cents, currency),
+          });
+          return p;
+        });
         const feesLine = document.createElement('p');
         feesLine.textContent = window.intaheT('event.order_summary_fees', {
-          amount: formatPrice(order.total_cents - order.subtotal_cents, currency),
+          amount: formatPrice(order.total_cents - order.subtotal_cents - order.tax_cents, currency),
         });
         const totalLine = document.createElement('p');
         totalLine.style.fontWeight = 'bold';
         totalLine.textContent = window.intaheT('event.order_summary_total', {
           amount: formatPrice(order.total_cents, currency),
         });
-        summary.append(subtotalLine, feesLine, totalLine);
+        summary.append(subtotalLine, ...taxLines, feesLine, totalLine);
         paymentContainer.before(summary);
       }
 

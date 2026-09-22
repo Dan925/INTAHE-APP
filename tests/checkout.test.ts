@@ -85,6 +85,42 @@ describe('POST /v1/events/:eventId/orders (checkout)', () => {
     expect(ttRow.rows[0].quantity_sold).toBe(2);
   });
 
+  it('applies the organization tax_lines to the order, on top of the total, itemized', async () => {
+    const fixture = await createOrgAndPublishedEvent(app);
+    await request(app)
+      .patch(`/v1/organizations/${fixture.organization.id}`)
+      .set('Authorization', `Bearer ${fixture.owner.accessToken}`)
+      .send({ tax_lines: [{ label: 'TPS', rate_percent: 5 }, { label: 'TVQ', rate_percent: 9.975 }] });
+    const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
+      price_cents: 2500,
+      quantity_total: 10,
+    });
+
+    const res = await request(app)
+      .post(`/v1/events/${fixture.event.id}/orders`)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({
+        buyer_email: 'buyer@example.com',
+        line_items: [{ ticket_type_id: ticketType.id, quantity: 2 }],
+      });
+
+    expect(res.status).toBe(201);
+    const expectedFees = computeOrderFees([{ priceCents: 2500, quantity: 2 }], false, [
+      { label: 'TPS', rate_percent: 5 },
+      { label: 'TVQ', rate_percent: 9.975 },
+    ]);
+    // subtotal 5000: TPS = round(5000*0.05) = 250, TVQ = round(5000*0.09975) = 499
+    expect(res.body.order.tax_cents).toBe(749);
+    expect(res.body.order.tax_lines).toEqual([
+      { label: 'TPS', rate_percent: 5, amount_cents: 250 },
+      { label: 'TVQ', rate_percent: 9.975, amount_cents: 499 },
+    ]);
+    expect(res.body.order.total_cents).toBe(expectedFees.totalCents);
+    expect(mockCreatePaymentIntent).toHaveBeenCalledWith(
+      expect.objectContaining({ amountCents: expectedFees.totalCents }),
+    );
+  });
+
   it('absorbs fees into the organizer when fees_absorbed_by_organizer is true, but still stores them internally', async () => {
     const fixture = await createOrgAndPublishedEvent(app, { fees_absorbed_by_organizer: true });
     const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {

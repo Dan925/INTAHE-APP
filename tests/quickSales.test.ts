@@ -186,6 +186,45 @@ describe('payment_intent.succeeded for a quick sale', () => {
     expect(listRes.body.items[0]).toMatchObject({ status: 'paid', payout_status: 'succeeded' });
   });
 
+  it('includes tax in the instant payout amount — it is collected for the organizer to remit, not a platform fee', async () => {
+    const { owner, organization } = await createOrgAndPublishedEvent(app);
+    await request(app)
+      .patch(`/v1/organizations/${organization.id}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ tax_lines: [{ label: 'TPS', rate_percent: 5 }] });
+    const itemRes = await request(app)
+      .post(`/v1/organizations/${organization.id}/quick-sale-items`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ name: 'Haircut', price_cents: 3000 });
+
+    const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
+    mockCreateQuickSalePaymentIntent.mockResolvedValueOnce({
+      id: paymentIntentId,
+      client_secret: `${paymentIntentId}_secret`,
+    } as never);
+    const saleRes = await request(app)
+      .post(`/v1/organizations/${organization.id}/quick-sales`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ quick_sale_item_id: itemRes.body.quick_sale_item.id });
+    expect(saleRes.body.quick_sale.tax_cents).toBe(150); // round(3000 * 0.05)
+
+    mockRetrieveBalance.mockResolvedValueOnce({
+      available: [{ amount: saleRes.body.quick_sale.subtotal_cents + 150, currency: 'cad' }],
+    } as never);
+    mockCreatePayout.mockResolvedValueOnce({ id: 'po_test_tax' } as never);
+
+    const res = await signedWebhookRequest({
+      id: `evt_${crypto.randomBytes(6).toString('hex')}`,
+      type: 'payment_intent.succeeded',
+      data: { object: { id: paymentIntentId, metadata: { quick_sale_id: saleRes.body.quick_sale.id } } },
+    });
+    expect(res.status).toBe(200);
+
+    expect(mockCreatePayout).toHaveBeenCalledWith(
+      expect.objectContaining({ amountCents: 3000 + 150, currency: 'cad', method: 'instant' }),
+    );
+  });
+
   it('marks the payout failed (not the sale) when funds are not yet available, and lets it be retried', async () => {
     const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
     const { owner, organization, quickSale } = await createPendingQuickSale(paymentIntentId);

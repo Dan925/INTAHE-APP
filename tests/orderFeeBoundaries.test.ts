@@ -162,6 +162,12 @@ describe('multi-ticket rounding: per-ticket commission sum must exactly equal th
 
   it('never lets a free line item contribute a nonzero commission or Stripe-fee component', () => {
     const fees = computeOrderFees([{ priceCents: 0, quantity: 50 }], false);
-    expect(fees).toEqual({ stripeFeeCents: 0, intaheFeeCents: 0, totalCents: 0 });
+    expect(fees).toEqual({
+      stripeFeeCents: 0,
+      intaheFeeCents: 0,
+      taxCents: 0,
+      appliedTaxLines: [],
+      totalCents: 0,
+    });
   });
 });

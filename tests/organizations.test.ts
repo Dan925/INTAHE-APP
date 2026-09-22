@@ -110,6 +110,41 @@ describe('organization access control', () => {
     expect(res.body.organization.name).toBe('Acme Events Inc.');
   });
 
+  it('defaults tax_lines to empty and allows the owner to configure it', async () => {
+    const owner = await signupTestUser(app);
+    const org = await request(app)
+      .post('/v1/organizations')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ name: 'Acme Events' });
+    expect(org.body.organization.tax_lines).toEqual([]);
+
+    const res = await request(app)
+      .patch(`/v1/organizations/${org.body.organization.id}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ tax_lines: [{ label: 'TPS', rate_percent: 5 }, { label: 'TVQ', rate_percent: 9.975 }] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.organization.tax_lines).toEqual([
+      { label: 'TPS', rate_percent: 5 },
+      { label: 'TVQ', rate_percent: 9.975 },
+    ]);
+  });
+
+  it('rejects a tax line with an out-of-range rate', async () => {
+    const owner = await signupTestUser(app);
+    const org = await request(app)
+      .post('/v1/organizations')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ name: 'Acme Events' });
+
+    const res = await request(app)
+      .patch(`/v1/organizations/${org.body.organization.id}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ tax_lines: [{ label: 'TPS', rate_percent: 150 }] });
+
+    expect(res.status).toBe(400);
+  });
+
   it('forbids a staff member from updating the organization', async () => {
     const owner = await signupTestUser(app);
     const staff = await signupTestUser(app);

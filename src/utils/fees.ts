@@ -1,8 +1,11 @@
 import { computeTicketCommissionCents } from './commissionGrid';
+import type { AppliedTaxLine, TaxLine } from '../types/db';
 
 export interface OrderFees {
   stripeFeeCents: number;
   intaheFeeCents: number;
+  taxCents: number;
+  appliedTaxLines: AppliedTaxLine[];
   totalCents: number;
 }
 
@@ -24,8 +27,20 @@ export interface OrderFeeLine {
  * single subtotal-wide rate can't express. Stripe's own processing fee has
  * no such per-ticket structure (Stripe charges once per PaymentIntent), so
  * it stays a flat rate on the order subtotal.
+ *
+ * taxLines (an organization's configured sales tax, if any — see
+ * OrganizationRow.tax_lines) is applied to the subtotal only, never to
+ * Stripe's or Intahe's own fees — those aren't a taxable sale. Tax is
+ * added on top of the total regardless of feesAbsorbedByOrganizer: who
+ * absorbs *platform* fees is a separate decision from what's owed to the
+ * buyer's tax authority, and an organizer who's registered to collect tax
+ * still owes it whether or not they've also chosen to absorb Intahe's cut.
  */
-export function computeOrderFees(lines: OrderFeeLine[], feesAbsorbedByOrganizer: boolean): OrderFees {
+export function computeOrderFees(
+  lines: OrderFeeLine[],
+  feesAbsorbedByOrganizer: boolean,
+  taxLines: TaxLine[] = [],
+): OrderFees {
   const subtotalCents = lines.reduce((sum, line) => sum + line.priceCents * line.quantity, 0);
   // A $0 subtotal (every line item free) never becomes a real Stripe
   // charge — there is nothing for the flat processing-fee component to
@@ -40,9 +55,17 @@ export function computeOrderFees(lines: OrderFeeLine[], feesAbsorbedByOrganizer:
     (sum, line) => sum + computeTicketCommissionCents(line.priceCents) * line.quantity,
     0,
   );
-  const totalCents = feesAbsorbedByOrganizer
-    ? subtotalCents
-    : subtotalCents + stripeFeeCents + intaheFeeCents;
 
-  return { stripeFeeCents, intaheFeeCents, totalCents };
+  const appliedTaxLines: AppliedTaxLine[] = taxLines.map((taxLine) => ({
+    label: taxLine.label,
+    rate_percent: taxLine.rate_percent,
+    amount_cents: Math.round(subtotalCents * (taxLine.rate_percent / 100)),
+  }));
+  const taxCents = appliedTaxLines.reduce((sum, line) => sum + line.amount_cents, 0);
+
+  const totalCents = feesAbsorbedByOrganizer
+    ? subtotalCents + taxCents
+    : subtotalCents + taxCents + stripeFeeCents + intaheFeeCents;
+
+  return { stripeFeeCents, intaheFeeCents, taxCents, appliedTaxLines, totalCents };
 }

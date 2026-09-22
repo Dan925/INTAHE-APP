@@ -28,6 +28,20 @@ export interface PasswordResetTokenRow {
   created_at: Date;
 }
 
+// A tax rate an organization has configured (e.g. TPS 5%, TVQ 9.975%),
+// not yet applied to any specific sale — see AppliedTaxLine for the
+// snapshotted, charged version stored on an order/quick sale.
+export interface TaxLine {
+  label: string;
+  rate_percent: number;
+}
+
+// A TaxLine as actually charged on one order/quick sale, with the
+// computed amount alongside it — see src/utils/fees.ts.
+export interface AppliedTaxLine extends TaxLine {
+  amount_cents: number;
+}
+
 export interface OrganizationRow {
   id: string;
   name: string;
@@ -40,6 +54,9 @@ export interface OrganizationRow {
   // Set only by the admin console's "approve an organizer" action. No
   // enforcement is wired to this anywhere yet — see the migration.
   platform_approved_at: Date | null;
+  // Empty array (the default) means no tax is charged on this
+  // organization's orders/quick sales/door sales — see fees.ts.
+  tax_lines: TaxLine[];
   created_at: Date;
   deleted_at: Date | null;
 }
@@ -110,6 +127,8 @@ export interface OrderRow {
   subtotal_cents: number;
   stripe_fee_cents: number;
   intahe_fee_cents: number;
+  tax_cents: number;
+  tax_lines: AppliedTaxLine[];
   total_cents: number;
   status: OrderStatus;
   idempotency_key: string | null;
@@ -218,6 +237,8 @@ export interface QuickSaleRow {
   subtotal_cents: number;
   stripe_fee_cents: number;
   intahe_fee_cents: number;
+  tax_cents: number;
+  tax_lines: AppliedTaxLine[];
   total_cents: number;
   currency: string;
   status: QuickSaleStatus;

@@ -276,6 +276,39 @@
           return;
         }
 
+        var sale = result.quick_sale;
+        if (sale.total_cents !== sale.subtotal_cents) {
+          var summary = document.createElement('div');
+          summary.className = 'small text-secondary';
+          summary.style.marginTop = '8px';
+          var subtotalLine = document.createElement('p');
+          subtotalLine.textContent = t('event.order_summary_subtotal', {
+            amount: formatPrice(sale.subtotal_cents, sale.currency),
+          });
+          summary.appendChild(subtotalLine);
+          (sale.tax_lines || []).forEach(function (taxLine) {
+            var taxLineEl = document.createElement('p');
+            taxLineEl.textContent = t('event.order_summary_tax_line', {
+              label: taxLine.label,
+              rate: taxLine.rate_percent,
+              amount: formatPrice(taxLine.amount_cents, sale.currency),
+            });
+            summary.appendChild(taxLineEl);
+          });
+          var feesLine = document.createElement('p');
+          feesLine.textContent = t('event.order_summary_fees', {
+            amount: formatPrice(sale.total_cents - sale.subtotal_cents - sale.tax_cents, sale.currency),
+          });
+          summary.appendChild(feesLine);
+          var totalLine = document.createElement('p');
+          totalLine.style.fontWeight = 'bold';
+          totalLine.textContent = t('event.order_summary_total', {
+            amount: formatPrice(sale.total_cents, sale.currency),
+          });
+          summary.appendChild(totalLine);
+          card.appendChild(summary);
+        }
+
         var paymentContainer = document.createElement('div');
         paymentContainer.style.marginTop = '12px';
         card.appendChild(paymentContainer);

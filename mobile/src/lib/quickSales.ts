@@ -25,6 +25,12 @@ export function deleteQuickSaleItem(token: string, organizationId: string, itemI
   return apiRequest(`/v1/organizations/${organizationId}/quick-sale-items/${itemId}`, { method: 'DELETE', token });
 }
 
+export interface AppliedTaxLine {
+  label: string;
+  rate_percent: number;
+  amount_cents: number;
+}
+
 export interface QuickSale {
   id: string;
   organization_id: string;
@@ -32,6 +38,8 @@ export interface QuickSale {
   subtotal_cents: number;
   stripe_fee_cents: number;
   intahe_fee_cents: number;
+  tax_cents: number;
+  tax_lines: AppliedTaxLine[];
   total_cents: number;
   currency: string;
   status: 'pending' | 'paid' | 'failed';

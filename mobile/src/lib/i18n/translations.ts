@@ -44,6 +44,8 @@ export interface Translations {
     order_error_generic: string;
     selected: string;
     order_created: string;
+    subtotal: string;
+    tax_line: string;
     total: string;
     status: string;
     payment_confirming: string;
@@ -324,6 +326,8 @@ export const fr: Translations = {
     order_error_generic: 'Impossible de créer la commande.',
     selected: 'Sélectionné',
     order_created: 'Commande créée',
+    subtotal: 'Sous-total : {{amount}}',
+    tax_line: '{{label}} ({{rate}}%) : {{amount}}',
     total: 'Total : {{amount}}',
     status: 'Statut : {{status}}',
     payment_confirming: 'Paiement réussi. Préparation de tes billets…',
@@ -607,6 +611,8 @@ export const en: Translations = {
     order_error_generic: 'Unable to create the order.',
     selected: 'Selected',
     order_created: 'Order created',
+    subtotal: 'Subtotal: {{amount}}',
+    tax_line: '{{label}} ({{rate}}%): {{amount}}',
     total: 'Total: {{amount}}',
     status: 'Status: {{status}}',
     payment_confirming: 'Payment successful. Preparing your tickets…',

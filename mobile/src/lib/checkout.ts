@@ -1,5 +1,11 @@
 import { apiRequest } from '@/lib/api';
 
+export interface AppliedTaxLine {
+  label: string;
+  rate_percent: number;
+  amount_cents: number;
+}
+
 export interface Order {
   id: string;
   event_id: string;
@@ -8,6 +14,8 @@ export interface Order {
   subtotal_cents: number;
   stripe_fee_cents: number;
   intahe_fee_cents: number;
+  tax_cents: number;
+  tax_lines: AppliedTaxLine[];
   total_cents: number;
   status: string;
   created_at: string;

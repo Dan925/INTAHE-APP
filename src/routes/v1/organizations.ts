@@ -47,11 +47,22 @@ router.get(
   }),
 );
 
+// A rate is a percentage (5 means 5%, not 0.05) to match how tax rates are
+// normally quoted (CRA publishes "TPS 5%", not "0.05") and to avoid a
+// silent 100x error being indistinguishable from a valid rate. Capped at
+// 5 lines and 100% each — generous enough for any real GST/HST/PST/QST
+// combination while still rejecting an obvious fat-finger.
+const taxLineSchema = z.object({
+  label: z.string().trim().min(1).max(40),
+  rate_percent: z.number().min(0).max(100),
+});
+
 const updateOrganizationSchema = z
   .object({
     name: z.string().trim().min(1).optional(),
     logo_url: z.string().url().nullable().optional(),
     contact_email: z.string().trim().toLowerCase().email().nullable().optional(),
+    tax_lines: z.array(taxLineSchema).max(5).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: 'At least one field must be provided.' });
 
