@@ -8,14 +8,19 @@ import type { Locale } from './i18n';
 // mid-conversation (an organizer/merchant agreement distinct from the
 // buyer-facing privacy/refund policies). Structure benchmarked against
 // Eventbrite's own Terms of Service (content license, IP ownership,
-// indemnification, liability cap, force majeure, standard boilerplate)
-// but deliberately does NOT copy their forced-arbitration +
-// class-action-waiver dispute clause — an independent review
-// (terms.law's ToS Watchdog) scores Eventbrite's ToS low on fairness
-// specifically because of that clause, and a brand-new platform has more
-// to gain from being visibly fairer to organizers than from copying an
-// incumbent's most user-hostile provision. Get this reviewed by a lawyer
-// the same way the other two pages were before treating it as final.
+// indemnification, liability cap, force majeure, standard boilerplate).
+//
+// Dispute resolution (section 15) is deliberately split by user location
+// rather than a single blanket clause: forced arbitration + a
+// class-action waiver for US users (per explicit instruction), but normal
+// courts + class-action rights preserved for Canadian users — several
+// provinces (notably Quebec and Ontario) void that combination outright
+// for a consumer contract, and Syncera Digital LLC being a Wyoming entity
+// doesn't change that: a US company can't use its own choice-of-law
+// clause to strip a Canadian consumer of protections that are
+// non-waivable under their province's law (see section 16's carve-out).
+// A lawyer still needs to confirm the exact arbitration-body/rules
+// language before this is final.
 
 const fr = `
 <h1>Conditions d'utilisation</h1>
@@ -25,7 +30,7 @@ const fr = `
 <p>En créant un compte ou en utilisant Intahé, tu acceptes ces conditions. Tu dois avoir au moins l'âge de la majorité dans ta province ou ton État pour créer un compte. Si tu utilises Intahé au nom d'une organisation, tu confirmes avoir l'autorité de l'engager.</p>
 
 <h2>2. Ce qu'est Intahé</h2>
-<p>Intahé est une plateforme de billetterie et de gestion d'événements qui fournit aux organisateurs les outils pour créer des événements, vendre des billets, encaisser des paiements (en ligne ou en personne via un lecteur de carte), et gérer leurs ventes. Intahé n'organise pas les événements elle-même et n'est pas partie à la relation entre un organisateur et les personnes qui achètent ses billets.</p>
+<p>Intahé est une plateforme de billetterie et de gestion d'événements exploitée par Syncera Digital LLC, 1309 Coffeen Avenue, Ste 1200, Sheridan, WY 82801, États-Unis. Intahé fournit aux organisateurs les outils pour créer des événements, vendre des billets, encaisser des paiements (en ligne ou en personne via un lecteur de carte), et gérer leurs ventes. Intahé n'organise pas les événements elle-même et n'est pas partie à la relation entre un organisateur et les personnes qui achètent ses billets.</p>
 
 <h2>3. Comptes</h2>
 <p>Tu es responsable de garder ton mot de passe confidentiel et de toute activité sous ton compte. Avise-nous rapidement à support@syncerainc.com si tu soupçonnes un accès non autorisé.</p>
@@ -76,10 +81,14 @@ const fr = `
 <p>Tu peux fermer ton compte en tout temps en nous écrivant à support@syncerainc.com. Intahé peut suspendre ou fermer un compte en cas de non-respect de ces conditions, proportionnellement à la gravité du manquement.</p>
 
 <h2>15. Résolution de différends</h2>
-<p>Si un différend survient entre toi et Intahé, nous te demandons d'abord d'essayer de le régler à l'amiable en écrivant à support@syncerainc.com — la grande majorité des problèmes se règlent ainsi. Si ça ne fonctionne pas, le différend peut être porté devant les tribunaux compétents de ta province ou de ton État (voir la section suivante). <strong>Contrairement à certaines plateformes, Intahé ne t'oblige pas à l'arbitrage et ne t'empêche pas de te joindre à un recours collectif.</strong></p>
+<p>Si un différend survient entre toi et Intahé, nous te demandons d'abord d'essayer de le régler à l'amiable en écrivant à support@syncerainc.com — la grande majorité des problèmes se règlent ainsi. Si ça ne fonctionne pas, la suite dépend d'où tu te trouves :</p>
+<ul>
+<li><strong>États-Unis :</strong> tout différend qui ne se règle pas à l'amiable sera tranché par arbitrage individuel exécutoire, siégeant au Wyoming, et non devant un tribunal ni par voie de recours collectif. Ni toi ni Intahé ne pouvez intenter une réclamation à titre de demandeur collectif ou de membre d'un recours collectif. Tu conserves le droit de porter une réclamation admissible devant les petites créances.</li>
+<li><strong>Canada :</strong> le différend peut être porté devant les tribunaux compétents de ta province, et tu conserves le droit de te joindre à un recours collectif — l'arbitrage forcé combiné à une renonciation aux recours collectifs n'est pas exécutoire dans plusieurs provinces (notamment le Québec et l'Ontario) pour un contrat de consommation, donc cette section ne s'applique pas de la même façon qu'aux États-Unis.</li>
+</ul>
 
 <h2>16. Droit applicable</h2>
-<p>Intahé sert des utilisateurs au Canada et aux États-Unis; le droit applicable à un litige donné dépend d'où tu te trouves.</p>
+<p>Ces conditions sont régies par le droit de l'État du Wyoming, États-Unis, sans égard aux principes de conflits de lois — sauf que si tu es un consommateur au Canada, tu conserves toute protection qui ne peut être renoncée en vertu du droit de ta province, et cette section ne t'enlève pas ces protections.</p>
 
 <h2>17. Force majeure</h2>
 <p>Ni toi ni Intahé n'êtes responsables d'un manquement à ces conditions causé par un événement hors de contrôle raisonnable (catastrophe naturelle, panne majeure d'un fournisseur comme Stripe, etc.).</p>
@@ -102,7 +111,7 @@ const en = `
 <p>By creating an account or using Intahé, you agree to these terms. You must be at least the age of majority in your province or state to create an account. If you're using Intahé on behalf of an organization, you confirm you have the authority to bind it.</p>
 
 <h2>2. What Intahé is</h2>
-<p>Intahé is a ticketing and event management platform that gives organizers the tools to create events, sell tickets, take payment (online or in person via a card reader), and manage their sales. Intahé doesn't run events itself and isn't a party to the relationship between an organizer and the people who buy their tickets.</p>
+<p>Intahé is a ticketing and event management platform operated by Syncera Digital LLC, 1309 Coffeen Avenue, Ste 1200, Sheridan, WY 82801, United States. Intahé gives organizers the tools to create events, sell tickets, take payment (online or in person via a card reader), and manage their sales. Intahé doesn't run events itself and isn't a party to the relationship between an organizer and the people who buy their tickets.</p>
 
 <h2>3. Accounts</h2>
 <p>You're responsible for keeping your password confidential and for all activity under your account. Let us know promptly at support@syncerainc.com if you suspect unauthorized access.</p>
@@ -153,10 +162,14 @@ const en = `
 <p>You can close your account at any time by writing to us at support@syncerainc.com. Intahé may suspend or close an account for violating these terms, proportionate to the severity of the violation.</p>
 
 <h2>15. Dispute resolution</h2>
-<p>If a dispute arises between you and Intahé, we ask that you first try to resolve it informally by writing to support@syncerainc.com — most issues get resolved this way. If that doesn't work, the dispute can be brought before the competent courts of your province or state (see the next section). <strong>Unlike some platforms, Intahé does not require arbitration and does not prevent you from joining a class action.</strong></p>
+<p>If a dispute arises between you and Intahé, we ask that you first try to resolve it informally by writing to support@syncerainc.com — most issues get resolved this way. If that doesn't work, what happens next depends on where you're located:</p>
+<ul>
+<li><strong>United States:</strong> any dispute that isn't resolved informally will be settled by binding individual arbitration, seated in Wyoming, not in court and not as a class action. Neither you nor Intahé may bring a claim as a class representative or class member. You keep the right to bring an eligible claim in small claims court.</li>
+<li><strong>Canada:</strong> the dispute can be brought before the competent courts of your province, and you keep the right to join a class action — mandatory arbitration combined with a class-action waiver is not enforceable in several provinces (notably Quebec and Ontario) for a consumer contract, so this section doesn't apply the same way it does in the United States.</li>
+</ul>
 
 <h2>16. Governing law</h2>
-<p>Intahé serves users in both Canada and the United States; the law that applies to a given dispute depends on where you're located.</p>
+<p>These terms are governed by the law of the State of Wyoming, United States, without regard to conflict-of-law principles — except that if you're a consumer in Canada, you keep any protection that can't be waived under the law of your province, and this section doesn't take those protections away.</p>
 
 <h2>17. Force majeure</h2>
 <p>Neither you nor Intahé is liable for a failure to meet these terms caused by an event beyond reasonable control (natural disaster, a major outage at a provider like Stripe, etc.).</p>
