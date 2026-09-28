@@ -194,9 +194,14 @@ export default function OrganizationsScreen() {
             data={organizations}
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
-              <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                {t('organizations_list.empty')}
-              </ThemedText>
+              <View style={styles.empty}>
+                <ThemedText type="subtitle" style={styles.emptyTitle}>
+                  {t('organizations_list.welcome_title')}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.emptyBody}>
+                  {t('organizations_list.welcome_body')}
+                </ThemedText>
+              </View>
             }
             renderItem={({ item }) => (
               <ListItem
@@ -266,7 +271,15 @@ const styles = StyleSheet.create({
     marginTop: Spacing.four,
   },
   empty: {
-    textAlign: 'center',
+    alignItems: 'center',
     marginTop: Spacing.six,
+    paddingHorizontal: Spacing.four,
+  },
+  emptyTitle: {
+    marginBottom: Spacing.two,
+    textAlign: 'center',
+  },
+  emptyBody: {
+    textAlign: 'center',
   },
 });

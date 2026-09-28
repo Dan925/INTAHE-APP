@@ -261,7 +261,14 @@ export default function OrganizationScreen() {
             </View>
           </View>
         ) : (
-          <Button title={t('organization_detail.new_event_button')} onPress={() => setShowCreateForm(true)} />
+          <>
+            {events.length === 0 ? (
+              <ThemedText type="small" themeColor="textSecondary" style={styles.firstEventHint}>
+                {t('organization_detail.first_event_hint')}
+              </ThemedText>
+            ) : null}
+            <Button title={t('organization_detail.new_event_button')} onPress={() => setShowCreateForm(true)} />
+          </>
         )}
 
         {isLoading ? (
@@ -329,6 +336,9 @@ const styles = StyleSheet.create({
   },
   aiToneBlock: {
     marginBottom: Spacing.one,
+  },
+  firstEventHint: {
+    marginBottom: Spacing.three,
   },
   discoverableRow: {
     flexDirection: 'row',

@@ -423,6 +423,10 @@
   function render(events, organization) {
     container.textContent = '';
 
+    var title = document.createElement('h1');
+    title.textContent = organization.name;
+    container.appendChild(title);
+
     var navRow = document.createElement('div');
     navRow.className = 'row';
     navRow.style.marginBottom = '16px';
@@ -470,6 +474,15 @@
 
     var createWrap = document.createElement('div');
     createWrap.style.marginBottom = '24px';
+
+    if (events.length === 0) {
+      var firstEventHint = document.createElement('p');
+      firstEventHint.className = 'text-secondary';
+      firstEventHint.style.margin = '0 0 12px';
+      firstEventHint.textContent = t('organization_detail.first_event_hint');
+      createWrap.appendChild(firstEventHint);
+    }
+
     var newEventBtn = document.createElement('button');
     newEventBtn.type = 'button';
     newEventBtn.textContent = t('organization_detail.new_event_button');

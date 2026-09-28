@@ -65,12 +65,18 @@
   function renderOrgList(organizations) {
     var wrap = document.createElement('div');
     if (organizations.length === 0) {
-      var empty = document.createElement('p');
-      empty.className = 'text-secondary';
-      empty.style.textAlign = 'center';
-      empty.style.marginTop = '32px';
-      empty.textContent = t('organizations_list.empty');
-      wrap.appendChild(empty);
+      var welcome = document.createElement('div');
+      welcome.style.textAlign = 'center';
+      welcome.style.marginTop = '32px';
+      var welcomeTitle = document.createElement('h2');
+      welcomeTitle.textContent = t('organizations_list.welcome_title');
+      welcome.appendChild(welcomeTitle);
+      var welcomeBody = document.createElement('p');
+      welcomeBody.className = 'text-secondary';
+      welcomeBody.style.margin = '4px 0 0';
+      welcomeBody.textContent = t('organizations_list.welcome_body');
+      welcome.appendChild(welcomeBody);
+      wrap.appendChild(welcome);
       return wrap;
     }
     organizations.forEach(function (org) {
@@ -110,6 +116,10 @@
 
   function render(orgs, invites) {
     container.textContent = '';
+
+    var title = document.createElement('h1');
+    title.textContent = t('organizations_list.title');
+    container.appendChild(title);
 
     var discoverBtn = document.createElement('button');
     discoverBtn.type = 'button';

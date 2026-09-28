@@ -118,6 +118,8 @@ export interface Translations {
     create_button: string;
     new_org_button: string;
     empty: string;
+    welcome_title: string;
+    welcome_body: string;
     accept_terms_prefix: string;
     accept_terms_link: string;
     accept_organizer_terms_prefix: string;
@@ -143,6 +145,7 @@ export interface Translations {
     create_button: string;
     new_event_button: string;
     empty: string;
+    first_event_hint: string;
     ai_toggle_button: string;
     ai_tone_label: string;
     ai_generate_button: string;
@@ -428,6 +431,8 @@ export const fr: Translations = {
     create_button: 'Créer',
     new_org_button: 'Nouvelle organisation',
     empty: 'Aucune organisation pour l’instant.',
+    welcome_title: 'Bienvenue sur Intahé !',
+    welcome_body: 'Crée ta première organisation ci-dessous pour commencer à vendre des billets.',
     accept_terms_prefix: "J'accepte les ",
     accept_terms_link: "Conditions d'utilisation",
     accept_organizer_terms_prefix: "J'accepte la ",
@@ -453,6 +458,8 @@ export const fr: Translations = {
     create_button: 'Créer',
     new_event_button: 'Nouvel événement',
     empty: 'Aucun événement pour l’instant.',
+    first_event_hint:
+      'Prêt·e pour ton premier événement ? Ajoute les détails ci-dessous — tu pourras définir les types de billets ensuite.',
     ai_toggle_button: '✨ Générer avec l’IA',
     ai_tone_label: 'Ton souhaité (ex. festif, professionnel, décontracté)',
     ai_generate_button: 'Générer',
@@ -736,6 +743,8 @@ export const en: Translations = {
     create_button: 'Create',
     new_org_button: 'New organization',
     empty: 'No organizations yet.',
+    welcome_title: 'Welcome to Intahé!',
+    welcome_body: 'Create your first organization below to start selling tickets.',
     accept_terms_prefix: 'I agree to the ',
     accept_terms_link: 'Terms of Use',
     accept_organizer_terms_prefix: 'I agree to the ',
@@ -761,6 +770,7 @@ export const en: Translations = {
     create_button: 'Create',
     new_event_button: 'New event',
     empty: 'No events yet.',
+    first_event_hint: "Ready for your first event? Add the details below — you'll set up ticket types next.",
     ai_toggle_button: '✨ Generate with AI',
     ai_tone_label: 'Desired tone (e.g. fun, professional, laid-back)',
     ai_generate_button: 'Generate',
