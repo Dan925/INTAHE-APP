@@ -1,5 +1,26 @@
 import type { Role } from './roles';
 
+export type LegalDocumentType =
+  | 'terms_of_use'
+  | 'organizer_terms'
+  | 'refund_policy'
+  | 'privacy_policy'
+  | 'acceptable_use'
+  | 'stripe_connected_account_agreement';
+
+export interface LegalAcceptanceRow {
+  id: string;
+  user_id: string | null;
+  order_id: string | null;
+  buyer_email: string | null;
+  document_type: LegalDocumentType;
+  document_version: string;
+  accepted_at: Date;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: Date;
+}
+
 export type AuthProvider = 'email' | 'google' | 'apple';
 
 export interface UserRow {

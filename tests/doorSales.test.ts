@@ -71,7 +71,11 @@ describe('POST /v1/organizations/:organizationId/events/:eventId/door-sales', ()
     const otherOrgRes = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send({ name: `Other Org ${Date.now()}-${Math.random()}` });
+      .send({
+        name: `Other Org ${Date.now()}-${Math.random()}`,
+        accept_terms: true,
+        accept_organizer_terms: true,
+      });
 
     const res = await request(app)
       .post(`/v1/organizations/${otherOrgRes.body.organization.id}/events/${event.id}/door-sales`)

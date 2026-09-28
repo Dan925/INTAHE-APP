@@ -112,9 +112,11 @@ export function renderPage(options: {
 ${options.bodyHtml}
   </main>
   <footer class="site-footer">
-    <a href="/privacy">${options.strings.footer.privacy_link}</a>
-    <a href="/refunds">${options.strings.footer.refund_link}</a>
-    <a href="/terms">${options.strings.footer.terms_link}</a>
+    <a href="/legal/terms">${options.strings.footer.terms_link}</a>
+    <a href="/legal/organizer-terms">${options.strings.footer.organizer_terms_link}</a>
+    <a href="/legal/refund-policy">${options.strings.footer.refund_link}</a>
+    <a href="/legal/privacy">${options.strings.footer.privacy_link}</a>
+    <a href="/legal/acceptable-use">${options.strings.footer.acceptable_use_link}</a>
   </footer>
 ${allScripts.map((src) => `  <script src="${src}" defer></script>`).join('\n')}
 </body>

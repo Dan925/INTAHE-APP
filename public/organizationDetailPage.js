@@ -105,6 +105,11 @@
       notConnected.textContent = t('org_stripe.status_not_connected');
       body.appendChild(notConnected);
 
+      var agreementNotice = document.createElement('p');
+      agreementNotice.className = 'small text-secondary';
+      agreementNotice.textContent = t('org_stripe.agreement_notice');
+      body.appendChild(agreementNotice);
+
       var connectError = document.createElement('div');
       body.appendChild(connectError);
 
@@ -114,6 +119,13 @@
       connectBtn.addEventListener('click', function () {
         connectBtn.disabled = true;
         connectError.textContent = '';
+        // Best-effort, non-blocking: this logs that the organizer was sent
+        // to Stripe's own hosted onboarding (where Stripe collects its own
+        // Connected Account Agreement acceptance directly) — a failure here
+        // must not stop the actual Stripe connection from proceeding.
+        api('/v1/legal/acceptances', { method: 'POST', body: { document_type: 'stripe_connected_account_agreement' } }).catch(
+          function () {},
+        );
         api('/v1/organizations/' + orgId + '/stripe/onboarding-link', { method: 'POST' })
           .then(function (result) {
             // The Stripe redirect back (return_url/refresh_url) lands on a

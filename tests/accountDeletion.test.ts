@@ -112,7 +112,7 @@ describe('DELETE /v1/me', () => {
     await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send({ name: 'Owner Org' });
+      .send({ name: 'Owner Org', accept_terms: true, accept_organizer_terms: true });
 
     const res = await request(app)
       .delete('/v1/me')
@@ -130,7 +130,7 @@ describe('DELETE /v1/me', () => {
     const orgRes = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send({ name: 'Staffed Org' });
+      .send({ name: 'Staffed Org', accept_terms: true, accept_organizer_terms: true });
     const organization = orgRes.body.organization;
 
     const staff = await signupTestUser(app);

@@ -21,7 +21,7 @@ async function createOrgAndEvent(
   const orgRes = await request(app)
     .post('/v1/organizations')
     .set('Authorization', `Bearer ${owner.accessToken}`)
-    .send({ name: 'Acme Events' });
+    .send({ name: 'Acme Events', accept_terms: true, accept_organizer_terms: true });
   const organization = orgRes.body.organization;
 
   if (options.connectStripe ?? true) {

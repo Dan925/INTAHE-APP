@@ -1,7 +1,7 @@
 import { initStripe, useStripe } from '@stripe/stripe-react-native';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { ListItem } from '@/components/list-item';
@@ -10,11 +10,13 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth-context';
 import { createOrder, type CheckoutResult } from '@/lib/checkout';
 import { cancelEvent, getEvent, publishEvent, type Event } from '@/lib/events';
 import { formatPrice } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n/context';
+import { openLegalDocument } from '@/lib/legalLinks';
 import { createTicketType, listTicketTypes, type TicketType } from '@/lib/ticketTypes';
 
 const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
@@ -26,6 +28,7 @@ export default function EventScreen() {
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { t, localeTag } = useTranslation();
+  const theme = useTheme();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
@@ -389,6 +392,18 @@ export default function EventScreen() {
                 </ThemedText>
               ) : null}
 
+              <Text style={[styles.legalDisclosure, { color: theme.textSecondary }]}>
+                {t('event_detail.legal_disclosure_prefix')}
+                <Text style={{ color: theme.primary }} onPress={() => openLegalDocument('terms')}>
+                  {t('event_detail.legal_disclosure_terms_link')}
+                </Text>
+                {t('event_detail.legal_disclosure_middle')}
+                <Text style={{ color: theme.primary }} onPress={() => openLegalDocument('refund-policy')}>
+                  {t('event_detail.legal_disclosure_refund_link')}
+                </Text>
+                {t('event_detail.legal_disclosure_suffix')}
+              </Text>
+
               <Button
                 title={t('event_detail.order_button')}
                 onPress={onOrder}
@@ -493,6 +508,11 @@ const styles = StyleSheet.create({
   },
   error: {
     marginTop: Spacing.four,
+  },
+  legalDisclosure: {
+    fontSize: 12,
+    marginTop: Spacing.two,
+    marginBottom: Spacing.two,
   },
   actions: {
     marginTop: Spacing.five,

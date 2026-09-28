@@ -72,6 +72,7 @@ router.post(
       req.user?.id ?? null,
       idempotencyKey,
       req.body,
+      { ipAddress: req.ip ?? null, userAgent: req.headers['user-agent'] ?? null },
     );
     res.status(201).json(result);
   }),

@@ -12,6 +12,7 @@ import discoverRouter from './routes/v1/discover';
 import doorSalesRouter from './routes/v1/doorSales';
 import eventsRouter from './routes/v1/events';
 import feeBreakdownRouter from './routes/v1/feeBreakdown';
+import legalRouter from './routes/v1/legal';
 import meRouter from './routes/v1/me';
 import organizationMembersRouter from './routes/v1/organizationMembers';
 import organizationsRouter from './routes/v1/organizations';
@@ -90,6 +91,7 @@ export function createApp() {
   app.use('/v1/auth', authRouter);
   app.use('/v1/config', publicConfigRouter);
   app.use('/v1/discover', discoverRouter);
+  app.use('/v1/legal', legalRouter);
   app.use('/v1/me', meRouter);
   app.use('/v1/organizations', organizationsRouter);
   app.use('/v1/organizations/:organizationId/members', organizationMembersRouter);

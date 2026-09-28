@@ -3,9 +3,16 @@ import type { PoolClient } from 'pg';
 import { pool } from '../../config/database';
 import { computeReservationExpiry, releaseExpiredReservations } from './orderReleaseService';
 import { createOrderReaderPaymentIntent, createPaymentIntent, retrievePaymentIntent } from '../stripe/stripePayments';
+import * as legalAcceptanceService from '../legal/legalAcceptanceService';
+import { captureError } from '../../config/sentry';
 import { ApiError } from '../../utils/errors';
 import { computeOrderFees } from '../../utils/fees';
 import type { AppliedTaxLine, EventRow, OrderRow, OrganizationRow, StripeChargeMode, TicketTypeRow } from '../../types/db';
+
+export interface CheckoutRequestContext {
+  ipAddress: string | null;
+  userAgent: string | null;
+}
 
 /**
  * Only a 'direct' charge's PaymentIntent lives in the connected account's
@@ -184,11 +191,44 @@ async function reserveInventory(
   return { subtotalCents, totalQuantity, currency: currency ?? 'usd', lines };
 }
 
+/**
+ * Best-effort, deliberately non-fatal: the buyer already completed
+ * checkout (this runs after COMMIT) — a logging failure here must not
+ * turn a successful order into an error response. See requirement 5 of
+ * the legal framework: a ticket buyer must see, before checkout, that
+ * completing the purchase means accepting the Terms of Use and Refund
+ * Policy — the click itself is the acceptance event this records,
+ * automatically, without a separate checkbox.
+ */
+async function recordCheckoutLegalAcceptance(
+  order: OrderRow,
+  buyerUserId: string | null,
+  context: CheckoutRequestContext,
+): Promise<void> {
+  try {
+    await Promise.all(
+      (['terms_of_use', 'refund_policy'] as const).map((documentType) =>
+        legalAcceptanceService.recordAcceptance({
+          userId: buyerUserId,
+          orderId: order.id,
+          buyerEmail: order.buyer_email,
+          documentType,
+          ipAddress: context.ipAddress,
+          userAgent: context.userAgent,
+        }),
+      ),
+    );
+  } catch (err) {
+    captureError(err, { message: 'Failed to record checkout legal acceptance', orderId: order.id });
+  }
+}
+
 export async function createOrder(
   eventId: string,
   buyerUserId: string | null,
   idempotencyKey: string,
   input: CreateOrderInput,
+  requestContext: CheckoutRequestContext,
 ): Promise<CheckoutResult> {
   if (input.line_items.length === 0) {
     throw new ApiError(400, 'validation_error', 'At least one line item is required.', 'line_items');
@@ -346,6 +386,8 @@ export async function createOrder(
     }
 
     await client.query('COMMIT');
+
+    await recordCheckoutLegalAcceptance(updatedOrder, buyerUserId, requestContext);
 
     return {
       order: toPublicOrder(updatedOrder),

@@ -48,6 +48,11 @@ export interface Translations {
     tax_line: string;
     total: string;
     status: string;
+    legal_disclosure_prefix: string;
+    legal_disclosure_terms_link: string;
+    legal_disclosure_middle: string;
+    legal_disclosure_refund_link: string;
+    legal_disclosure_suffix: string;
     payment_confirming: string;
     payment_succeeded: string;
     pay_now: string;
@@ -107,6 +112,11 @@ export interface Translations {
     create_button: string;
     new_org_button: string;
     empty: string;
+    accept_terms_prefix: string;
+    accept_terms_link: string;
+    accept_organizer_terms_prefix: string;
+    accept_organizer_terms_link: string;
+    accept_required_error: string;
   };
   organization_detail: {
     load_error: string;
@@ -329,6 +339,11 @@ export const fr: Translations = {
     subtotal: 'Sous-total : {{amount}}',
     tax_line: '{{label}} ({{rate}}%) : {{amount}}',
     total: 'Total : {{amount}}',
+    legal_disclosure_prefix: 'En complétant cet achat, tu acceptes les ',
+    legal_disclosure_terms_link: "Conditions d'utilisation",
+    legal_disclosure_middle: ' et la ',
+    legal_disclosure_refund_link: 'Politique de remboursement',
+    legal_disclosure_suffix: '.',
     status: 'Statut : {{status}}',
     payment_confirming: 'Paiement réussi. Préparation de tes billets…',
     payment_succeeded: 'Paiement réussi ! Consulte tes courriels : tes billets t’y attendent.',
@@ -392,6 +407,11 @@ export const fr: Translations = {
     create_button: 'Créer',
     new_org_button: 'Nouvelle organisation',
     empty: 'Aucune organisation pour l’instant.',
+    accept_terms_prefix: "J'accepte les ",
+    accept_terms_link: "Conditions d'utilisation",
+    accept_organizer_terms_prefix: "J'accepte la ",
+    accept_organizer_terms_link: "Convention d'organisateur",
+    accept_required_error: 'Tu dois accepter les deux documents pour créer une organisation.',
   },
   organization_detail: {
     load_error: 'Impossible de charger cette organisation.',
@@ -614,6 +634,11 @@ export const en: Translations = {
     subtotal: 'Subtotal: {{amount}}',
     tax_line: '{{label}} ({{rate}}%): {{amount}}',
     total: 'Total: {{amount}}',
+    legal_disclosure_prefix: 'By completing this purchase, you agree to the ',
+    legal_disclosure_terms_link: 'Terms of Use',
+    legal_disclosure_middle: ' and the ',
+    legal_disclosure_refund_link: 'Refund Policy',
+    legal_disclosure_suffix: '.',
     status: 'Status: {{status}}',
     payment_confirming: 'Payment successful. Preparing your tickets…',
     payment_succeeded: 'Payment successful! Check your email — your tickets are on their way.',
@@ -675,6 +700,11 @@ export const en: Translations = {
     create_button: 'Create',
     new_org_button: 'New organization',
     empty: 'No organizations yet.',
+    accept_terms_prefix: 'I agree to the ',
+    accept_terms_link: 'Terms of Use',
+    accept_organizer_terms_prefix: 'I agree to the ',
+    accept_organizer_terms_link: 'Organizer Terms',
+    accept_required_error: 'You must accept both documents to create an organization.',
   },
   organization_detail: {
     load_error: 'Unable to load this organization.',

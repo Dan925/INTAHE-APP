@@ -102,7 +102,7 @@ describe('GET /v1/discover/events/:eventId', () => {
     const orgRes = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send({ name: 'Draft Org' });
+      .send({ name: 'Draft Org', accept_terms: true, accept_organizer_terms: true });
     const eventRes = await request(app)
       .post(`/v1/organizations/${orgRes.body.organization.id}/events`)
       .set('Authorization', `Bearer ${owner.accessToken}`)

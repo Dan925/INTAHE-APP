@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { ListItem } from '@/components/list-item';
@@ -8,8 +8,10 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth-context';
 import { useTranslation } from '@/lib/i18n/context';
+import { openLegalDocument } from '@/lib/legalLinks';
 import { acceptInvite, listPendingInvites, type PendingInvite } from '@/lib/organizationMembers';
 import { createOrganization, listOrganizations, type Organization } from '@/lib/organizations';
 
@@ -17,6 +19,7 @@ export default function OrganizationsScreen() {
   const { session } = useAuth();
   const router = useRouter();
   const { t } = useTranslation();
+  const theme = useTheme();
   const ROLE_LABELS: Record<PendingInvite['role'], string> = {
     owner: t('roles.owner'),
     admin: t('roles.admin'),
@@ -30,6 +33,8 @@ export default function OrganizationsScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptOrganizerTerms, setAcceptOrganizerTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -57,11 +62,21 @@ export default function OrganizationsScreen() {
 
   async function onCreate() {
     if (!session || !newOrgName.trim()) return;
+    if (!acceptTerms || !acceptOrganizerTerms) {
+      setError(t('organizations_list.accept_required_error'));
+      return;
+    }
     setIsCreating(true);
     setError(null);
     try {
-      await createOrganization(session.token, { name: newOrgName.trim() });
+      await createOrganization(session.token, {
+        name: newOrgName.trim(),
+        accept_terms: true,
+        accept_organizer_terms: true,
+      });
       setNewOrgName('');
+      setAcceptTerms(false);
+      setAcceptOrganizerTerms(false);
       setShowCreateForm(false);
       await load();
     } catch {
@@ -127,6 +142,30 @@ export default function OrganizationsScreen() {
         {showCreateForm ? (
           <View style={styles.createForm}>
             <TextField label={t('organizations_list.org_name_label')} value={newOrgName} onChangeText={setNewOrgName} />
+
+            <View style={styles.acceptRow}>
+              <Switch value={acceptTerms} onValueChange={setAcceptTerms} trackColor={{ true: theme.primary, false: theme.border }} />
+              <Text style={[styles.acceptText, { color: theme.textSecondary }]}>
+                {t('organizations_list.accept_terms_prefix')}
+                <Text style={{ color: theme.primary }} onPress={() => openLegalDocument('terms')}>
+                  {t('organizations_list.accept_terms_link')}
+                </Text>
+              </Text>
+            </View>
+            <View style={styles.acceptRow}>
+              <Switch
+                value={acceptOrganizerTerms}
+                onValueChange={setAcceptOrganizerTerms}
+                trackColor={{ true: theme.primary, false: theme.border }}
+              />
+              <Text style={[styles.acceptText, { color: theme.textSecondary }]}>
+                {t('organizations_list.accept_organizer_terms_prefix')}
+                <Text style={{ color: theme.primary }} onPress={() => openLegalDocument('organizer-terms')}>
+                  {t('organizations_list.accept_organizer_terms_link')}
+                </Text>
+              </Text>
+            </View>
+
             <View style={styles.createActions}>
               <Button
                 title={t('organizations_list.cancel_button')}
@@ -138,7 +177,7 @@ export default function OrganizationsScreen() {
                 title={t('organizations_list.create_button')}
                 onPress={onCreate}
                 loading={isCreating}
-                disabled={!newOrgName.trim()}
+                disabled={!newOrgName.trim() || !acceptTerms || !acceptOrganizerTerms}
                 style={styles.flexButton}
               />
             </View>
@@ -202,6 +241,16 @@ const styles = StyleSheet.create({
   },
   createForm: {
     marginBottom: Spacing.four,
+  },
+  acceptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+  },
+  acceptText: {
+    flex: 1,
+    fontSize: 13,
   },
   createActions: {
     flexDirection: 'row',

@@ -16,7 +16,7 @@ afterAll(async () => {
 
 describe('POST /v1/organizations', () => {
   it('requires authentication', async () => {
-    const res = await request(app).post('/v1/organizations').send({ name: 'Acme Events' });
+    const res = await request(app).post('/v1/organizations').send({ name: 'Acme Events', accept_terms: true, accept_organizer_terms: true });
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe('unauthorized');
   });
@@ -27,7 +27,7 @@ describe('POST /v1/organizations', () => {
     const res = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${user.accessToken}`)
-      .send({ name: 'Acme Events' });
+      .send({ name: 'Acme Events', accept_terms: true, accept_organizer_terms: true });
 
     expect(res.status).toBe(201);
     expect(res.body.organization).toMatchObject({ name: 'Acme Events', slug: 'acme-events' });
@@ -37,6 +37,34 @@ describe('POST /v1/organizations', () => {
       [res.body.organization.id, user.userId],
     );
     expect(memberRows.rows).toEqual([{ role: 'owner' }]);
+
+    const acceptanceRows = await pool.query(
+      `SELECT document_type, document_version FROM legal_acceptances WHERE user_id = $1 ORDER BY document_type`,
+      [user.userId],
+    );
+    expect(acceptanceRows.rows).toEqual([
+      { document_type: 'organizer_terms', document_version: expect.any(String) },
+      { document_type: 'terms_of_use', document_version: expect.any(String) },
+    ]);
+  });
+
+  it('rejects organization creation when Terms of Use or Organizer Terms are not accepted', async () => {
+    const user = await signupTestUser(app);
+
+    const missingBoth = await request(app)
+      .post('/v1/organizations')
+      .set('Authorization', `Bearer ${user.accessToken}`)
+      .send({ name: 'Acme Events' });
+    expect(missingBoth.status).toBe(400);
+
+    const missingOrganizerTerms = await request(app)
+      .post('/v1/organizations')
+      .set('Authorization', `Bearer ${user.accessToken}`)
+      .send({ name: 'Acme Events', accept_terms: true });
+    expect(missingOrganizerTerms.status).toBe(400);
+
+    const orgCountRes = await request(app).get('/v1/organizations').set('Authorization', `Bearer ${user.accessToken}`);
+    expect(orgCountRes.body.items).toHaveLength(0);
   });
 
   it('auto-derives a unique slug when the base slug is already taken', async () => {
@@ -45,11 +73,11 @@ describe('POST /v1/organizations', () => {
     const first = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${user.accessToken}`)
-      .send({ name: 'Acme Events' });
+      .send({ name: 'Acme Events', accept_terms: true, accept_organizer_terms: true });
     const second = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${user.accessToken}`)
-      .send({ name: 'Acme Events' });
+      .send({ name: 'Acme Events', accept_terms: true, accept_organizer_terms: true });
 
     expect(first.body.organization.slug).toBe('acme-events');
     expect(second.body.organization.slug).toBe('acme-events-2');
@@ -60,12 +88,12 @@ describe('POST /v1/organizations', () => {
     await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${user.accessToken}`)
-      .send({ name: 'Acme Events', slug: 'acme' });
+      .send({ name: 'Acme Events', slug: 'acme', accept_terms: true, accept_organizer_terms: true });
 
     const res = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${user.accessToken}`)
-      .send({ name: 'Something Else', slug: 'acme' });
+      .send({ name: 'Something Else', slug: 'acme', accept_terms: true, accept_organizer_terms: true });
 
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('slug_already_taken');
@@ -80,7 +108,7 @@ describe('organization access control', () => {
     const org = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send({ name: 'Private Org' });
+      .send({ name: 'Private Org', accept_terms: true, accept_organizer_terms: true });
 
     const forbiddenRes = await request(app)
       .get(`/v1/organizations/${org.body.organization.id}`)
@@ -99,7 +127,7 @@ describe('organization access control', () => {
     const org = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send({ name: 'Acme Events' });
+      .send({ name: 'Acme Events', accept_terms: true, accept_organizer_terms: true });
 
     const res = await request(app)
       .patch(`/v1/organizations/${org.body.organization.id}`)
@@ -115,7 +143,7 @@ describe('organization access control', () => {
     const org = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send({ name: 'Acme Events' });
+      .send({ name: 'Acme Events', accept_terms: true, accept_organizer_terms: true });
     expect(org.body.organization.tax_lines).toEqual([]);
 
     const res = await request(app)
@@ -135,7 +163,7 @@ describe('organization access control', () => {
     const org = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send({ name: 'Acme Events' });
+      .send({ name: 'Acme Events', accept_terms: true, accept_organizer_terms: true });
 
     const res = await request(app)
       .patch(`/v1/organizations/${org.body.organization.id}`)
@@ -151,7 +179,7 @@ describe('organization access control', () => {
     const org = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send({ name: 'Acme Events' });
+      .send({ name: 'Acme Events', accept_terms: true, accept_organizer_terms: true });
 
     await pool.query(
       `INSERT INTO organization_members (organization_id, user_id, role, accepted_at)

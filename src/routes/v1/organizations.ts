@@ -17,13 +17,23 @@ const createOrganizationSchema = z.object({
   slug: z.string().trim().min(1).optional(),
   logo_url: z.string().url().optional(),
   contact_email: z.string().trim().toLowerCase().email().optional(),
+  // Required, not optional-with-a-default: an organization cannot be
+  // created without both, and a client that omits either gets a 400
+  // rather than silently having acceptance assumed on its behalf.
+  accept_terms: z.literal(true, { errorMap: () => ({ message: 'You must accept the Terms of Use.' }) }),
+  accept_organizer_terms: z.literal(true, {
+    errorMap: () => ({ message: 'You must accept the Organizer Terms.' }),
+  }),
 });
 
 router.post(
   '/',
   validateBody(createOrganizationSchema),
   asyncHandler(async (req, res) => {
-    const organization = await organizationService.createOrganization(req.user!.id, req.body);
+    const organization = await organizationService.createOrganization(req.user!.id, req.body, {
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers['user-agent'] ?? null,
+    });
     res.status(201).json({ organization });
   }),
 );

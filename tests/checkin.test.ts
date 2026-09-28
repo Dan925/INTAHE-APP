@@ -131,7 +131,7 @@ describe('POST /v1/organizations/:organizationId/events/:eventId/check-in', () =
     const orgRes = await request(app)
       .post('/v1/organizations')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send({ name: 'Multi-Event Org' });
+      .send({ name: 'Multi-Event Org', accept_terms: true, accept_organizer_terms: true });
     const organization = orgRes.body.organization;
     await pool.query(
       `UPDATE organizations SET stripe_account_id = $2, stripe_charges_enabled = true WHERE id = $1`,

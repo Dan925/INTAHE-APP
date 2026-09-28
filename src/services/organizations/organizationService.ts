@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import { pool } from '../../config/database';
+import * as legalAcceptanceService from '../legal/legalAcceptanceService';
 import { ApiError } from '../../utils/errors';
 import { buildPage, decodeCursor, encodeCursor, type CursorPage } from '../../utils/pagination';
 import { slugify } from '../../utils/slug';
@@ -10,6 +11,11 @@ export interface CreateOrganizationInput {
   slug?: string | undefined;
   logo_url?: string | undefined;
   contact_email?: string | undefined;
+}
+
+export interface CreateOrganizationRequestContext {
+  ipAddress: string | null;
+  userAgent: string | null;
 }
 
 export interface UpdateOrganizationInput {
@@ -66,9 +72,19 @@ async function reserveSlug(client: PoolClient, base: string, explicit: boolean):
   throw new ApiError(409, 'slug_already_taken', 'Could not find an available slug for this name.', 'slug');
 }
 
+/**
+ * The route validates accept_terms/accept_organizer_terms as required
+ * literal `true` before this is ever called (see
+ * routes/v1/organizations.ts) — creating an organization without
+ * accepting both is not a state this function can reach. Both
+ * acceptances are recorded in the same transaction as the org itself:
+ * if either insert fails, the whole thing rolls back rather than leaving
+ * an organization that exists without a corresponding acceptance record.
+ */
 export async function createOrganization(
   userId: string,
   input: CreateOrganizationInput,
+  requestContext: CreateOrganizationRequestContext,
 ): Promise<PublicOrganization> {
   const explicitSlug = Boolean(input.slug);
   const base = slugify(input.slug ?? input.name);
@@ -97,6 +113,18 @@ export async function createOrganization(
        VALUES ($1, $2, 'owner', now())`,
       [org.id, userId],
     );
+
+    for (const documentType of ['terms_of_use', 'organizer_terms'] as const) {
+      await legalAcceptanceService.recordAcceptance(
+        {
+          userId,
+          documentType,
+          ipAddress: requestContext.ipAddress,
+          userAgent: requestContext.userAgent,
+        },
+        client,
+      );
+    }
 
     await client.query('COMMIT');
     return toPublicOrganization(org);

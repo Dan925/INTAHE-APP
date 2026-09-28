@@ -135,6 +135,16 @@
       '<div class="field"><label for="org-name">' +
       t('organizations_list.org_name_label') +
       '</label><input id="org-name" type="text" required /></div>' +
+      '<div class="switch-row">' +
+      '<label class="small"><input type="checkbox" id="accept-terms" /> ' +
+      t('organizations_list.accept_terms_label') +
+      '</label>' +
+      '</div>' +
+      '<div class="switch-row">' +
+      '<label class="small"><input type="checkbox" id="accept-organizer-terms" /> ' +
+      t('organizations_list.accept_organizer_terms_label') +
+      '</label>' +
+      '</div>' +
       '<div id="create-error"></div>' +
       '<div class="row">' +
       '<button type="button" class="ghost" id="cancel-create">' +
@@ -154,6 +164,8 @@
     container.appendChild(createWrap);
 
     var nameInput = form.querySelector('#org-name');
+    var acceptTermsInput = form.querySelector('#accept-terms');
+    var acceptOrganizerTermsInput = form.querySelector('#accept-organizer-terms');
     var createError = form.querySelector('#create-error');
     var submitBtn = form.querySelector('#submit-create');
 
@@ -165,8 +177,19 @@
     form.addEventListener('submit', function (event) {
       event.preventDefault();
       createError.textContent = '';
+      if (!acceptTermsInput.checked || !acceptOrganizerTermsInput.checked) {
+        showError(createError, t('organizations_list.accept_required_error'));
+        return;
+      }
       submitBtn.disabled = true;
-      api('/v1/organizations', { method: 'POST', body: { name: nameInput.value.trim() } })
+      api('/v1/organizations', {
+        method: 'POST',
+        body: {
+          name: nameInput.value.trim(),
+          accept_terms: true,
+          accept_organizer_terms: true,
+        },
+      })
         .then(load)
         .catch(function () {
           showError(createError, t('organizations_list.create_error'));

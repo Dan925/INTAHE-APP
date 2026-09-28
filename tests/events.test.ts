@@ -10,7 +10,7 @@ async function createOrg(owner: TestUser, name = 'Acme Events') {
   const res = await request(app)
     .post('/v1/organizations')
     .set('Authorization', `Bearer ${owner.accessToken}`)
-    .send({ name });
+    .send({ name, accept_terms: true, accept_organizer_terms: true });
   return res.body.organization as { id: string; slug: string };
 }
 

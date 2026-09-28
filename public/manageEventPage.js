@@ -422,6 +422,9 @@
       t('event.quantity_label') +
       '</label><input id="quantity" type="number" min="1" value="1" required /></div>' +
       '<div id="order-error"></div>' +
+      '<p class="small text-secondary">' +
+      t('event.legal_disclosure') +
+      '</p>' +
       '<button id="order-btn" type="button">' +
       t('event.order_button') +
       '</button>' +

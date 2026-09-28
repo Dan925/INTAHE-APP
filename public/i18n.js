@@ -27,6 +27,8 @@ window.__INTAHE_I18N__ = {
       order_summary_tax_line: '{{label}} ({{rate}}%) : {{amount}}',
       order_summary_fees: 'Frais de service : {{amount}}',
       order_summary_total: 'Total à payer : {{amount}}',
+      legal_disclosure:
+        'En complétant cet achat, tu acceptes les <a href="/legal/terms" target="_blank" rel="noopener">Conditions d’utilisation</a> et la <a href="/legal/refund-policy" target="_blank" rel="noopener">Politique de remboursement</a>.',
       payment_not_ready: 'Le paiement n’a pas pu être initialisé.',
       pay_button: 'Payer',
       pay_button_wait: 'Paiement en cours…',
@@ -98,6 +100,10 @@ window.__INTAHE_I18N__ = {
       load_error: 'Impossible de charger les organisations.',
       create_error: 'Impossible de créer l’organisation.',
       accept_error: 'Impossible d’accepter cette invitation.',
+      accept_terms_label: 'J’accepte les <a href="/legal/terms" target="_blank" rel="noopener">Conditions d’utilisation</a>',
+      accept_organizer_terms_label:
+        'J’accepte la <a href="/legal/organizer-terms" target="_blank" rel="noopener">Convention d’organisateur</a>',
+      accept_required_error: 'Tu dois accepter les deux documents pour créer une organisation.',
     },
     organization_detail: {
       members_button: 'Membres',
@@ -165,6 +171,8 @@ window.__INTAHE_I18N__ = {
       refresh_button: 'Rafraîchir le statut',
       connect_error: 'Impossible de démarrer la connexion Stripe.',
       load_error: 'Impossible de charger le statut Stripe.',
+      agreement_notice:
+        'En continuant, tu seras redirigé vers Stripe pour créer ton compte connecté et accepter la Convention de compte connecté de Stripe (« Connected Account Agreement ») — un contrat entre toi et Stripe, distinct de nos propres conditions.',
     },
     org_tax: {
       section_title: 'Taxes de vente',
@@ -435,6 +443,8 @@ window.__INTAHE_I18N__ = {
       order_summary_tax_line: '{{label}} ({{rate}}%): {{amount}}',
       order_summary_fees: 'Service fee: {{amount}}',
       order_summary_total: 'Total due: {{amount}}',
+      legal_disclosure:
+        'By completing this purchase, you agree to the <a href="/legal/terms" target="_blank" rel="noopener">Terms of Use</a> and the <a href="/legal/refund-policy" target="_blank" rel="noopener">Refund Policy</a>.',
       payment_not_ready: 'Payment could not be initialized.',
       pay_button: 'Pay',
       pay_button_wait: 'Processing payment…',
@@ -505,6 +515,10 @@ window.__INTAHE_I18N__ = {
       load_error: 'Unable to load organizations.',
       create_error: 'Unable to create the organization.',
       accept_error: 'Unable to accept this invite.',
+      accept_terms_label: 'I agree to the <a href="/legal/terms" target="_blank" rel="noopener">Terms of Use</a>',
+      accept_organizer_terms_label:
+        'I agree to the <a href="/legal/organizer-terms" target="_blank" rel="noopener">Organizer Terms</a>',
+      accept_required_error: 'You must accept both documents to create an organization.',
     },
     organization_detail: {
       members_button: 'Members',
@@ -572,6 +586,8 @@ window.__INTAHE_I18N__ = {
       refresh_button: 'Refresh status',
       connect_error: 'Unable to start connecting Stripe.',
       load_error: 'Unable to load Stripe status.',
+      agreement_notice:
+        "By continuing, you'll be redirected to Stripe to create your connected account and accept Stripe's own Connected Account Agreement — a contract between you and Stripe, separate from our own terms.",
     },
     org_tax: {
       section_title: 'Sales tax',

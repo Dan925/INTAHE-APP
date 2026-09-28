@@ -217,6 +217,7 @@
         <input id="quantity" type="number" min="1" value="1" required />
       </div>
       <div id="checkout-error"></div>
+      <p class="small text-secondary">${window.intaheT('event.legal_disclosure')}</p>
       <button id="order-btn" type="button">${window.intaheT('event.order_button')}</button>
       <div id="payment-container" style="margin-top: 16px;"></div>
     `;

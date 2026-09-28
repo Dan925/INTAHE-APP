@@ -6,9 +6,13 @@ import * as eventService from '../services/events/eventService';
 import { asyncHandler } from '../utils/asyncHandler';
 import { resolveLocale, serverStrings, type Locale, type ServerStrings } from './i18n';
 import { renderPage } from './layout';
-import { privacyPolicyHtml } from './privacyContent';
-import { refundPolicyHtml } from './refundContent';
-import { termsOfServiceHtml } from './termsContent';
+import { renderLegalPage } from './legalPage';
+import { getAcceptableUse } from './legal/acceptableUse';
+import { getOrganizerTerms } from './legal/organizerTerms';
+import { getPrivacyPolicy } from './legal/privacyPolicy';
+import { getRefundPolicy } from './legal/refundPolicy';
+import { getTermsOfUse } from './legal/termsOfUse';
+import type { LegalDocument } from './legal/types';
 
 const router = Router();
 
@@ -36,7 +40,16 @@ router.get('/robots.txt', (_req, res) => {
 
 router.get('/sitemap.xml', asyncHandler(async (_req, res) => {
   const base = env.APP_BASE_URL;
-  const staticPaths = ['/discover', '/login', '/signup', '/privacy', '/refunds', '/terms'];
+  const staticPaths = [
+    '/discover',
+    '/login',
+    '/signup',
+    '/legal/terms',
+    '/legal/organizer-terms',
+    '/legal/refund-policy',
+    '/legal/privacy',
+    '/legal/acceptable-use',
+  ];
   const events = await eventService.listDiscoverableEvents({ limit: SITEMAP_EVENT_LIMIT });
 
   const urlEntries = [
@@ -164,26 +177,41 @@ router.get('/events/:eventId/orders/:orderId/tickets', (req, res) => {
   });
 });
 
-router.get('/privacy', (req, res) => {
-  page(req, res, {
-    title: (s) => s.privacy.title,
-    bodyHtml: (_s, locale) => privacyPolicyHtml(locale),
-  });
-});
+// Legal pages live at /legal/* now (a "modular legal framework" — one
+// route/document per audience/purpose instead of one combined page each).
+// The old paths redirect rather than 404: they were in the sitemap and
+// almost certainly bookmarked/indexed already. 301 (not 302, unlike the
+// bare-domain redirect above): this move is permanent, and search engines
+// should transfer whatever ranking the old URL had to the new one.
+router.get('/privacy', (_req, res) => res.redirect(301, '/legal/privacy'));
+router.get('/refunds', (_req, res) => res.redirect(301, '/legal/refund-policy'));
+router.get('/terms', (_req, res) => res.redirect(301, '/legal/terms'));
 
-router.get('/refunds', (req, res) => {
-  page(req, res, {
-    title: (s) => s.refund.title,
-    bodyHtml: (_s, locale) => refundPolicyHtml(locale),
+/**
+ * Shared by every /legal/* route below — resolves locale/strings once and
+ * hands off to legalPage.ts's renderLegalPage for the actual body, so
+ * each route below is just "which document." See legalPage.ts's own
+ * comment for why a template function is this codebase's equivalent of a
+ * reusable "LegalPage component."
+ */
+function legalPageRoute(
+  path: string,
+  titleFor: (s: ServerStrings) => string,
+  getDoc: (locale: Locale) => LegalDocument,
+): void {
+  router.get(path, (req, res) => {
+    page(req, res, {
+      title: titleFor,
+      bodyHtml: (s, locale) => renderLegalPage(getDoc(locale), s.legal.draft_notice, s.legal.effective_date_label),
+    });
   });
-});
+}
 
-router.get('/terms', (req, res) => {
-  page(req, res, {
-    title: (s) => s.terms.title,
-    bodyHtml: (_s, locale) => termsOfServiceHtml(locale),
-  });
-});
+legalPageRoute('/legal/terms', (s) => s.legal.terms_title, getTermsOfUse);
+legalPageRoute('/legal/organizer-terms', (s) => s.legal.organizer_terms_title, getOrganizerTerms);
+legalPageRoute('/legal/refund-policy', (s) => s.legal.refund_policy_title, getRefundPolicy);
+legalPageRoute('/legal/privacy', (s) => s.legal.privacy_title, getPrivacyPolicy);
+legalPageRoute('/legal/acceptable-use', (s) => s.legal.acceptable_use_title, getAcceptableUse);
 
 // --- Organizer app (authenticated) ---------------------------------------
 

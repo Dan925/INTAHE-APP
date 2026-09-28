@@ -26,7 +26,7 @@ export function listOrganizations(token: string): Promise<CursorPage<Organizatio
 
 export function createOrganization(
   token: string,
-  input: { name: string },
+  input: { name: string; accept_terms: true; accept_organizer_terms: true },
 ): Promise<{ organization: Organization }> {
   return apiRequest('/v1/organizations', { method: 'POST', body: input, token });
 }

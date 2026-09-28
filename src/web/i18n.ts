@@ -59,19 +59,21 @@ export interface ServerStrings {
     title: string;
     loading: string;
   };
-  privacy: {
-    title: string;
-  };
-  refund: {
-    title: string;
-  };
-  terms: {
-    title: string;
+  legal: {
+    terms_title: string;
+    organizer_terms_title: string;
+    refund_policy_title: string;
+    privacy_title: string;
+    acceptable_use_title: string;
+    effective_date_label: string;
+    draft_notice: string;
   };
   footer: {
-    privacy_link: string;
-    refund_link: string;
     terms_link: string;
+    organizer_terms_link: string;
+    refund_link: string;
+    privacy_link: string;
+    acceptable_use_link: string;
   };
   nav: {
     organizations: string;
@@ -155,19 +157,21 @@ const fr: ServerStrings = {
     title: 'Mes billets — Intahé',
     loading: 'Chargement…',
   },
-  privacy: {
-    title: 'Politique de confidentialité — Intahé',
-  },
-  refund: {
-    title: 'Politique de remboursement — Intahé',
-  },
-  terms: {
-    title: 'Conditions d’utilisation — Intahé',
+  legal: {
+    terms_title: 'Conditions d’utilisation — Intahé',
+    organizer_terms_title: 'Convention d’organisateur — Intahé',
+    refund_policy_title: 'Politique de remboursement — Intahé',
+    privacy_title: 'Politique de confidentialité — Intahé',
+    acceptable_use_title: 'Politique d’utilisation acceptable — Intahé',
+    effective_date_label: 'En vigueur depuis',
+    draft_notice: 'Brouillon — ce document n’a pas encore été révisé par un avocat.',
   },
   footer: {
-    privacy_link: 'Confidentialité',
-    refund_link: 'Remboursements',
     terms_link: 'Conditions d’utilisation',
+    organizer_terms_link: 'Convention d’organisateur',
+    refund_link: 'Remboursements',
+    privacy_link: 'Confidentialité',
+    acceptable_use_link: 'Utilisation acceptable',
   },
   nav: {
     organizations: 'Organisations',
@@ -213,19 +217,21 @@ const en: ServerStrings = {
     title: 'My tickets — Intahé',
     loading: 'Loading…',
   },
-  privacy: {
-    title: 'Privacy policy — Intahé',
-  },
-  refund: {
-    title: 'Refund policy — Intahé',
-  },
-  terms: {
-    title: 'Terms of Service — Intahé',
+  legal: {
+    terms_title: 'Terms of Use — Intahé',
+    organizer_terms_title: 'Organizer Terms — Intahé',
+    refund_policy_title: 'Refund policy — Intahé',
+    privacy_title: 'Privacy policy — Intahé',
+    acceptable_use_title: 'Acceptable Use Policy — Intahé',
+    effective_date_label: 'Effective',
+    draft_notice: 'Draft — this document has not yet been reviewed by a lawyer.',
   },
   footer: {
-    privacy_link: 'Privacy',
+    terms_link: 'Terms of Use',
+    organizer_terms_link: 'Organizer Terms',
     refund_link: 'Refunds',
-    terms_link: 'Terms of Service',
+    privacy_link: 'Privacy',
+    acceptable_use_link: 'Acceptable Use',
   },
   nav: {
     organizations: 'Organizations',

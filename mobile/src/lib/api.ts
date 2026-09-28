@@ -1,4 +1,8 @@
-const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://intahe-api-staging.onrender.com';
+// Exported for anything that needs to open a page served by this same
+// server outside the JSON API — e.g. a /legal/* document in the device
+// browser (see lib/legalLinks.ts) — since the web frontend and the API
+// are one Express app (src/app.ts), not two separate hosts.
+export const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://intahe-api-staging.onrender.com';
 
 export interface ApiErrorBody {
   code: string;

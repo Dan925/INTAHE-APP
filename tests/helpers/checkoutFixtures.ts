@@ -26,7 +26,11 @@ async function buildOrgAndPublishedEvent(
   const orgRes = await request(app)
     .post('/v1/organizations')
     .set('Authorization', `Bearer ${owner.accessToken}`)
-    .send({ name: `Checkout Org ${Date.now()}-${Math.random()}` });
+    .send({
+      name: `Checkout Org ${Date.now()}-${Math.random()}`,
+      accept_terms: true,
+      accept_organizer_terms: true,
+    });
   const organization = orgRes.body.organization;
 
   if (connectStripe) {

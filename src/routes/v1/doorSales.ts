@@ -48,6 +48,7 @@ router.post(
       req.params['organizationId']!,
       req.params['eventId']!,
       req.body,
+      { ipAddress: req.ip ?? null, userAgent: req.headers['user-agent'] ?? null },
     );
     res.status(201).json(result);
   }),
