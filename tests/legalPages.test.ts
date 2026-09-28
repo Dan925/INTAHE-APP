@@ -37,15 +37,8 @@ describe('GET /legal/*', () => {
     }
   });
 
-  it('marks Terms of Use, Organizer Terms, and Acceptable Use as drafts, but not Privacy or Refund Policy', async () => {
-    const draftDocs = ['/legal/terms', '/legal/organizer-terms', '/legal/acceptable-use'];
-    const reviewedDocs = ['/legal/privacy', '/legal/refund-policy'];
-
-    for (const path of draftDocs) {
-      const res = await request(app).get(path);
-      expect(res.text).toContain('legal-draft-banner');
-    }
-    for (const path of reviewedDocs) {
+  it('shows no draft banner on any of the 5 documents (isDraft: false — review is being handled directly by the founder)', async () => {
+    for (const { path } of pages) {
       const res = await request(app).get(path);
       expect(res.text).not.toContain('legal-draft-banner');
     }

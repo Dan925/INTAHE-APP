@@ -2,8 +2,10 @@ import type { Locale } from '../i18n';
 import { LEGAL_DOCUMENT_VERSIONS } from '../../legal/registry';
 import type { LegalDocument, LegalSection } from './types';
 
-// Draft, not yet reviewed by a lawyer. Split out of the single 20-section
-// "Terms of Service" draft (see git history for that version) into this
+// isDraft is false at the founder's explicit request (legal review is
+// being handled directly by them, outside this codebase) — this does not
+// mean a lawyer has confirmed this text. Split out of the single
+// 20-section "Terms of Service" draft (see git history for that version) into this
 // general-audience Terms of Use plus organizerTerms.ts (merchant-specific
 // obligations) and acceptableUse.ts (prohibited content/conduct) — part
 // of the move to a modular legal framework where each document covers
@@ -219,7 +221,7 @@ export function getTermsOfUse(locale: Locale): LegalDocument {
   return {
     title: titles[locale],
     effectiveDate: meta.effectiveDate[locale],
-    isDraft: true,
+    isDraft: false,
     sections: bodies[locale],
   };
 }

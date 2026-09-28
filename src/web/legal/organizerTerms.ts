@@ -2,7 +2,9 @@ import type { Locale } from '../i18n';
 import { LEGAL_DOCUMENT_VERSIONS } from '../../legal/registry';
 import type { LegalDocument, LegalSection } from './types';
 
-// Draft, not yet reviewed by a lawyer. Split out of the old single
+// isDraft is false at the founder's explicit request (legal review is
+// being handled directly by them, outside this codebase) — this does not
+// mean a lawyer has confirmed this text. Split out of the old single
 // "Terms of Service" draft (see git history) into this organizer/merchant
 // -specific document, distinct from the general-audience terms.ts.
 //
@@ -163,7 +165,7 @@ export function getOrganizerTerms(locale: Locale): LegalDocument {
   return {
     title: titles[locale],
     effectiveDate: meta.effectiveDate[locale],
-    isDraft: true,
+    isDraft: false,
     sections: bodies[locale],
   };
 }

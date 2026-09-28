@@ -2,10 +2,13 @@ import type { Locale } from '../i18n';
 import { LEGAL_DOCUMENT_VERSIONS } from '../../legal/registry';
 import type { LegalDocument, LegalSection } from './types';
 
-// New document — draft, not yet reviewed by a lawyer. Expanded out of
-// what was a single "Prohibited uses" section in the old combined Terms
-// of Service draft (see git history) into its own policy, referenced by
-// both terms.ts and organizerTerms.ts rather than duplicated in each.
+// New document. isDraft is false at the founder's explicit request
+// (legal review is being handled directly by them, outside this
+// codebase) — this does not mean a lawyer has confirmed this text.
+// Expanded out of what was a single "Prohibited uses" section in the old
+// combined Terms of Service draft (see git history) into its own policy,
+// referenced by both terms.ts and organizerTerms.ts rather than
+// duplicated in each.
 
 const fr: LegalSection[] = [
   {
@@ -149,7 +152,7 @@ export function getAcceptableUse(locale: Locale): LegalDocument {
   return {
     title: titles[locale],
     effectiveDate: meta.effectiveDate[locale],
-    isDraft: true,
+    isDraft: false,
     sections: bodies[locale],
   };
 }
