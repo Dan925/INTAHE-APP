@@ -44,12 +44,198 @@
     parent.appendChild(p);
   }
 
+  // Same widget as public/organizationDetailPage.js's create-event form —
+  // duplicated rather than shared, matching this codebase's existing
+  // pattern of each page script being self-contained (see that file's
+  // identical function for the full comment on how aiGenerated tracking
+  // works).
+  function buildAiDescriptionWidget(textarea, getEventName) {
+    var wrap = document.createElement('div');
+    wrap.style.margin = '8px 0 16px';
+
+    var toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'ghost small-btn';
+    toggleBtn.textContent = t('ai_description.toggle_button');
+    wrap.appendChild(toggleBtn);
+
+    var panel = document.createElement('div');
+    panel.className = 'card';
+    panel.style.display = 'none';
+    panel.style.marginTop = '8px';
+
+    var toneSelect = document.createElement('select');
+    ['professional', 'festive', 'casual', 'warm', 'concise'].forEach(function (key) {
+      var opt = document.createElement('option');
+      opt.value = t('ai_description.tone_' + key);
+      opt.textContent = t('ai_description.tone_' + key);
+      toneSelect.appendChild(opt);
+    });
+    panel.appendChild(toneSelect);
+
+    var instructionsInput = document.createElement('input');
+    instructionsInput.type = 'text';
+    instructionsInput.placeholder = t('ai_description.instructions_placeholder');
+    instructionsInput.style.display = 'block';
+    instructionsInput.style.marginTop = '8px';
+    panel.appendChild(instructionsInput);
+
+    var genError = document.createElement('div');
+    panel.appendChild(genError);
+
+    var genBtn = document.createElement('button');
+    genBtn.type = 'button';
+    genBtn.textContent = t('ai_description.generate_button');
+    genBtn.style.marginTop = '8px';
+    panel.appendChild(genBtn);
+
+    wrap.appendChild(panel);
+
+    toggleBtn.addEventListener('click', function () {
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+
+    genBtn.addEventListener('click', function () {
+      genError.textContent = '';
+      var eventName = getEventName();
+      if (!eventName) {
+        showError(genError, t('ai_description.name_required_error'));
+        return;
+      }
+
+      genBtn.disabled = true;
+      genBtn.textContent = t('ai_description.generate_button_wait');
+
+      var body = {
+        event_name: eventName,
+        tone: toneSelect.value,
+        locale: (window.intaheLocaleTag() || 'fr').slice(0, 2),
+      };
+      if (textarea.value.trim()) body.current_description = textarea.value.trim();
+      if (instructionsInput.value.trim()) body.custom_instructions = instructionsInput.value.trim();
+
+      api('/v1/organizations/' + orgId + '/events/ai-description', { method: 'POST', body: body })
+        .then(function (result) {
+          textarea.value = result.description;
+          textarea.dataset.aiGenerated = 'true';
+          genBtn.disabled = false;
+          genBtn.textContent = t('ai_description.generate_button');
+        })
+        .catch(function (err) {
+          var message =
+            err && err.code === 'ai_not_configured'
+              ? t('ai_description.not_configured_error')
+              : (err && err.message) || t('ai_description.generate_error');
+          showError(genError, message);
+          genBtn.disabled = false;
+          genBtn.textContent = t('ai_description.generate_button');
+        });
+    });
+
+    textarea.addEventListener('input', function () {
+      textarea.dataset.aiGenerated = 'false';
+    });
+
+    return wrap;
+  }
+
   function statusBadge(status) {
     var span = document.createElement('span');
     span.className =
       status === 'published' ? 'badge' : status === 'cancelled' ? 'badge badge-destructive' : 'badge badge-neutral';
     span.textContent = t('event_status.' + status) || status;
     return span;
+  }
+
+  // No description field existed anywhere on this page before — it only
+  // ever displayed event.description read-only, with nothing in the app
+  // (web or mobile) able to set or change it after creation. This renders
+  // either the current description with an edit button, or (when empty) a
+  // button to add one — both open the same inline textarea + AI-assist
+  // widget, saved via PATCH .../events/:eventId.
+  function renderDescriptionSection(event) {
+    var wrap = document.createElement('div');
+    wrap.style.marginTop = '8px';
+
+    var displayEl = document.createElement('div');
+    wrap.appendChild(displayEl);
+
+    function renderDisplay() {
+      displayEl.textContent = '';
+      if (event.description) {
+        var p = document.createElement('p');
+        p.textContent = event.description;
+        displayEl.appendChild(p);
+      }
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'ghost small-btn';
+      editBtn.textContent = event.description
+        ? t('manage_event.description_edit_button')
+        : t('manage_event.description_add_button');
+      editBtn.addEventListener('click', renderForm);
+      displayEl.appendChild(editBtn);
+    }
+
+    function renderForm() {
+      displayEl.textContent = '';
+
+      var textarea = document.createElement('textarea');
+      textarea.rows = 5;
+      textarea.style.width = '100%';
+      textarea.value = event.description || '';
+      displayEl.appendChild(textarea);
+
+      var aiWidgetContainer = document.createElement('div');
+      aiWidgetContainer.appendChild(
+        buildAiDescriptionWidget(textarea, function () {
+          return event.name;
+        }),
+      );
+      displayEl.appendChild(aiWidgetContainer);
+
+      var formError = document.createElement('div');
+      displayEl.appendChild(formError);
+
+      var actionsRow = document.createElement('div');
+      actionsRow.className = 'row';
+
+      var cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'ghost';
+      cancelBtn.textContent = t('manage_event.description_cancel_button');
+      cancelBtn.addEventListener('click', renderDisplay);
+      actionsRow.appendChild(cancelBtn);
+
+      var saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.textContent = t('manage_event.description_save_button');
+      saveBtn.addEventListener('click', function () {
+        formError.textContent = '';
+        saveBtn.disabled = true;
+        api('/v1/organizations/' + orgId + '/events/' + eventId, {
+          method: 'PATCH',
+          body: {
+            description: textarea.value.trim() || null,
+            description_ai_generated: textarea.dataset.aiGenerated === 'true',
+          },
+        })
+          .then(function (result) {
+            event.description = result.event.description;
+            renderDisplay();
+          })
+          .catch(function (err) {
+            showError(formError, (err && err.message) || t('manage_event.description_save_error'));
+            saveBtn.disabled = false;
+          });
+      });
+      actionsRow.appendChild(saveBtn);
+
+      displayEl.appendChild(actionsRow);
+    }
+
+    renderDisplay();
+    return wrap;
   }
 
   function load() {
@@ -139,11 +325,7 @@
       container.appendChild(shareBtn);
     }
 
-    if (event.description) {
-      var description = document.createElement('p');
-      description.textContent = event.description;
-      container.appendChild(description);
-    }
+    container.appendChild(renderDescriptionSection(event));
 
     var actionError = document.createElement('div');
     container.appendChild(actionError);

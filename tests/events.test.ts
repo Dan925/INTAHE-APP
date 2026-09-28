@@ -69,6 +69,29 @@ describe('POST /v1/organizations/:organizationId/events', () => {
     expect(res.body.error.field).toBe('end_at');
   });
 
+  it('rejects a name/description/address exceeding the per-field length limit', async () => {
+    const owner = await signupTestUser(app);
+    const org = await createOrg(owner);
+
+    const tooLongName = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ ...validEvent, name: 'a'.repeat(201) });
+    expect(tooLongName.status).toBe(400);
+
+    const tooLongDescription = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ ...validEvent, description: 'a'.repeat(5001) });
+    expect(tooLongDescription.status).toBe(400);
+
+    const tooLongAddress = await request(app)
+      .post(`/v1/organizations/${org.id}/events`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ ...validEvent, address: 'a'.repeat(301) });
+    expect(tooLongAddress.status).toBe(400);
+  });
+
   it('forbids a staff member from creating events (owner/admin only)', async () => {
     const owner = await signupTestUser(app);
     const staff = await signupTestUser(app);

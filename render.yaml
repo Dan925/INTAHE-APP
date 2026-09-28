@@ -79,6 +79,10 @@ services:
         value: '900000'
       - key: SALE_RATE_LIMIT_MAX
         value: '60'
+      - key: AI_DESCRIPTION_RATE_LIMIT_WINDOW_MS
+        value: '900000'
+      - key: AI_DESCRIPTION_RATE_LIMIT_MAX
+        value: '10'
       - key: PAYOUT_DELAY_HOURS
         value: '48'
       - key: PAYOUT_WORKER_INTERVAL_MS
@@ -106,6 +110,8 @@ services:
       - key: EMAIL_FROM_NAME
         value: Intahé
       - key: SENTRY_DSN
+        sync: false
+      - key: ANTHROPIC_API_KEY
         sync: false
 
   - type: web
@@ -167,6 +173,10 @@ services:
         value: '900000'
       - key: SALE_RATE_LIMIT_MAX
         value: '60'
+      - key: AI_DESCRIPTION_RATE_LIMIT_WINDOW_MS
+        value: '900000'
+      - key: AI_DESCRIPTION_RATE_LIMIT_MAX
+        value: '10'
       - key: PAYOUT_DELAY_HOURS
         value: '48'
       - key: PAYOUT_WORKER_INTERVAL_MS
@@ -194,6 +204,8 @@ services:
       - key: EMAIL_FROM_NAME
         value: Intahé
       - key: SENTRY_DSN
+        sync: false
+      - key: ANTHROPIC_API_KEY
         sync: false
       # Must be the custom domain, not left to the RENDER_EXTERNAL_URL
       # fallback (env.ts) — that resolves to the raw *.onrender.com URL,

@@ -6,6 +6,11 @@ import type { EventRow, EventStatus } from '../../types/db';
 export interface CreateEventInput {
   name: string;
   description?: string | undefined;
+  // True when `description` came from (or was rewritten by) the AI
+  // description generator (see routes/v1/events.ts's /ai-description) and
+  // the organizer chose to use it as-is. Client-asserted, not verified —
+  // same trust boundary as everything else in this input.
+  description_ai_generated?: boolean | undefined;
   start_at: string;
   end_at: string;
   address?: string | undefined;
@@ -20,6 +25,7 @@ export interface CreateEventInput {
 export interface UpdateEventInput {
   name?: string | undefined;
   description?: string | null | undefined;
+  description_ai_generated?: boolean | undefined;
   start_at?: string | undefined;
   end_at?: string | undefined;
   address?: string | null | undefined;
@@ -78,16 +84,17 @@ function notFound(): ApiError {
 export async function createEvent(organizationId: string, input: CreateEventInput): Promise<PublicEvent> {
   const result = await pool.query<EventRow>(
     `INSERT INTO events (
-       organization_id, name, description, start_at, end_at, address,
+       organization_id, name, description, description_ai_generated, start_at, end_at, address,
        latitude, longitude, cover_image_url, capacity, fees_absorbed_by_organizer,
        is_public_discoverable
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      RETURNING *`,
     [
       organizationId,
       input.name,
       input.description ?? null,
+      input.description_ai_generated ?? false,
       input.start_at,
       input.end_at,
       input.address ?? null,
@@ -126,6 +133,12 @@ export async function updateEvent(
   const fields: Array<[string, unknown]> = [];
   if ('name' in patch) fields.push(['name', patch.name]);
   if ('description' in patch) fields.push(['description', patch.description]);
+  // Only meaningful alongside a `description` change in the same request;
+  // if the caller updates description without this, it's left at
+  // whatever it already was rather than silently reset to false.
+  if ('description_ai_generated' in patch) {
+    fields.push(['description_ai_generated', patch.description_ai_generated]);
+  }
   if ('start_at' in patch) fields.push(['start_at', patch.start_at]);
   if ('end_at' in patch) fields.push(['end_at', patch.end_at]);
   if ('address' in patch) fields.push(['address', patch.address]);

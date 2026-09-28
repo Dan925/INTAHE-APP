@@ -44,6 +44,7 @@ router.get('/sitemap.xml', asyncHandler(async (_req, res) => {
     '/discover',
     '/login',
     '/signup',
+    '/forgot-password',
     '/legal/terms',
     '/legal/organizer-terms',
     '/legal/refund-policy',
@@ -230,6 +231,27 @@ router.get('/signup', (req, res) => {
     scriptSrc: '/signupPage.js',
     needsSession: true,
     bodyHtml: () => containerBody('signup-container'),
+  });
+});
+
+router.get('/forgot-password', (req, res) => {
+  page(req, res, {
+    title: (s) => s.forgot_password.title,
+    scriptSrc: '/forgotPasswordPage.js',
+    needsSession: true,
+    bodyHtml: () => containerBody('forgot-password-container'),
+  });
+});
+
+// The one page PASSWORD_RESET_URL points to (see .env.example) — without
+// it, the link in the reset email was a dead end: the confirm API route
+// existed, but nothing in either app ever rendered a form to submit to it.
+router.get('/reset-password', (req, res) => {
+  page(req, res, {
+    title: (s) => s.reset_password.title,
+    scriptSrc: '/resetPasswordPage.js',
+    needsSession: true,
+    bodyHtml: () => containerBody('reset-password-container'),
   });
 });
 

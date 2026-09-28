@@ -13,8 +13,15 @@ const router = Router({ mergeParams: true });
 
 router.use(requireAuth);
 
+// See routes/v1/events.ts's identical comment — previously bounded only
+// by the global 100KB request body limit, not per field.
+const QUICK_SALE_ITEM_NAME_MAX_LENGTH = 200;
+const READER_LOCATION_TEXT_MAX_LENGTH = 200;
+const READER_LOCATION_CITY_STATE_MAX_LENGTH = 100;
+const READER_LOCATION_POSTAL_CODE_MAX_LENGTH = 20;
+
 const createItemSchema = z.object({
-  name: z.string().trim().min(1, 'name is required.'),
+  name: z.string().trim().min(1, 'name is required.').max(QUICK_SALE_ITEM_NAME_MAX_LENGTH),
   price_cents: z.number().int().min(1),
   currency: z.string().trim().length(3).toLowerCase().optional(),
 });
@@ -113,13 +120,17 @@ router.get(
 );
 
 const setUpLocationSchema = z.object({
-  display_name: z.string().trim().min(1, 'display_name is required.'),
+  display_name: z.string().trim().min(1, 'display_name is required.').max(READER_LOCATION_TEXT_MAX_LENGTH),
   address: z.object({
-    line1: z.string().trim().min(1, 'address.line1 is required.'),
-    line2: z.string().trim().optional(),
-    city: z.string().trim().min(1, 'address.city is required.'),
-    state: z.string().trim().optional(),
-    postal_code: z.string().trim().min(1, 'address.postal_code is required.'),
+    line1: z.string().trim().min(1, 'address.line1 is required.').max(READER_LOCATION_TEXT_MAX_LENGTH),
+    line2: z.string().trim().max(READER_LOCATION_TEXT_MAX_LENGTH).optional(),
+    city: z.string().trim().min(1, 'address.city is required.').max(READER_LOCATION_CITY_STATE_MAX_LENGTH),
+    state: z.string().trim().max(READER_LOCATION_CITY_STATE_MAX_LENGTH).optional(),
+    postal_code: z
+      .string()
+      .trim()
+      .min(1, 'address.postal_code is required.')
+      .max(READER_LOCATION_POSTAL_CODE_MAX_LENGTH),
     country: z.string().trim().length(2, 'address.country must be a 2-letter code.').toUpperCase(),
   }),
 });

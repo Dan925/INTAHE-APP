@@ -12,8 +12,13 @@ const router = Router({ mergeParams: true });
 
 router.use(requireAuth);
 
+// qr_code is always a 32-char hex value in practice (crypto.randomBytes(16)
+// — see ticketService), but this endpoint takes whatever a scanner reads
+// off a real QR code, so it's client input, not internally generated —
+// bounded generously above the real format rather than validated against
+// it exactly.
 const checkInSchema = z.object({
-  qr_code: z.string().trim().min(1, 'qr_code is required.'),
+  qr_code: z.string().trim().min(1, 'qr_code is required.').max(200),
 });
 
 router.post(

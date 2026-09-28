@@ -13,6 +13,104 @@
     parent.appendChild(p);
   }
 
+  // Shared by the create-event form below — a collapsible "Generate with
+  // AI" panel next to a description textarea. getEventName is a function
+  // (not a value) because the name field is still being typed when this
+  // is built; reading it lazily at generate-time gets whatever the
+  // organizer has typed by then. textarea.dataset.aiGenerated tracks
+  // whether the current text came straight from a generation (cleared the
+  // moment the organizer types into the textarea themselves) — read by
+  // the caller at submit time to set description_ai_generated.
+  function buildAiDescriptionWidget(textarea, getEventName) {
+    var wrap = document.createElement('div');
+    wrap.style.margin = '8px 0 16px';
+
+    var toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'ghost small-btn';
+    toggleBtn.textContent = t('ai_description.toggle_button');
+    wrap.appendChild(toggleBtn);
+
+    var panel = document.createElement('div');
+    panel.className = 'card';
+    panel.style.display = 'none';
+    panel.style.marginTop = '8px';
+
+    var toneSelect = document.createElement('select');
+    ['professional', 'festive', 'casual', 'warm', 'concise'].forEach(function (key) {
+      var opt = document.createElement('option');
+      opt.value = t('ai_description.tone_' + key);
+      opt.textContent = t('ai_description.tone_' + key);
+      toneSelect.appendChild(opt);
+    });
+    panel.appendChild(toneSelect);
+
+    var instructionsInput = document.createElement('input');
+    instructionsInput.type = 'text';
+    instructionsInput.placeholder = t('ai_description.instructions_placeholder');
+    instructionsInput.style.display = 'block';
+    instructionsInput.style.marginTop = '8px';
+    panel.appendChild(instructionsInput);
+
+    var genError = document.createElement('div');
+    panel.appendChild(genError);
+
+    var genBtn = document.createElement('button');
+    genBtn.type = 'button';
+    genBtn.textContent = t('ai_description.generate_button');
+    genBtn.style.marginTop = '8px';
+    panel.appendChild(genBtn);
+
+    wrap.appendChild(panel);
+
+    toggleBtn.addEventListener('click', function () {
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+
+    genBtn.addEventListener('click', function () {
+      genError.textContent = '';
+      var eventName = getEventName();
+      if (!eventName) {
+        showError(genError, t('ai_description.name_required_error'));
+        return;
+      }
+
+      genBtn.disabled = true;
+      genBtn.textContent = t('ai_description.generate_button_wait');
+
+      var body = {
+        event_name: eventName,
+        tone: toneSelect.value,
+        locale: (window.intaheLocaleTag() || 'fr').slice(0, 2),
+      };
+      if (textarea.value.trim()) body.current_description = textarea.value.trim();
+      if (instructionsInput.value.trim()) body.custom_instructions = instructionsInput.value.trim();
+
+      api('/v1/organizations/' + orgId + '/events/ai-description', { method: 'POST', body: body })
+        .then(function (result) {
+          textarea.value = result.description;
+          textarea.dataset.aiGenerated = 'true';
+          genBtn.disabled = false;
+          genBtn.textContent = t('ai_description.generate_button');
+        })
+        .catch(function (err) {
+          var message =
+            err && err.code === 'ai_not_configured'
+              ? t('ai_description.not_configured_error')
+              : (err && err.message) || t('ai_description.generate_error');
+          showError(genError, message);
+          genBtn.disabled = false;
+          genBtn.textContent = t('ai_description.generate_button');
+        });
+    });
+
+    textarea.addEventListener('input', function () {
+      textarea.dataset.aiGenerated = 'false';
+    });
+
+    return wrap;
+  }
+
   function statusBadge(status) {
     var span = document.createElement('span');
     var cls =
@@ -382,6 +480,10 @@
       '<div class="field"><label for="event-name">' +
       t('organization_detail.event_name_label') +
       '</label><input id="event-name" type="text" required /></div>' +
+      '<div class="field"><label for="event-description">' +
+      t('organization_detail.description_label') +
+      '</label><textarea id="event-description" rows="5"></textarea></div>' +
+      '<div id="event-description-ai"></div>' +
       '<div class="field"><label for="event-start">' +
       t('organization_detail.start_label') +
       '</label><input id="event-start" type="datetime-local" required /></div>' +
@@ -421,6 +523,10 @@
     container.appendChild(createWrap);
 
     var nameInput = form.querySelector('#event-name');
+    var descriptionInput = form.querySelector('#event-description');
+    form
+      .querySelector('#event-description-ai')
+      .appendChild(buildAiDescriptionWidget(descriptionInput, function () { return nameInput.value.trim(); }));
     var startInput = form.querySelector('#event-start');
     var endInput = form.querySelector('#event-end');
     var addressInput = form.querySelector('#event-address');
@@ -465,6 +571,10 @@
         is_public_discoverable: discoverableInput.checked,
       };
       if (addressInput.value.trim()) payload.address = addressInput.value.trim();
+      if (descriptionInput.value.trim()) {
+        payload.description = descriptionInput.value.trim();
+        payload.description_ai_generated = descriptionInput.dataset.aiGenerated === 'true';
+      }
       if (coords) {
         payload.latitude = coords.latitude;
         payload.longitude = coords.longitude;

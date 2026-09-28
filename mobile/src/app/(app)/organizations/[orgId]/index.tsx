@@ -12,8 +12,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { useAuth } from '@/lib/auth-context';
-import { createEvent, listEvents, type Event } from '@/lib/events';
+import { ApiError, useAuth } from '@/lib/auth-context';
+import { createEvent, generateEventDescription, listEvents, type Event } from '@/lib/events';
 import { useTranslation } from '@/lib/i18n/context';
 import { getOrganization } from '@/lib/organizations';
 
@@ -23,7 +23,7 @@ export default function OrganizationScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const theme = useTheme();
-  const { t, localeTag } = useTranslation();
+  const { t, localeTag, locale } = useTranslation();
 
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,9 +35,16 @@ export default function OrganizationScreen() {
   const [startAt, setStartAt] = useState<string | null>(null);
   const [endAt, setEndAt] = useState<string | null>(null);
   const [address, setAddress] = useState('');
+  const [description, setDescription] = useState('');
+  const [descriptionAiGenerated, setDescriptionAiGenerated] = useState(false);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [isDiscoverable, setIsDiscoverable] = useState(false);
+
+  const [showAiTone, setShowAiTone] = useState(false);
+  const [aiTone, setAiTone] = useState('');
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -72,6 +79,9 @@ export default function OrganizationScreen() {
         start_at: startAt,
         end_at: endAt,
         ...(address.trim() ? { address: address.trim() } : {}),
+        ...(description.trim()
+          ? { description: description.trim(), description_ai_generated: descriptionAiGenerated }
+          : {}),
         ...(coords ?? {}),
         is_public_discoverable: isDiscoverable,
       });
@@ -79,6 +89,11 @@ export default function OrganizationScreen() {
       setStartAt(null);
       setEndAt(null);
       setAddress('');
+      setDescription('');
+      setDescriptionAiGenerated(false);
+      setShowAiTone(false);
+      setAiTone('');
+      setAiError(null);
       setCoords(null);
       setIsDiscoverable(false);
       setShowCreateForm(false);
@@ -87,6 +102,33 @@ export default function OrganizationScreen() {
       setError(err instanceof Error ? err.message : t('organization_detail.create_event_error'));
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  async function onGenerateDescription() {
+    if (!session || !name.trim()) {
+      setAiError(t('organization_detail.ai_name_required_error'));
+      return;
+    }
+    setIsGeneratingAi(true);
+    setAiError(null);
+    try {
+      const result = await generateEventDescription(session.token, orgId, {
+        event_name: name.trim(),
+        tone: aiTone.trim() || 'friendly and inviting',
+        locale,
+        ...(description.trim() ? { current_description: description.trim() } : {}),
+      });
+      setDescription(result.description);
+      setDescriptionAiGenerated(true);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'ai_not_configured') {
+        setAiError(t('organization_detail.ai_not_configured_error'));
+      } else {
+        setAiError(t('organization_detail.ai_generate_error'));
+      }
+    } finally {
+      setIsGeneratingAi(false);
     }
   }
 
@@ -146,6 +188,49 @@ export default function OrganizationScreen() {
               loading={isLocating}
               style={styles.locationButton}
             />
+            <TextField
+              label={t('organization_detail.description_label')}
+              value={description}
+              onChangeText={(value) => {
+                setDescription(value);
+                setDescriptionAiGenerated(false);
+              }}
+              multiline
+              numberOfLines={4}
+            />
+            {descriptionAiGenerated ? (
+              <ThemedText type="small" themeColor="textSecondary" style={styles.aiNote}>
+                {t('organization_detail.ai_generated_note')}
+              </ThemedText>
+            ) : null}
+            {showAiTone ? (
+              <View style={styles.aiToneBlock}>
+                <TextField
+                  label={t('organization_detail.ai_tone_label')}
+                  value={aiTone}
+                  onChangeText={setAiTone}
+                />
+                <Button
+                  title={isGeneratingAi ? t('organization_detail.ai_generate_wait') : t('organization_detail.ai_generate_button')}
+                  variant="ghost"
+                  onPress={onGenerateDescription}
+                  loading={isGeneratingAi}
+                  style={styles.locationButton}
+                />
+              </View>
+            ) : (
+              <Button
+                title={t('organization_detail.ai_toggle_button')}
+                variant="ghost"
+                onPress={() => setShowAiTone(true)}
+                style={styles.locationButton}
+              />
+            )}
+            {aiError ? (
+              <ThemedText type="small" themeColor="destructive" style={styles.aiNote}>
+                {aiError}
+              </ThemedText>
+            ) : null}
             <View style={styles.discoverableRow}>
               <View style={styles.discoverableText}>
                 <ThemedText type="smallBold">{t('organization_detail.discoverable_title')}</ThemedText>
@@ -237,6 +322,13 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.three,
     marginBottom: Spacing.three,
+  },
+  aiNote: {
+    marginTop: -Spacing.two,
+    marginBottom: Spacing.three,
+  },
+  aiToneBlock: {
+    marginBottom: Spacing.one,
   },
   discoverableRow: {
     flexDirection: 'row',

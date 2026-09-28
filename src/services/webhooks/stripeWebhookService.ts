@@ -12,7 +12,7 @@ import { sendEmail } from '../email/emailClient';
 import { retrieveAccount } from '../stripe/stripeConnect';
 import { generateTicketAccessToken, hashTicketAccessToken } from '../../utils/ticketAccessToken';
 import { markQuickSaleFailed, markQuickSalePaidAndPayOut } from '../quickSales/quickSaleService';
-import type { OrderLineItemRow, OrderRow } from '../../types/db';
+import type { AppliedTaxLine, OrderLineItemRow, OrderRow } from '../../types/db';
 
 // This Stripe account's connected accounts were set up as Accounts v2, whose
 // events arrive as v2.core.account.created/updated — a "thin" event carrying
@@ -25,11 +25,26 @@ interface StripeV2AccountEvent {
   related_object?: { id: string; type: string };
 }
 
+interface ConfirmedOrderLineItem {
+  ticketTypeName: string;
+  quantity: number;
+  unitPriceCents: number;
+}
+
 interface ConfirmedOrder {
   id: string;
   eventId: string;
+  eventName: string;
   buyerEmail: string;
   ticketAccessToken: string;
+  currency: string;
+  subtotalCents: number;
+  taxCents: number;
+  taxLines: AppliedTaxLine[];
+  stripeFeeCents: number;
+  intaheFeeCents: number;
+  totalCents: number;
+  lineItems: ConfirmedOrderLineItem[];
   capacityOvershootIncidents: CapacityOvershootIncident[];
 }
 
@@ -152,6 +167,21 @@ export async function markOrderPaidAndIssueTickets(paymentIntentId: string): Pro
       `SELECT * FROM order_line_items WHERE order_id = $1`,
       [order.id],
     );
+
+    // For the confirmation email's itemized receipt — ticket_type name and
+    // currency aren't on order_line_items itself (unit_price_cents is
+    // snapshotted there, but the name/currency are looked up fresh here;
+    // safe because a ticket type is never renamed after tickets are sold
+    // in a way that would make a past receipt look wrong in practice).
+    const ticketTypeNamesResult = await client.query<{ id: string; name: string; currency: string }>(
+      `SELECT id, name, currency FROM ticket_types WHERE id = ANY($1::uuid[])`,
+      [lineItemsResult.rows.map((line) => line.ticket_type_id)],
+    );
+    const ticketTypeById = new Map(ticketTypeNamesResult.rows.map((tt) => [tt.id, tt]));
+    const eventNameResult = await client.query<{ name: string }>(`SELECT name FROM events WHERE id = $1`, [
+      order.event_id,
+    ]);
+
     for (const line of lineItemsResult.rows) {
       for (let i = 0; i < line.quantity; i++) {
         const qrCode = crypto.randomBytes(16).toString('hex');
@@ -173,8 +203,21 @@ export async function markOrderPaidAndIssueTickets(paymentIntentId: string): Pro
     confirmedOrder = {
       id: order.id,
       eventId: order.event_id,
+      eventName: eventNameResult.rows[0]?.name ?? 'your event',
       buyerEmail: order.buyer_email,
       ticketAccessToken,
+      currency: ticketTypeNamesResult.rows[0]?.currency ?? 'usd',
+      subtotalCents: order.subtotal_cents,
+      taxCents: order.tax_cents,
+      taxLines: order.tax_lines,
+      stripeFeeCents: order.stripe_fee_cents,
+      intaheFeeCents: order.intahe_fee_cents,
+      totalCents: order.total_cents,
+      lineItems: lineItemsResult.rows.map((line) => ({
+        ticketTypeName: ticketTypeById.get(line.ticket_type_id)?.name ?? 'Ticket',
+        quantity: line.quantity,
+        unitPriceCents: line.unit_price_cents,
+      })),
       capacityOvershootIncidents,
     };
   } catch (err) {
@@ -195,31 +238,47 @@ export async function markOrderPaidAndIssueTickets(paymentIntentId: string): Pro
   // already committed, so a logging/email failure here must not look like
   // the payment confirmation itself failed.
   if (confirmedOrder) {
-    await deliverOrderConfirmationEmail(
-      confirmedOrder.buyerEmail,
-      confirmedOrder.eventId,
-      confirmedOrder.id,
-      confirmedOrder.ticketAccessToken,
-    );
+    await deliverOrderConfirmationEmail(confirmedOrder);
     for (const incident of confirmedOrder.capacityOvershootIncidents) {
       await notifyCapacityOvershoot(incident);
     }
   }
 }
 
-async function deliverOrderConfirmationEmail(
-  email: string,
-  eventId: string,
-  orderId: string,
-  ticketAccessToken: string,
-): Promise<void> {
-  const ticketsUrl = `${env.APP_BASE_URL}/events/${eventId}/orders/${orderId}/tickets?token=${encodeURIComponent(ticketAccessToken)}`;
+function formatMoney(cents: number, currency: string): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
+}
+
+async function deliverOrderConfirmationEmail(order: ConfirmedOrder): Promise<void> {
+  const ticketsUrl = `${env.APP_BASE_URL}/events/${order.eventId}/orders/${order.id}/tickets?token=${encodeURIComponent(order.ticketAccessToken)}`;
+
+  const lineItemsHtml = order.lineItems
+    .map(
+      (line) =>
+        `<tr><td>${line.quantity} × ${line.ticketTypeName}</td><td style="text-align:right">${formatMoney(line.unitPriceCents * line.quantity, order.currency)}</td></tr>`,
+    )
+    .join('');
+  const taxLinesHtml = order.taxLines
+    .map(
+      (line) =>
+        `<tr><td>${line.label} (${line.rate_percent}%)</td><td style="text-align:right">${formatMoney(line.amount_cents, order.currency)}</td></tr>`,
+    )
+    .join('');
+  const feesCents = order.totalCents - order.subtotalCents - order.taxCents;
+
   try {
     await sendEmail({
-      to: email,
+      to: order.buyerEmail,
       subject: 'Your Intahé order is confirmed',
-      html: `<p>Thanks for your purchase! Your order is confirmed.</p>
-<p>Order reference: <strong>${orderId}</strong></p>
+      html: `<p>Thanks for your purchase! Your order for <strong>${order.eventName}</strong> is confirmed.</p>
+<p>Order reference: <strong>${order.id}</strong></p>
+<table cellpadding="4" style="border-collapse:collapse;width:100%;max-width:400px">
+${lineItemsHtml}
+<tr><td>Subtotal</td><td style="text-align:right">${formatMoney(order.subtotalCents, order.currency)}</td></tr>
+${taxLinesHtml}
+${feesCents > 0 ? `<tr><td>Service fee</td><td style="text-align:right">${formatMoney(feesCents, order.currency)}</td></tr>` : ''}
+<tr><td><strong>Total paid</strong></td><td style="text-align:right"><strong>${formatMoney(order.totalCents, order.currency)}</strong></td></tr>
+</table>
 <p><a href="${ticketsUrl}">View your tickets</a></p>`,
     });
   } catch (err) {

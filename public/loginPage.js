@@ -42,6 +42,14 @@
   linksWrap.appendChild(signupLink);
   container.appendChild(linksWrap);
 
+  var forgotWrap = document.createElement('p');
+  var forgotLink = document.createElement('a');
+  forgotLink.href = '/forgot-password';
+  forgotLink.className = 'small';
+  forgotLink.textContent = window.intaheT('login.forgot_password_link');
+  forgotWrap.appendChild(forgotLink);
+  container.appendChild(forgotWrap);
+
   var discoverWrap = document.createElement('p');
   var discoverLink = document.createElement('a');
   discoverLink.href = '/discover';

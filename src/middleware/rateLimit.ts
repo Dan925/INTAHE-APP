@@ -140,3 +140,10 @@ function authenticatedUserId(req: Request): string | undefined {
 export const saleRateLimitByUser = wired(
   createTargetRateLimiter(env.SALE_RATE_LIMIT_WINDOW_MS, env.SALE_RATE_LIMIT_MAX, authenticatedUserId),
 );
+
+// Each request costs a real Claude API call — see env.ts's
+// AI_DESCRIPTION_RATE_LIMIT_* comment for why this is much tighter than
+// the other per-user limits above.
+export const aiDescriptionRateLimitByUser = wired(
+  createTargetRateLimiter(env.AI_DESCRIPTION_RATE_LIMIT_WINDOW_MS, env.AI_DESCRIPTION_RATE_LIMIT_MAX, authenticatedUserId),
+);

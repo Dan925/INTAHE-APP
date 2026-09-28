@@ -12,9 +12,14 @@ const router = Router();
 
 router.use(requireAuth);
 
+// See events.ts's identical comment — previously bounded only by the
+// global 100KB request body limit, not per field.
+const ORGANIZATION_NAME_MAX_LENGTH = 200;
+const ORGANIZATION_SLUG_MAX_LENGTH = 100;
+
 const createOrganizationSchema = z.object({
-  name: z.string().trim().min(1, 'name is required.'),
-  slug: z.string().trim().min(1).optional(),
+  name: z.string().trim().min(1, 'name is required.').max(ORGANIZATION_NAME_MAX_LENGTH),
+  slug: z.string().trim().min(1).max(ORGANIZATION_SLUG_MAX_LENGTH).optional(),
   logo_url: z.string().url().optional(),
   contact_email: z.string().trim().toLowerCase().email().optional(),
   // Required, not optional-with-a-default: an organization cannot be
@@ -69,7 +74,7 @@ const taxLineSchema = z.object({
 
 const updateOrganizationSchema = z
   .object({
-    name: z.string().trim().min(1).optional(),
+    name: z.string().trim().min(1).max(ORGANIZATION_NAME_MAX_LENGTH).optional(),
     logo_url: z.string().url().nullable().optional(),
     contact_email: z.string().trim().toLowerCase().email().nullable().optional(),
     tax_lines: z.array(taxLineSchema).max(5).optional(),

@@ -132,6 +132,24 @@ describe('POST /v1/stripe/webhook', () => {
     expect(ticketAccessTokenMatches(emailedToken, storedHash)).toBe(true);
   });
 
+  it('includes the full price breakdown (subtotal, fee, total) in the confirmation email', async () => {
+    const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
+    const { order } = await createPendingOrder(paymentIntentId);
+
+    await signedWebhookRequest({
+      id: `evt_${crypto.randomBytes(6).toString('hex')}`,
+      object: 'event',
+      type: 'payment_intent.succeeded',
+      data: { object: { id: paymentIntentId } },
+    });
+
+    const emailHtml = mockSendEmail.mock.calls[0]?.[0]?.html ?? '';
+    const format = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+    expect(emailHtml).toContain(format(order.subtotal_cents));
+    expect(emailHtml).toContain(format(order.total_cents));
+    expect(emailHtml).toContain('Total paid');
+  });
+
   it('is idempotent when Stripe redelivers the same event', async () => {
     const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
     const { order } = await createPendingOrder(paymentIntentId);

@@ -21,8 +21,12 @@ async function assertEventInOrganization(organizationId: string, eventId: string
   await eventService.getEvent(organizationId, eventId);
 }
 
+// See events.ts's identical comment — previously bounded only by the
+// global 100KB request body limit, not per field.
+const TICKET_TYPE_NAME_MAX_LENGTH = 200;
+
 const createSchema = z.object({
-  name: z.string().trim().min(1, 'name is required.'),
+  name: z.string().trim().min(1, 'name is required.').max(TICKET_TYPE_NAME_MAX_LENGTH),
   price_cents: z.number().int().min(0),
   currency: z.string().trim().length(3).toLowerCase().optional(),
   quantity_total: z.number().int().min(0),
@@ -71,7 +75,7 @@ router.get(
 
 const updateSchema = z
   .object({
-    name: z.string().trim().min(1).optional(),
+    name: z.string().trim().min(1).max(TICKET_TYPE_NAME_MAX_LENGTH).optional(),
     price_cents: z.number().int().min(0).optional(),
     quantity_total: z.number().int().min(0).optional(),
     sale_starts_at: z.string().datetime().nullable().optional(),

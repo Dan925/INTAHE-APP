@@ -45,6 +45,7 @@ export function createEvent(
     start_at: string;
     end_at: string;
     description?: string;
+    description_ai_generated?: boolean;
     address?: string;
     latitude?: number;
     longitude?: number;
@@ -52,6 +53,25 @@ export function createEvent(
   },
 ): Promise<{ event: Event }> {
   return apiRequest(`/v1/organizations/${organizationId}/events`, { method: 'POST', body: input, token });
+}
+
+// Doesn't need an eventId — used from the create-event form before the
+// event exists, same as the backend route (see routes/v1/events.ts).
+export function generateEventDescription(
+  token: string,
+  organizationId: string,
+  input: {
+    event_name: string;
+    tone: string;
+    locale: 'fr' | 'en';
+    current_description?: string;
+  },
+): Promise<{ description: string }> {
+  return apiRequest(`/v1/organizations/${organizationId}/events/ai-description`, {
+    method: 'POST',
+    body: input,
+    token,
+  });
 }
 
 export function publishEvent(

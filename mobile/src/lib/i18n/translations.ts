@@ -134,6 +134,7 @@ export interface Translations {
     start_label: string;
     end_label: string;
     address_label: string;
+    description_label: string;
     location_saved: string;
     use_current_location: string;
     discoverable_title: string;
@@ -142,6 +143,14 @@ export interface Translations {
     create_button: string;
     new_event_button: string;
     empty: string;
+    ai_toggle_button: string;
+    ai_tone_label: string;
+    ai_generate_button: string;
+    ai_generate_wait: string;
+    ai_generate_error: string;
+    ai_not_configured_error: string;
+    ai_name_required_error: string;
+    ai_generated_note: string;
   };
   org_members: {
     load_error: string;
@@ -435,6 +444,7 @@ export const fr: Translations = {
     start_label: 'Début',
     end_label: 'Fin',
     address_label: 'Adresse (optionnel)',
+    description_label: 'Description (optionnel)',
     location_saved: 'Position enregistrée ✓',
     use_current_location: 'Utiliser ma position actuelle',
     discoverable_title: 'Événement découvrable',
@@ -443,6 +453,14 @@ export const fr: Translations = {
     create_button: 'Créer',
     new_event_button: 'Nouvel événement',
     empty: 'Aucun événement pour l’instant.',
+    ai_toggle_button: '✨ Générer avec l’IA',
+    ai_tone_label: 'Ton souhaité (ex. festif, professionnel, décontracté)',
+    ai_generate_button: 'Générer',
+    ai_generate_wait: 'Génération…',
+    ai_generate_error: 'Impossible de générer le texte. Réessaie dans un instant.',
+    ai_not_configured_error: 'La génération par IA n’est pas encore configurée.',
+    ai_name_required_error: 'Ajoute le nom de l’événement avant de générer une description.',
+    ai_generated_note: 'Texte généré par IA — tu peux le modifier avant d’enregistrer.',
   },
   org_members: {
     load_error: 'Impossible de charger les membres.',
@@ -734,6 +752,7 @@ export const en: Translations = {
     start_label: 'Start',
     end_label: 'End',
     address_label: 'Address (optional)',
+    description_label: 'Description (optional)',
     location_saved: 'Location saved ✓',
     use_current_location: 'Use my current location',
     discoverable_title: 'Discoverable event',
@@ -742,6 +761,14 @@ export const en: Translations = {
     create_button: 'Create',
     new_event_button: 'New event',
     empty: 'No events yet.',
+    ai_toggle_button: '✨ Generate with AI',
+    ai_tone_label: 'Desired tone (e.g. fun, professional, laid-back)',
+    ai_generate_button: 'Generate',
+    ai_generate_wait: 'Generating…',
+    ai_generate_error: 'Unable to generate text. Try again in a moment.',
+    ai_not_configured_error: 'AI generation isn’t configured yet.',
+    ai_name_required_error: 'Add the event name before generating a description.',
+    ai_generated_note: 'AI-generated text — you can edit it before saving.',
   },
   org_members: {
     load_error: 'Unable to load members.',

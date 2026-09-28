@@ -87,6 +87,12 @@ export interface ServerStrings {
   signup: {
     title: string;
   };
+  forgot_password: {
+    title: string;
+  };
+  reset_password: {
+    title: string;
+  };
   organizations_page: {
     title: string;
   };
@@ -181,6 +187,8 @@ const fr: ServerStrings = {
   },
   login: { title: 'Connexion — Intahé' },
   signup: { title: 'Créer un compte — Intahé' },
+  forgot_password: { title: 'Mot de passe oublié — Intahé' },
+  reset_password: { title: 'Réinitialiser le mot de passe — Intahé' },
   organizations_page: { title: 'Organisations — Intahé' },
   organization_detail: { title: 'Organisation — Intahé' },
   org_members: { title: 'Membres — Intahé' },
@@ -241,6 +249,8 @@ const en: ServerStrings = {
   },
   login: { title: 'Log in — Intahé' },
   signup: { title: 'Create an account — Intahé' },
+  forgot_password: { title: 'Forgot password — Intahé' },
+  reset_password: { title: 'Reset password — Intahé' },
   organizations_page: { title: 'Organizations — Intahé' },
   organization_detail: { title: 'Organization — Intahé' },
   org_members: { title: 'Members — Intahé' },

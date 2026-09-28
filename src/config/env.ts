@@ -87,6 +87,11 @@ const envSchema = z.object({
   // 15 minutes.
   SALE_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
   SALE_RATE_LIMIT_MAX: z.coerce.number().default(60),
+  // Each call costs a real Claude API request — kept much tighter than the
+  // other per-user limits above, which only bound abuse of a free action.
+  // Keyed by user id, same reasoning as SALE_RATE_LIMIT_*.
+  AI_DESCRIPTION_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
+  AI_DESCRIPTION_RATE_LIMIT_MAX: z.coerce.number().default(10),
   // Placeholders let the app boot without real Stripe credentials; the
   // Stripe SDK requires a non-empty string but nothing calls the real API
   // until a genuine sk_test_/whsec_ value is configured.
@@ -152,8 +157,16 @@ const envSchema = z.object({
   // Sentry for alerting. Get a free DSN at sentry.io and set this in
   // Render once an account exists; nothing else needs to change.
   SENTRY_DSN: z.string().default(''),
-  // Frontend route the password reset email's link points to — a
-  // placeholder until a frontend exists to own it.
+  // Empty string is the "not configured" sentinel, same contract as
+  // SENTRY_DSN/RESEND_API_KEY above — the app boots fine without it, and
+  // the AI event-description endpoint just returns a clear
+  // ai_not_configured error until a real key is set (see
+  // services/ai/eventDescriptionService.ts). No fallback "logs instead of
+  // calling" mode the way email has, since there's nothing useful to do
+  // with a description-generation request otherwise.
+  ANTHROPIC_API_KEY: z.string().default(''),
+  // Frontend route the password reset email's link points to — served by
+  // this same app's /reset-password page (see src/web/routes.ts).
   PASSWORD_RESET_URL: z.string().url().default('http://localhost:3000/reset-password'),
   // Used to build absolute links (e.g. the order confirmation email's
   // "view your tickets" link) to this service's own public web pages.

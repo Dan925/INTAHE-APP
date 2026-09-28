@@ -16,11 +16,16 @@ import { validateBody } from '../../utils/validate';
 
 const router = Router();
 
+// Previously bounded only by the global 100KB request body limit, not per
+// field.
+const FULL_NAME_MAX_LENGTH = 200;
+const PHONE_MAX_LENGTH = 30;
+
 const signupSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8, 'Password must be at least 8 characters.'),
-  full_name: z.string().trim().min(1, 'full_name is required.'),
-  phone: z.string().trim().min(1).optional(),
+  full_name: z.string().trim().min(1, 'full_name is required.').max(FULL_NAME_MAX_LENGTH),
+  phone: z.string().trim().min(1).max(PHONE_MAX_LENGTH).optional(),
   // Required, not optional-with-a-default: an account cannot be created
   // without it, and a client that omits it gets a 400 rather than
   // silently having acceptance assumed on its behalf.
@@ -39,7 +44,7 @@ const googleSignInSchema = z.object({
 const appleSignInSchema = z.object({
   identity_token: z.string().min(1, 'identity_token is required.'),
   // Only present on the client's very first Apple sign-in for this app.
-  full_name: z.string().trim().min(1).optional(),
+  full_name: z.string().trim().min(1).max(FULL_NAME_MAX_LENGTH).optional(),
 });
 
 const passwordResetRequestSchema = z.object({

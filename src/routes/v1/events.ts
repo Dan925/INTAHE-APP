@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../../middleware/auth';
 import { requireOrgRole } from '../../middleware/requireOrgRole';
+import { aiDescriptionRateLimitByUser } from '../../middleware/rateLimit';
 import * as eventService from '../../services/events/eventService';
+import * as eventDescriptionService from '../../services/ai/eventDescriptionService';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parseLimit } from '../../utils/pagination';
 import { validateBody } from '../../utils/validate';
@@ -11,13 +13,21 @@ const router = Router({ mergeParams: true });
 
 router.use(requireAuth);
 
+// Previously bounded only by the global 100KB request body limit, not per
+// field — generous enough for real use (description is long-form, ~2
+// screens of text) while still rejecting an obviously-abusive payload.
+const EVENT_NAME_MAX_LENGTH = 200;
+const EVENT_DESCRIPTION_MAX_LENGTH = 5000;
+const EVENT_ADDRESS_MAX_LENGTH = 300;
+
 const createEventSchema = z
   .object({
-    name: z.string().trim().min(1, 'name is required.'),
-    description: z.string().trim().min(1).optional(),
+    name: z.string().trim().min(1, 'name is required.').max(EVENT_NAME_MAX_LENGTH),
+    description: z.string().trim().min(1).max(EVENT_DESCRIPTION_MAX_LENGTH).optional(),
+    description_ai_generated: z.boolean().optional(),
     start_at: z.string().datetime({ message: 'start_at must be an ISO 8601 datetime.' }),
     end_at: z.string().datetime({ message: 'end_at must be an ISO 8601 datetime.' }),
-    address: z.string().trim().min(1).optional(),
+    address: z.string().trim().min(1).max(EVENT_ADDRESS_MAX_LENGTH).optional(),
     latitude: z.number().min(-90).max(90).optional(),
     longitude: z.number().min(-180).max(180).optional(),
     cover_image_url: z.string().url().optional(),
@@ -51,6 +61,38 @@ router.get(
   }),
 );
 
+// Doesn't need an eventId — used from both the create-event form (before
+// the event exists) and the edit form on an existing event, with the same
+// request shape either way. organizationId is only used for auth
+// (admin-only, same bar as actually creating/editing the event) and rate
+// limiting; the generated text is never itself associated with the
+// organization until the caller actually saves it via POST/PATCH above.
+const aiDescriptionSchema = z.object({
+  event_name: z.string().trim().min(1, 'event_name is required.').max(EVENT_NAME_MAX_LENGTH),
+  tone: z.string().trim().min(1, 'tone is required.').max(100),
+  locale: z.enum(['fr', 'en']),
+  current_description: z.string().trim().max(EVENT_DESCRIPTION_MAX_LENGTH).optional(),
+  custom_instructions: z.string().trim().max(500).optional(),
+});
+
+router.post(
+  '/ai-description',
+  requireOrgRole('admin'),
+  aiDescriptionRateLimitByUser,
+  validateBody(aiDescriptionSchema),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof aiDescriptionSchema>;
+    const description = await eventDescriptionService.generateEventDescription({
+      eventName: body.event_name,
+      tone: body.tone,
+      locale: body.locale,
+      currentDescription: body.current_description,
+      customInstructions: body.custom_instructions,
+    });
+    res.status(200).json({ description });
+  }),
+);
+
 router.get(
   '/:eventId',
   requireOrgRole('volunteer'),
@@ -62,11 +104,12 @@ router.get(
 
 const updateEventSchema = z
   .object({
-    name: z.string().trim().min(1).optional(),
-    description: z.string().trim().min(1).nullable().optional(),
+    name: z.string().trim().min(1).max(EVENT_NAME_MAX_LENGTH).optional(),
+    description: z.string().trim().min(1).max(EVENT_DESCRIPTION_MAX_LENGTH).nullable().optional(),
+    description_ai_generated: z.boolean().optional(),
     start_at: z.string().datetime().optional(),
     end_at: z.string().datetime().optional(),
-    address: z.string().trim().min(1).nullable().optional(),
+    address: z.string().trim().min(1).max(EVENT_ADDRESS_MAX_LENGTH).nullable().optional(),
     latitude: z.number().min(-90).max(90).nullable().optional(),
     longitude: z.number().min(-180).max(180).nullable().optional(),
     cover_image_url: z.string().url().nullable().optional(),
