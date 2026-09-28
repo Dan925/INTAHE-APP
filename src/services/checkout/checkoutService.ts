@@ -7,7 +7,7 @@ import * as legalAcceptanceService from '../legal/legalAcceptanceService';
 import { captureError } from '../../config/sentry';
 import { ApiError } from '../../utils/errors';
 import { computeOrderFees } from '../../utils/fees';
-import type { AppliedTaxLine, EventRow, OrderRow, OrganizationRow, StripeChargeMode, TicketTypeRow } from '../../types/db';
+import type { AppliedTaxLine, EventRow, Locale, OrderRow, OrganizationRow, StripeChargeMode, TicketTypeRow } from '../../types/db';
 
 export interface CheckoutRequestContext {
   ipAddress: string | null;
@@ -46,6 +46,13 @@ export interface CheckoutLineItemInput {
 export interface CreateOrderInput {
   buyer_email: string;
   line_items: CheckoutLineItemInput[];
+  // The buyer's active app language at checkout, snapshotted onto the
+  // order so the confirmation email lands in the right language even for
+  // a guest with no account row to read a preference from later. Defaults
+  // to 'en' (matches the orders.buyer_locale column default) when the
+  // client doesn't send one — e.g. doorSaleService's staff-operated sale,
+  // where there's no buyer-facing language toggle to read from.
+  buyer_locale?: Locale | undefined;
   // True only for doorSaleService's org-staff-operated, physical-reader
   // sale — never set by the public checkout route, so the online buyer
   // flow's behavior can't change based on client input. See
@@ -331,16 +338,17 @@ export async function createOrder(
     // utils/ticketAccessToken.ts.
     const orderResult = await client.query<OrderRow>(
       `INSERT INTO orders (
-         event_id, buyer_user_id, buyer_email, subtotal_cents, stripe_fee_cents,
+         event_id, buyer_user_id, buyer_email, buyer_locale, subtotal_cents, stripe_fee_cents,
          intahe_fee_cents, tax_cents, tax_lines, total_cents, status, idempotency_key,
          idempotency_request_hash, reservation_expires_at, stripe_charge_mode
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, 'pending', $10, $11, $12, $13)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, 'pending', $11, $12, $13, $14)
        RETURNING *`,
       [
         eventId,
         buyerUserId,
         input.buyer_email,
+        input.buyer_locale ?? 'en',
         subtotalCents,
         stripeFeeCents,
         intaheFeeCents,

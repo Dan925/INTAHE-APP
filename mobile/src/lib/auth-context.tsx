@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { Platform } from 'react-native';
 
 import { ApiError, apiRequest } from '@/lib/api';
+import { useTranslation } from '@/lib/i18n/context';
 
 const STORAGE_KEY = 'intahe.session';
 // expo-secure-store has no web implementation — the app's real targets are
@@ -52,6 +53,7 @@ async function persistSession(session: Session | null): Promise<void> {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { locale } = useTranslation();
   const [session, setSession] = useState<Session | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
 
@@ -77,11 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (input: { email: string; password: string; full_name: string; phone?: string }) => {
       const result = await apiRequest<AuthResult>('/v1/auth/signup', {
         method: 'POST',
-        body: { ...input, accept_terms: true },
+        body: { ...input, locale, accept_terms: true },
       });
       await applyAuthResult(result);
     },
-    [applyAuthResult],
+    [applyAuthResult, locale],
   );
 
   const login = useCallback(
@@ -96,11 +98,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (input: { identityToken: string; fullName?: string }) => {
       const result = await apiRequest<AuthResult>('/v1/auth/apple', {
         method: 'POST',
-        body: { identity_token: input.identityToken, full_name: input.fullName },
+        body: { identity_token: input.identityToken, full_name: input.fullName, locale },
       });
       await applyAuthResult(result);
     },
-    [applyAuthResult],
+    [applyAuthResult, locale],
   );
 
   const logout = useCallback(async () => {

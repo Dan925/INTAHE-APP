@@ -78,6 +78,7 @@
         email: emailInput.value.trim().toLowerCase(),
         password: passwordInput.value,
         full_name: fullNameInput.value.trim(),
+        locale: window.intaheLocale(),
         accept_terms: true,
       }),
     })

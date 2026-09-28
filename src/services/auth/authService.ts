@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { pool } from '../../config/database';
 import { env } from '../../config/env';
 import { sendEmail } from '../email/emailClient';
+import { renderEmailButton, renderEmailLayout } from '../email/emailLayout';
 import { verifyAppleIdToken } from '../apple/appleAuthClient';
 import { verifyGoogleIdToken } from '../google/googleAuthClient';
 import * as legalAcceptanceService from '../legal/legalAcceptanceService';
@@ -9,7 +10,7 @@ import { captureError } from '../../config/sentry';
 import { ApiError } from '../../utils/errors';
 import { signAccessToken } from '../../utils/jwt';
 import { hashPassword, verifyPassword } from '../../utils/password';
-import type { PasswordResetTokenRow, UserRow } from '../../types/db';
+import type { Locale, PasswordResetTokenRow, UserRow } from '../../types/db';
 
 export interface SignupInput {
   email: string;
@@ -21,6 +22,12 @@ export interface SignupInput {
 export interface AuthRequestContext {
   ipAddress: string | null;
   userAgent: string | null;
+  // The language the client was actually using when it made this request
+  // (its own active i18n locale) — not inferred from headers, since a
+  // wrong guess is worse than the plain 'en' column default. Only read on
+  // the branch that creates a new user row; a returning user's stored
+  // preference is never overwritten by a later sign-in.
+  locale?: Locale | undefined;
 }
 
 /**
@@ -103,10 +110,10 @@ export async function signup(input: SignupInput, requestContext: AuthRequestCont
     await client.query('BEGIN');
 
     const result = await client.query<UserRow>(
-      `INSERT INTO users (email, password_hash, auth_provider, full_name, phone)
-       VALUES ($1, $2, 'email', $3, $4)
+      `INSERT INTO users (email, password_hash, auth_provider, full_name, phone, locale)
+       VALUES ($1, $2, 'email', $3, $4, $5)
        RETURNING *`,
-      [input.email, passwordHash, input.full_name, input.phone ?? null],
+      [input.email, passwordHash, input.full_name, input.phone ?? null, requestContext.locale ?? 'en'],
     );
     const user = result.rows[0];
     if (!user) {
@@ -196,10 +203,10 @@ export async function signInWithGoogle(idToken: string, requestContext: AuthRequ
     } else {
       const fallbackName = payload.fullName ?? payload.email.split('@')[0] ?? payload.email;
       const insertResult = await pool.query<UserRow>(
-        `INSERT INTO users (email, auth_provider, full_name, avatar_url, google_sub)
-         VALUES ($1, 'google', $2, $3, $4)
+        `INSERT INTO users (email, auth_provider, full_name, avatar_url, google_sub, locale)
+         VALUES ($1, 'google', $2, $3, $4, $5)
          RETURNING *`,
-        [payload.email, fallbackName, payload.avatarUrl, payload.sub],
+        [payload.email, fallbackName, payload.avatarUrl, payload.sub, requestContext.locale ?? 'en'],
       );
       user = insertResult.rows[0];
       // One-tap sign-in has no separate form step for a checkbox — the
@@ -262,10 +269,10 @@ export async function signInWithApple(
     } else {
       const resolvedName = fullName?.trim() || payload.email.split('@')[0] || payload.email;
       const insertResult = await pool.query<UserRow>(
-        `INSERT INTO users (email, auth_provider, full_name, apple_sub)
-         VALUES ($1, 'apple', $2, $3)
+        `INSERT INTO users (email, auth_provider, full_name, apple_sub, locale)
+         VALUES ($1, 'apple', $2, $3, $4)
          RETURNING *`,
-        [payload.email, resolvedName, payload.sub],
+        [payload.email, resolvedName, payload.sub, requestContext.locale ?? 'en'],
       );
       user = insertResult.rows[0];
       // See signInWithGoogle's identical comment — one-tap sign-in has no
@@ -301,7 +308,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
     [user.id, tokenHash, expiresAt],
   );
 
-  await deliverPasswordResetEmail(user.email, rawToken);
+  await deliverPasswordResetEmail(user.email, user.locale, rawToken);
 }
 
 export async function confirmPasswordReset(rawToken: string, newPassword: string): Promise<void> {
@@ -404,15 +411,40 @@ export async function deleteOwnAccount(userId: string, password?: string): Promi
   );
 }
 
-async function deliverPasswordResetEmail(email: string, rawToken: string): Promise<void> {
+const PASSWORD_RESET_COPY: Record<
+  Locale,
+  { subject: string; intro: string; expiry: (minutes: number) => string; ignore: string; button: string }
+> = {
+  en: {
+    subject: 'Reset your Intahé password',
+    intro: 'Someone requested a password reset for this account.',
+    expiry: (minutes) => `This link expires in ${minutes} minutes.`,
+    ignore: "If you didn't request this, you can safely ignore this email — your password hasn't changed.",
+    button: 'Reset your password',
+  },
+  fr: {
+    subject: 'Réinitialise ton mot de passe Intahé',
+    intro: 'Une demande de réinitialisation de mot de passe a été faite pour ce compte.',
+    expiry: (minutes) => `Ce lien expire dans ${minutes} minutes.`,
+    ignore: "Si ce n'était pas toi, tu peux ignorer ce courriel sans problème — ton mot de passe n'a pas changé.",
+    button: 'Réinitialiser mon mot de passe',
+  },
+};
+
+async function deliverPasswordResetEmail(email: string, locale: Locale, rawToken: string): Promise<void> {
   const resetUrl = `${env.PASSWORD_RESET_URL}?token=${encodeURIComponent(rawToken)}`;
+  const copy = PASSWORD_RESET_COPY[locale];
   try {
     await sendEmail({
       to: email,
-      subject: 'Reset your Intahé password',
-      html: `<p>Someone requested a password reset for this account.</p>
-<p><a href="${resetUrl}">Reset your password</a>. This link expires in ${env.PASSWORD_RESET_TOKEN_TTL_MINUTES} minutes.</p>
-<p>If you didn't request this, you can safely ignore this email.</p>`,
+      subject: copy.subject,
+      html: renderEmailLayout({
+        locale,
+        bodyHtml: `<p>${copy.intro}</p>
+<p>${renderEmailButton(resetUrl, copy.button)}</p>
+<p style="color:#6b5d4c;font-size:13px;">${copy.expiry(env.PASSWORD_RESET_TOKEN_TTL_MINUTES)}</p>
+<p style="color:#6b5d4c;font-size:13px;">${copy.ignore}</p>`,
+      }),
     });
   } catch (err) {
     // requestPasswordReset always returns 200 so this endpoint can't be

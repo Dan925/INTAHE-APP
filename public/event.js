@@ -249,6 +249,7 @@
           },
           body: JSON.stringify({
             buyer_email: buyerEmail,
+            buyer_locale: window.intaheLocale(),
             line_items: [{ ticket_type_id: selectedTicketTypeId, quantity: quantity }],
           }),
           timeoutMs: 30000,

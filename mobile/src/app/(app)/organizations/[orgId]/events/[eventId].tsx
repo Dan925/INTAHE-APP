@@ -27,7 +27,7 @@ export default function EventScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
-  const { t, localeTag } = useTranslation();
+  const { t, localeTag, locale } = useTranslation();
   const theme = useTheme();
 
   const [event, setEvent] = useState<Event | null>(null);
@@ -146,6 +146,7 @@ export default function EventScreen() {
     try {
       const result = await createOrder(session?.token ?? null, eventId, {
         buyer_email: buyerEmail.trim(),
+        buyer_locale: locale,
         line_items: [{ ticket_type_id: selectedTypeId, quantity: parsedQuantity }],
       });
       setCheckoutResult(result);

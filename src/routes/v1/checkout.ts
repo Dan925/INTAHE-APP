@@ -28,6 +28,10 @@ const router = Router({ mergeParams: true });
 const createOrderSchema = z
   .object({
     buyer_email: z.string().trim().toLowerCase().email(),
+    // Optional — the client's own active i18n locale, snapshotted onto the
+    // order so its confirmation email lands in the right language. Falls
+    // back to the orders.buyer_locale column default ('en') when omitted.
+    buyer_locale: z.enum(['fr', 'en']).optional(),
     line_items: z
       .array(
         z.object({

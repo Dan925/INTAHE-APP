@@ -176,6 +176,18 @@ describe('password reset flow', () => {
     expect(known.body).toEqual(unknown.body);
   });
 
+  it("sends the reset email in the account's locale, not the request's", async () => {
+    const frenchUser = { ...validSignup, email: 'julie@example.com', locale: 'fr' };
+    await request(app).post('/v1/auth/signup').send(frenchUser);
+    jest.clearAllMocks();
+    mockSendEmail.mockResolvedValue(undefined);
+
+    await request(app).post('/v1/auth/password-reset/request').send({ email: frenchUser.email });
+
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail.mock.calls[0]?.[0]?.subject).toContain('Réinitialise');
+  });
+
   it('resets the password and allows login with the new one', async () => {
     await request(app).post('/v1/auth/password-reset/request').send({ email: validSignup.email });
 

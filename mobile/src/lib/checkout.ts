@@ -35,7 +35,11 @@ export interface CheckoutResult {
 export function createOrder(
   token: string | null,
   eventId: string,
-  input: { buyer_email: string; line_items: { ticket_type_id: string; quantity: number }[] },
+  input: {
+    buyer_email: string;
+    buyer_locale?: 'fr' | 'en';
+    line_items: { ticket_type_id: string; quantity: number }[];
+  },
 ): Promise<CheckoutResult> {
   const idempotencyKey =
     globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;

@@ -9,10 +9,11 @@ import {
   type CapacityOvershootIncident,
 } from '../checkout/orderReleaseService';
 import { sendEmail } from '../email/emailClient';
+import { escapeHtml, renderEmailButton, renderEmailLayout } from '../email/emailLayout';
 import { retrieveAccount } from '../stripe/stripeConnect';
 import { generateTicketAccessToken, hashTicketAccessToken } from '../../utils/ticketAccessToken';
 import { markQuickSaleFailed, markQuickSalePaidAndPayOut } from '../quickSales/quickSaleService';
-import type { AppliedTaxLine, OrderLineItemRow, OrderRow } from '../../types/db';
+import type { AppliedTaxLine, Locale, OrderLineItemRow, OrderRow } from '../../types/db';
 
 // This Stripe account's connected accounts were set up as Accounts v2, whose
 // events arrive as v2.core.account.created/updated — a "thin" event carrying
@@ -36,6 +37,7 @@ interface ConfirmedOrder {
   eventId: string;
   eventName: string;
   buyerEmail: string;
+  buyerLocale: Locale;
   ticketAccessToken: string;
   currency: string;
   subtotalCents: number;
@@ -205,6 +207,7 @@ export async function markOrderPaidAndIssueTickets(paymentIntentId: string): Pro
       eventId: order.event_id,
       eventName: eventNameResult.rows[0]?.name ?? 'your event',
       buyerEmail: order.buyer_email,
+      buyerLocale: order.buyer_locale,
       ticketAccessToken,
       currency: ticketTypeNamesResult.rows[0]?.currency ?? 'usd',
       subtotalCents: order.subtotal_cents,
@@ -245,23 +248,52 @@ export async function markOrderPaidAndIssueTickets(paymentIntentId: string): Pro
   }
 }
 
-function formatMoney(cents: number, currency: string): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
+function formatMoney(cents: number, currency: string, locale: Locale): string {
+  return new Intl.NumberFormat(locale === 'fr' ? 'fr-CA' : 'en-US', {
+    style: 'currency',
+    currency: currency.toUpperCase(),
+  }).format(cents / 100);
 }
+
+const ORDER_CONFIRMATION_COPY: Record<
+  Locale,
+  { subject: (eventName: string) => string; intro: (eventName: string) => string; orderRef: string; subtotal: string; fee: string; total: string; viewTickets: string }
+> = {
+  en: {
+    subject: (eventName) => `Your order for ${eventName} is confirmed`,
+    intro: (eventName) => `Thanks for your purchase! Your tickets for <strong>${eventName}</strong> are confirmed — see you there.`,
+    orderRef: 'Order reference',
+    subtotal: 'Subtotal',
+    fee: 'Service fee',
+    total: 'Total paid',
+    viewTickets: 'View your tickets',
+  },
+  fr: {
+    subject: (eventName) => `Ta commande pour ${eventName} est confirmée`,
+    intro: (eventName) => `Merci pour ton achat! Tes billets pour <strong>${eventName}</strong> sont confirmés — on se voit là-bas.`,
+    orderRef: 'Numéro de commande',
+    subtotal: 'Sous-total',
+    fee: 'Frais de service',
+    total: 'Total payé',
+    viewTickets: 'Voir mes billets',
+  },
+};
 
 async function deliverOrderConfirmationEmail(order: ConfirmedOrder): Promise<void> {
   const ticketsUrl = `${env.APP_BASE_URL}/events/${order.eventId}/orders/${order.id}/tickets?token=${encodeURIComponent(order.ticketAccessToken)}`;
+  const copy = ORDER_CONFIRMATION_COPY[order.buyerLocale];
+  const eventName = escapeHtml(order.eventName);
 
   const lineItemsHtml = order.lineItems
     .map(
       (line) =>
-        `<tr><td>${line.quantity} × ${line.ticketTypeName}</td><td style="text-align:right">${formatMoney(line.unitPriceCents * line.quantity, order.currency)}</td></tr>`,
+        `<tr><td>${line.quantity} × ${escapeHtml(line.ticketTypeName)}</td><td style="text-align:right">${formatMoney(line.unitPriceCents * line.quantity, order.currency, order.buyerLocale)}</td></tr>`,
     )
     .join('');
   const taxLinesHtml = order.taxLines
     .map(
       (line) =>
-        `<tr><td>${line.label} (${line.rate_percent}%)</td><td style="text-align:right">${formatMoney(line.amount_cents, order.currency)}</td></tr>`,
+        `<tr><td>${escapeHtml(line.label)} (${line.rate_percent}%)</td><td style="text-align:right">${formatMoney(line.amount_cents, order.currency, order.buyerLocale)}</td></tr>`,
     )
     .join('');
   const feesCents = order.totalCents - order.subtotalCents - order.taxCents;
@@ -269,17 +301,20 @@ async function deliverOrderConfirmationEmail(order: ConfirmedOrder): Promise<voi
   try {
     await sendEmail({
       to: order.buyerEmail,
-      subject: 'Your Intahé order is confirmed',
-      html: `<p>Thanks for your purchase! Your order for <strong>${order.eventName}</strong> is confirmed.</p>
-<p>Order reference: <strong>${order.id}</strong></p>
+      subject: copy.subject(eventName),
+      html: renderEmailLayout({
+        locale: order.buyerLocale,
+        bodyHtml: `<p>${copy.intro(eventName)}</p>
+<p style="color:#6b5d4c;font-size:13px;">${copy.orderRef}: <strong>${order.id}</strong></p>
 <table cellpadding="4" style="border-collapse:collapse;width:100%;max-width:400px">
 ${lineItemsHtml}
-<tr><td>Subtotal</td><td style="text-align:right">${formatMoney(order.subtotalCents, order.currency)}</td></tr>
+<tr><td>${copy.subtotal}</td><td style="text-align:right">${formatMoney(order.subtotalCents, order.currency, order.buyerLocale)}</td></tr>
 ${taxLinesHtml}
-${feesCents > 0 ? `<tr><td>Service fee</td><td style="text-align:right">${formatMoney(feesCents, order.currency)}</td></tr>` : ''}
-<tr><td><strong>Total paid</strong></td><td style="text-align:right"><strong>${formatMoney(order.totalCents, order.currency)}</strong></td></tr>
+${feesCents > 0 ? `<tr><td>${copy.fee}</td><td style="text-align:right">${formatMoney(feesCents, order.currency, order.buyerLocale)}</td></tr>` : ''}
+<tr><td><strong>${copy.total}</strong></td><td style="text-align:right"><strong>${formatMoney(order.totalCents, order.currency, order.buyerLocale)}</strong></td></tr>
 </table>
-<p><a href="${ticketsUrl}">View your tickets</a></p>`,
+<p>${renderEmailButton(ticketsUrl, copy.viewTickets)}</p>`,
+      }),
     });
   } catch (err) {
     console.error('Failed to send order confirmation email:', err);

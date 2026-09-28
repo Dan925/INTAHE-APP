@@ -42,7 +42,7 @@ function signedWebhookRequest(eventPayload: unknown) {
     .send(payload);
 }
 
-async function createPendingOrder(paymentIntentId: string) {
+async function createPendingOrder(paymentIntentId: string, buyerLocale?: 'fr' | 'en') {
   const fixture = await createOrgAndPublishedEvent(app);
   const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
     quantity_total: 10,
@@ -55,7 +55,11 @@ async function createPendingOrder(paymentIntentId: string) {
   const checkoutRes = await request(app)
     .post(`/v1/events/${fixture.event.id}/orders`)
     .set('Idempotency-Key', crypto.randomUUID())
-    .send({ buyer_email: 'buyer@example.com', line_items: [{ ticket_type_id: ticketType.id, quantity: 2 }] });
+    .send({
+      buyer_email: 'buyer@example.com',
+      ...(buyerLocale ? { buyer_locale: buyerLocale } : {}),
+      line_items: [{ ticket_type_id: ticketType.id, quantity: 2 }],
+    });
 
   return { ...fixture, ticketType, order: checkoutRes.body.order };
 }
@@ -148,6 +152,23 @@ describe('POST /v1/stripe/webhook', () => {
     expect(emailHtml).toContain(format(order.subtotal_cents));
     expect(emailHtml).toContain(format(order.total_cents));
     expect(emailHtml).toContain('Total paid');
+  });
+
+  it('sends the confirmation email in French when the order was placed with buyer_locale=fr', async () => {
+    const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
+    await createPendingOrder(paymentIntentId, 'fr');
+
+    await signedWebhookRequest({
+      id: `evt_${crypto.randomBytes(6).toString('hex')}`,
+      object: 'event',
+      type: 'payment_intent.succeeded',
+      data: { object: { id: paymentIntentId } },
+    });
+
+    expect(mockSendEmail.mock.calls[0]?.[0]?.subject).toContain('commande');
+    const emailHtml = mockSendEmail.mock.calls[0]?.[0]?.html ?? '';
+    expect(emailHtml).toContain('Total payé');
+    expect(emailHtml).not.toContain('Total paid');
   });
 
   it('is idempotent when Stripe redelivers the same event', async () => {

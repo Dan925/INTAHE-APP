@@ -21,11 +21,18 @@ const router = Router();
 const FULL_NAME_MAX_LENGTH = 200;
 const PHONE_MAX_LENGTH = 30;
 
+// Not required — a client that omits it just gets the 'en' column default
+// (see routes below and authService) rather than a 400, since the
+// language a person is signing up in is a nice-to-have, not something
+// signup should be blocked on.
+const localeSchema = z.enum(['fr', 'en']).optional();
+
 const signupSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8, 'Password must be at least 8 characters.'),
   full_name: z.string().trim().min(1, 'full_name is required.').max(FULL_NAME_MAX_LENGTH),
   phone: z.string().trim().min(1).max(PHONE_MAX_LENGTH).optional(),
+  locale: localeSchema,
   // Required, not optional-with-a-default: an account cannot be created
   // without it, and a client that omits it gets a 400 rather than
   // silently having acceptance assumed on its behalf.
@@ -39,12 +46,14 @@ const loginSchema = z.object({
 
 const googleSignInSchema = z.object({
   id_token: z.string().min(1, 'id_token is required.'),
+  locale: localeSchema,
 });
 
 const appleSignInSchema = z.object({
   identity_token: z.string().min(1, 'identity_token is required.'),
   // Only present on the client's very first Apple sign-in for this app.
   full_name: z.string().trim().min(1).max(FULL_NAME_MAX_LENGTH).optional(),
+  locale: localeSchema,
 });
 
 const passwordResetRequestSchema = z.object({
@@ -62,9 +71,11 @@ router.post(
   signupRateLimitByEmail,
   validateBody(signupSchema),
   asyncHandler(async (req, res) => {
-    const result = await authService.signup(req.body as z.infer<typeof signupSchema>, {
+    const body = req.body as z.infer<typeof signupSchema>;
+    const result = await authService.signup(body, {
       ipAddress: req.ip ?? null,
       userAgent: req.headers['user-agent'] ?? null,
+      locale: body.locale,
     });
     res.status(201).json(result);
   }),
@@ -86,10 +97,11 @@ router.post(
   '/google',
   validateBody(googleSignInSchema),
   asyncHandler(async (req, res) => {
-    const { id_token } = req.body as z.infer<typeof googleSignInSchema>;
+    const { id_token, locale } = req.body as z.infer<typeof googleSignInSchema>;
     const result = await authService.signInWithGoogle(id_token, {
       ipAddress: req.ip ?? null,
       userAgent: req.headers['user-agent'] ?? null,
+      locale,
     });
     res.status(200).json(result);
   }),
@@ -99,10 +111,11 @@ router.post(
   '/apple',
   validateBody(appleSignInSchema),
   asyncHandler(async (req, res) => {
-    const { identity_token, full_name } = req.body as z.infer<typeof appleSignInSchema>;
+    const { identity_token, full_name, locale } = req.body as z.infer<typeof appleSignInSchema>;
     const result = await authService.signInWithApple(identity_token, full_name, {
       ipAddress: req.ip ?? null,
       userAgent: req.headers['user-agent'] ?? null,
+      locale,
     });
     res.status(200).json(result);
   }),

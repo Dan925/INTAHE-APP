@@ -23,6 +23,8 @@ export interface LegalAcceptanceRow {
 
 export type AuthProvider = 'email' | 'google' | 'apple';
 
+export type Locale = 'fr' | 'en';
+
 export interface UserRow {
   id: string;
   email: string;
@@ -36,6 +38,7 @@ export interface UserRow {
   // Only ever set by a direct SQL statement — no application route writes
   // this column. See 1787680400000_add-platform-admin-and-payout-holds.sql.
   is_platform_admin: boolean;
+  locale: Locale;
   created_at: Date;
   deleted_at: Date | null;
 }
@@ -144,6 +147,7 @@ export interface OrderRow {
   event_id: string;
   buyer_user_id: string | null;
   buyer_email: string;
+  buyer_locale: Locale;
   stripe_payment_intent_id: string | null;
   subtotal_cents: number;
   stripe_fee_cents: number;

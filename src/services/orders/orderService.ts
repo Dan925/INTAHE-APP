@@ -1,9 +1,10 @@
 import { pool } from '../../config/database';
 import { createRefund } from '../stripe/stripeRefunds';
 import { sendEmail } from '../email/emailClient';
+import { renderEmailLayout } from '../email/emailLayout';
 import { ApiError } from '../../utils/errors';
 import { buildPage, decodeCursor, encodeCursor, type CursorPage } from '../../utils/pagination';
-import type { OrderRow, OrganizationRow, RefundReason, TicketRow } from '../../types/db';
+import type { Locale, OrderRow, OrganizationRow, RefundReason, TicketRow } from '../../types/db';
 
 // The one place this decision is made: whether a refund reverses Intahe's
 // application fee back to the buyer depends only on *why* the order is
@@ -148,7 +149,8 @@ export async function refundOrder(
   reason: RefundReason,
 ): Promise<PublicOrder> {
   const client = await pool.connect();
-  let confirmationEmail: { to: string; amountCents: number; currency: string; orderId: string } | null = null;
+  let confirmationEmail: { to: string; locale: Locale; amountCents: number; currency: string; orderId: string } | null =
+    null;
   try {
     await client.query('BEGIN');
 
@@ -242,6 +244,7 @@ export async function refundOrder(
     await client.query('COMMIT');
     confirmationEmail = {
       to: updated.buyer_email,
+      locale: updated.buyer_locale,
       amountCents: requested,
       currency: currencyResult.rows[0]?.currency ?? 'usd',
       orderId,
@@ -261,6 +264,7 @@ export async function refundOrder(
     if (confirmationEmail) {
       await deliverRefundConfirmationEmail(
         confirmationEmail.to,
+        confirmationEmail.locale,
         confirmationEmail.orderId,
         confirmationEmail.amountCents,
         confirmationEmail.currency,
@@ -269,23 +273,49 @@ export async function refundOrder(
   }
 }
 
+const REFUND_CONFIRMATION_COPY: Record<
+  Locale,
+  { subject: string; processed: string; orderRef: string; amount: string; timing: string }
+> = {
+  en: {
+    subject: 'Your Intahé refund confirmation',
+    processed: 'Your refund has been processed.',
+    orderRef: 'Order reference',
+    amount: 'Amount refunded',
+    timing: 'Refunds typically appear on your original payment method within 5-10 business days, depending on your bank.',
+  },
+  fr: {
+    subject: 'Confirmation de remboursement Intahé',
+    processed: 'Ton remboursement a été traité.',
+    orderRef: 'Numéro de commande',
+    amount: 'Montant remboursé',
+    timing: 'Un remboursement apparaît généralement sur ton mode de paiement original dans un délai de 5 à 10 jours ouvrables, selon ta banque.',
+  },
+};
+
 async function deliverRefundConfirmationEmail(
   email: string,
+  locale: Locale,
   orderId: string,
   amountCents: number,
   currency: string,
 ): Promise<void> {
-  const formattedAmount = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(
-    amountCents / 100,
-  );
+  const copy = REFUND_CONFIRMATION_COPY[locale];
+  const formattedAmount = new Intl.NumberFormat(locale === 'fr' ? 'fr-CA' : 'en-US', {
+    style: 'currency',
+    currency: currency.toUpperCase(),
+  }).format(amountCents / 100);
   try {
     await sendEmail({
       to: email,
-      subject: 'Your Intahé refund confirmation',
-      html: `<p>Your refund has been processed.</p>
-<p>Order reference: <strong>${orderId}</strong></p>
-<p>Amount refunded: <strong>${formattedAmount}</strong></p>
-<p>Refunds typically appear on your original payment method within 5-10 business days, depending on your bank.</p>`,
+      subject: copy.subject,
+      html: renderEmailLayout({
+        locale,
+        bodyHtml: `<p>${copy.processed}</p>
+<p style="color:#6b5d4c;font-size:13px;">${copy.orderRef}: <strong>${orderId}</strong></p>
+<p>${copy.amount}: <strong>${formattedAmount}</strong></p>
+<p style="color:#6b5d4c;font-size:13px;">${copy.timing}</p>`,
+      }),
     });
   } catch (err) {
     console.error('Failed to send refund confirmation email:', err);

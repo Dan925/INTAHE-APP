@@ -39,6 +39,7 @@ async function purchaseAndConfirm(
   eventId: string,
   ticketTypeId: string,
   quantity: number,
+  buyerLocale?: 'fr' | 'en',
 ): Promise<{ orderId: string }> {
   const paymentIntentId = `pi_test_${crypto.randomBytes(6).toString('hex')}`;
   mockCreatePaymentIntent.mockResolvedValueOnce({
@@ -49,7 +50,11 @@ async function purchaseAndConfirm(
   const checkoutRes = await request(app)
     .post(`/v1/events/${eventId}/orders`)
     .set('Idempotency-Key', crypto.randomUUID())
-    .send({ buyer_email: 'buyer@example.com', line_items: [{ ticket_type_id: ticketTypeId, quantity }] });
+    .send({
+      buyer_email: 'buyer@example.com',
+      ...(buyerLocale ? { buyer_locale: buyerLocale } : {}),
+      line_items: [{ ticket_type_id: ticketTypeId, quantity }],
+    });
   if (checkoutRes.status !== 201) {
     throw new Error(`Checkout failed in test helper: ${JSON.stringify(checkoutRes.body)}`);
   }
@@ -415,13 +420,15 @@ describe('refund reason decides whether Intahe’s commission is reversed', () =
 });
 
 describe('refund confirmation email', () => {
-  async function setUpPaidOrder(): Promise<{ orgId: string; eventId: string; orderId: string; ownerToken: string }> {
+  async function setUpPaidOrder(
+    buyerLocale?: 'fr' | 'en',
+  ): Promise<{ orgId: string; eventId: string; orderId: string; ownerToken: string }> {
     const fixture = await createOrgAndPublishedEvent(app);
     const ticketType = await createTicketType(app, fixture.owner, fixture.organization.id, fixture.event.id, {
       price_cents: 2500,
       quantity_total: 10,
     });
-    const { orderId } = await purchaseAndConfirm(fixture.event.id, ticketType.id, 2);
+    const { orderId } = await purchaseAndConfirm(fixture.event.id, ticketType.id, 2, buyerLocale);
     return {
       orgId: fixture.organization.id,
       eventId: fixture.event.id,
@@ -448,6 +455,21 @@ describe('refund confirmation email', () => {
     expect(call.subject).toMatch(/refund/i);
     expect(call.html).toContain(ctx.orderId);
     expect(call.html).toContain(new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalCents / 100));
+  });
+
+  it('sends the French refund copy for an order placed with buyer_locale=fr', async () => {
+    const ctx = await setUpPaidOrder('fr');
+    mockSendEmail.mockClear();
+
+    const res = await request(app)
+      .post(`/v1/organizations/${ctx.orgId}/events/${ctx.eventId}/orders/${ctx.orderId}/refund`)
+      .set('Authorization', `Bearer ${ctx.ownerToken}`)
+      .send({ reason: 'buyer_request' });
+
+    expect(res.status).toBe(200);
+    const call = mockSendEmail.mock.calls[0]![0];
+    expect(call.subject).toBe('Confirmation de remboursement Intahé');
+    expect(call.html).toContain('Montant remboursé');
   });
 
   it('sends only the partial amount, not the order total, on a partial refund', async () => {
