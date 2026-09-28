@@ -16,6 +16,7 @@ export async function signupTestUser(app: Express, overrides: Partial<{ email: s
     email,
     password: 'correcthorsebattery',
     full_name: overrides.full_name ?? 'Test User',
+    accept_terms: true,
   });
   if (res.status !== 201) {
     throw new Error(`Signup failed in test helper: ${JSON.stringify(res.body)}`);

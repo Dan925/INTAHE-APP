@@ -48,6 +48,14 @@ describe('POST /v1/auth/apple', () => {
       password_hash: null,
       apple_sub: 'apple-sub-123',
     });
+
+    // No separate checkbox for a one-tap sign-in — acceptance is logged
+    // automatically on account creation (see authService.signInWithApple).
+    const acceptanceRows = await pool.query(
+      `SELECT document_type FROM legal_acceptances WHERE user_id = $1`,
+      [res.body.user.id],
+    );
+    expect(acceptanceRows.rows).toEqual([{ document_type: 'terms_of_use' }]);
   });
 
   it('returns the same user on a second sign-in with the same Apple account, without a name in the request', async () => {
@@ -68,7 +76,7 @@ describe('POST /v1/auth/apple', () => {
   it('links Apple to an existing email/password account by verified email, preserving password login', async () => {
     const signupRes = await request(app)
       .post('/v1/auth/signup')
-      .send({ email: 'jane@example.com', password: 'correcthorsebattery', full_name: 'Jane Original' });
+      .send({ email: 'jane@example.com', password: 'correcthorsebattery', full_name: 'Jane Original', accept_terms: true });
     expect(signupRes.status).toBe(201);
 
     mockApplePayload({ email: 'jane@example.com' });

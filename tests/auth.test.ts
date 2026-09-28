@@ -14,6 +14,7 @@ const validSignup = {
   email: 'jane@example.com',
   password: 'correcthorsebattery',
   full_name: 'Jane Doe',
+  accept_terms: true,
 };
 
 beforeEach(async () => {
@@ -66,6 +67,22 @@ describe('POST /v1/auth/signup', () => {
       .send({ ...validSignup, email: 'JANE@example.com' });
 
     expect(res.status).toBe(409);
+  });
+
+  it('rejects signup without accepting the Terms of Use, and records the acceptance when accepted', async () => {
+    const missing = await request(app)
+      .post('/v1/auth/signup')
+      .send({ email: validSignup.email, password: validSignup.password, full_name: validSignup.full_name });
+    expect(missing.status).toBe(400);
+
+    const res = await request(app).post('/v1/auth/signup').send(validSignup);
+    expect(res.status).toBe(201);
+
+    const rows = await pool.query(
+      `SELECT document_type FROM legal_acceptances WHERE user_id = $1`,
+      [res.body.user.id],
+    );
+    expect(rows.rows).toEqual([{ document_type: 'terms_of_use' }]);
   });
 });
 

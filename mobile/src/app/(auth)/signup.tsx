@@ -1,21 +1,25 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text } from 'react-native';
 
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useTranslation } from '@/lib/i18n/context';
 import { ApiError, useAuth } from '@/lib/auth-context';
+import { openLegalDocument } from '@/lib/legalLinks';
 
 export default function SignupScreen() {
   const { signup } = useAuth();
   const { t } = useTranslation();
+  const theme = useTheme();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,6 +27,10 @@ export default function SignupScreen() {
   async function onSubmit() {
     setEmailError(null);
     setFormError(null);
+    if (!acceptTerms) {
+      setFormError(t('signup.accept_required_error'));
+      return;
+    }
     setIsSubmitting(true);
     try {
       await signup({ email: email.trim().toLowerCase(), password, full_name: fullName.trim() });
@@ -69,13 +77,23 @@ export default function SignupScreen() {
             textContentType="newPassword"
           />
 
+          <ThemedView style={styles.acceptRow}>
+            <Switch value={acceptTerms} onValueChange={setAcceptTerms} trackColor={{ true: theme.primary, false: theme.border }} />
+            <Text style={[styles.acceptText, { color: theme.textSecondary }]}>
+              {t('signup.accept_terms_prefix')}
+              <Text style={{ color: theme.primary }} onPress={() => openLegalDocument('terms')}>
+                {t('signup.accept_terms_link')}
+              </Text>
+            </Text>
+          </ThemedView>
+
           {formError ? (
             <ThemedText type="small" themeColor="destructive" style={styles.error}>
               {formError}
             </ThemedText>
           ) : null}
 
-          <Button title={t('signup.submit')} onPress={onSubmit} loading={isSubmitting} />
+          <Button title={t('signup.submit')} onPress={onSubmit} loading={isSubmitting} disabled={!acceptTerms} />
 
           <Link href="/(auth)/login" style={styles.link}>
             <ThemedText type="linkPrimary" themeColor="primary">
@@ -106,5 +124,16 @@ const styles = StyleSheet.create({
   link: {
     marginTop: Spacing.four,
     alignSelf: 'center',
+  },
+  acceptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+    marginBottom: Spacing.three,
+  },
+  acceptText: {
+    flex: 1,
+    fontSize: 13,
   },
 });

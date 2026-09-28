@@ -21,6 +21,10 @@ const signupSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters.'),
   full_name: z.string().trim().min(1, 'full_name is required.'),
   phone: z.string().trim().min(1).optional(),
+  // Required, not optional-with-a-default: an account cannot be created
+  // without it, and a client that omits it gets a 400 rather than
+  // silently having acceptance assumed on its behalf.
+  accept_terms: z.literal(true, { errorMap: () => ({ message: 'You must accept the Terms of Use.' }) }),
 });
 
 const loginSchema = z.object({
@@ -53,7 +57,10 @@ router.post(
   signupRateLimitByEmail,
   validateBody(signupSchema),
   asyncHandler(async (req, res) => {
-    const result = await authService.signup(req.body as z.infer<typeof signupSchema>);
+    const result = await authService.signup(req.body as z.infer<typeof signupSchema>, {
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers['user-agent'] ?? null,
+    });
     res.status(201).json(result);
   }),
 );
@@ -75,7 +82,10 @@ router.post(
   validateBody(googleSignInSchema),
   asyncHandler(async (req, res) => {
     const { id_token } = req.body as z.infer<typeof googleSignInSchema>;
-    const result = await authService.signInWithGoogle(id_token);
+    const result = await authService.signInWithGoogle(id_token, {
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers['user-agent'] ?? null,
+    });
     res.status(200).json(result);
   }),
 );
@@ -85,7 +95,10 @@ router.post(
   validateBody(appleSignInSchema),
   asyncHandler(async (req, res) => {
     const { identity_token, full_name } = req.body as z.infer<typeof appleSignInSchema>;
-    const result = await authService.signInWithApple(identity_token, full_name);
+    const result = await authService.signInWithApple(identity_token, full_name, {
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers['user-agent'] ?? null,
+    });
     res.status(200).json(result);
   }),
 );

@@ -194,14 +194,14 @@ describe('rate limiting wired onto the real routes', () => {
       const res = await request(app)
         .post('/v1/auth/signup')
         .set('X-Forwarded-For', `10.3.0.${i}`)
-        .send({ email, password: 'correcthorsebattery', full_name: 'Rate Limit Test' });
+        .send({ email, password: 'correcthorsebattery', full_name: 'Rate Limit Test', accept_terms: true });
       expect(res.status).not.toBe(429);
     }
 
     const blocked = await request(app)
       .post('/v1/auth/signup')
       .set('X-Forwarded-For', '10.3.0.250')
-      .send({ email, password: 'correcthorsebattery', full_name: 'Rate Limit Test' });
+      .send({ email, password: 'correcthorsebattery', full_name: 'Rate Limit Test', accept_terms: true });
     expect(blocked.status).toBe(429);
     expect(blocked.headers['retry-after']).toBeDefined();
   });

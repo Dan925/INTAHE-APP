@@ -38,12 +38,17 @@ describe('POST /v1/organizations', () => {
     );
     expect(memberRows.rows).toEqual([{ role: 'owner' }]);
 
+    // One terms_of_use row from signup itself (signupTestUser), plus a
+    // second terms_of_use + one organizer_terms row from creating the
+    // organization — re-affirming Terms of Use at org-creation time is
+    // deliberate, not a duplicate bug (see organizationService.createOrganization).
     const acceptanceRows = await pool.query(
       `SELECT document_type, document_version FROM legal_acceptances WHERE user_id = $1 ORDER BY document_type`,
       [user.userId],
     );
     expect(acceptanceRows.rows).toEqual([
       { document_type: 'organizer_terms', document_version: expect.any(String) },
+      { document_type: 'terms_of_use', document_version: expect.any(String) },
       { document_type: 'terms_of_use', document_version: expect.any(String) },
     ]);
   });

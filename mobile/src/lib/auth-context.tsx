@@ -75,7 +75,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = useCallback(
     async (input: { email: string; password: string; full_name: string; phone?: string }) => {
-      const result = await apiRequest<AuthResult>('/v1/auth/signup', { method: 'POST', body: input });
+      const result = await apiRequest<AuthResult>('/v1/auth/signup', {
+        method: 'POST',
+        body: { ...input, accept_terms: true },
+      });
       await applyAuthResult(result);
     },
     [applyAuthResult],

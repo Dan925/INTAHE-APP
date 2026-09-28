@@ -4,6 +4,8 @@ import { env } from '../../config/env';
 import { sendEmail } from '../email/emailClient';
 import { verifyAppleIdToken } from '../apple/appleAuthClient';
 import { verifyGoogleIdToken } from '../google/googleAuthClient';
+import * as legalAcceptanceService from '../legal/legalAcceptanceService';
+import { captureError } from '../../config/sentry';
 import { ApiError } from '../../utils/errors';
 import { signAccessToken } from '../../utils/jwt';
 import { hashPassword, verifyPassword } from '../../utils/password';
@@ -14,6 +16,30 @@ export interface SignupInput {
   password: string;
   full_name: string;
   phone?: string | undefined;
+}
+
+export interface AuthRequestContext {
+  ipAddress: string | null;
+  userAgent: string | null;
+}
+
+/**
+ * Best-effort, deliberately non-fatal: a logging failure here must never
+ * turn a successful signup/sign-in into an error response. Only called on
+ * the branch that actually creates a new user row — a returning user
+ * signing in again (Google/Apple) doesn't re-accept anything.
+ */
+async function recordAccountCreationAcceptance(userId: string, context: AuthRequestContext): Promise<void> {
+  try {
+    await legalAcceptanceService.recordAcceptance({
+      userId,
+      documentType: 'terms_of_use',
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+  } catch (err) {
+    captureError(err, { message: 'Failed to record account-creation legal acceptance', userId });
+  }
 }
 
 export interface PublicUser {
@@ -56,26 +82,57 @@ async function findActiveUserByEmail(email: string): Promise<UserRow | undefined
   return result.rows[0];
 }
 
-export async function signup(input: SignupInput): Promise<AuthResult> {
+/**
+ * The route validates accept_terms as a required literal `true` before
+ * this is ever called (see routes/v1/auth.ts) — signing up without
+ * accepting is not a state this function can reach. The acceptance
+ * record is inserted in the same transaction as the user row itself: if
+ * it fails, the whole signup rolls back rather than leaving an account
+ * that exists with no corresponding acceptance record.
+ */
+export async function signup(input: SignupInput, requestContext: AuthRequestContext): Promise<AuthResult> {
   const existing = await findActiveUserByEmail(input.email);
   if (existing) {
     throw new ApiError(409, 'email_already_registered', 'An account with this email already exists.', 'email');
   }
 
   const passwordHash = await hashPassword(input.password);
-  const result = await pool.query<UserRow>(
-    `INSERT INTO users (email, password_hash, auth_provider, full_name, phone)
-     VALUES ($1, $2, 'email', $3, $4)
-     RETURNING *`,
-    [input.email, passwordHash, input.full_name, input.phone ?? null],
-  );
-  const user = result.rows[0];
-  if (!user) {
-    throw new Error('Insert into users did not return a row.');
-  }
 
-  const accessToken = signAccessToken({ sub: user.id, email: user.email });
-  return { user: toPublicUser(user), access_token: accessToken };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await client.query<UserRow>(
+      `INSERT INTO users (email, password_hash, auth_provider, full_name, phone)
+       VALUES ($1, $2, 'email', $3, $4)
+       RETURNING *`,
+      [input.email, passwordHash, input.full_name, input.phone ?? null],
+    );
+    const user = result.rows[0];
+    if (!user) {
+      throw new Error('Insert into users did not return a row.');
+    }
+
+    await legalAcceptanceService.recordAcceptance(
+      {
+        userId: user.id,
+        documentType: 'terms_of_use',
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+      },
+      client,
+    );
+
+    await client.query('COMMIT');
+
+    const accessToken = signAccessToken({ sub: user.id, email: user.email });
+    return { user: toPublicUser(user), access_token: accessToken };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
@@ -101,7 +158,7 @@ export async function login(email: string, password: string): Promise<AuthResult
  * duplicate. Creates a brand-new `auth_provider = 'google'` user only if
  * neither lookup finds anyone.
  */
-export async function signInWithGoogle(idToken: string): Promise<AuthResult> {
+export async function signInWithGoogle(idToken: string, requestContext: AuthRequestContext): Promise<AuthResult> {
   let payload;
   try {
     payload = await verifyGoogleIdToken(idToken);
@@ -145,6 +202,13 @@ export async function signInWithGoogle(idToken: string): Promise<AuthResult> {
         [payload.email, fallbackName, payload.avatarUrl, payload.sub],
       );
       user = insertResult.rows[0];
+      // One-tap sign-in has no separate form step for a checkbox — the
+      // button itself carries a "by continuing you agree..." notice (see
+      // the mobile login screen), and this records that acceptance
+      // automatically, same as checkoutService does for a buyer's click.
+      if (user) {
+        await recordAccountCreationAcceptance(user.id, requestContext);
+      }
     }
   }
 
@@ -165,7 +229,11 @@ export async function signInWithGoogle(idToken: string): Promise<AuthResult> {
  * to the client directly, never puts it in the token) — every later
  * sign-in omits it, so it's optional here and only used on the create path.
  */
-export async function signInWithApple(identityToken: string, fullName?: string): Promise<AuthResult> {
+export async function signInWithApple(
+  identityToken: string,
+  fullName: string | undefined,
+  requestContext: AuthRequestContext,
+): Promise<AuthResult> {
   let payload;
   try {
     payload = await verifyAppleIdToken(identityToken);
@@ -200,6 +268,11 @@ export async function signInWithApple(identityToken: string, fullName?: string):
         [payload.email, resolvedName, payload.sub],
       );
       user = insertResult.rows[0];
+      // See signInWithGoogle's identical comment — one-tap sign-in has no
+      // separate checkbox step, so this is logged automatically instead.
+      if (user) {
+        await recordAccountCreationAcceptance(user.id, requestContext);
+      }
     }
   }
 

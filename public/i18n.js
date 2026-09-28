@@ -74,6 +74,10 @@ window.__INTAHE_I18N__ = {
       email_taken: 'Un compte existe déjà avec cet email.',
       already_account: 'Déjà un compte ? Connecte-toi',
       error_generic: 'Une erreur est survenue. Réessaie.',
+      accept_terms_label: 'J’accepte les <a href="/legal/terms" target="_blank" rel="noopener">Conditions d’utilisation</a>',
+      accept_required_error: 'Tu dois accepter les Conditions d’utilisation pour créer un compte.',
+      cookie_notice:
+        'Ce site utilise un témoin (cookie) pour retenir ta préférence de langue, et le stockage local de ton navigateur pour garder ta session. Voir notre <a href="/legal/privacy" target="_blank" rel="noopener">Politique de confidentialité</a>.',
     },
     roles: {
       owner: 'Propriétaire',
@@ -489,6 +493,10 @@ window.__INTAHE_I18N__ = {
       email_taken: 'An account already exists with this email.',
       already_account: 'Already have an account? Sign in',
       error_generic: 'Something went wrong. Try again.',
+      accept_terms_label: 'I agree to the <a href="/legal/terms" target="_blank" rel="noopener">Terms of Use</a>',
+      accept_required_error: 'You must accept the Terms of Use to create an account.',
+      cookie_notice:
+        'This site uses a cookie to remember your language preference, and your browser’s local storage to keep you signed in. See our <a href="/legal/privacy" target="_blank" rel="noopener">Privacy Policy</a>.',
     },
     roles: {
       owner: 'Owner',

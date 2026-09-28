@@ -13,6 +13,9 @@ export interface Translations {
     discover_link: string;
     or_divider: string;
     apple_error: string;
+    apple_notice_prefix: string;
+    apple_notice_terms_link: string;
+    apple_notice_suffix: string;
   };
   signup: {
     title: string;
@@ -23,6 +26,9 @@ export interface Translations {
     submit: string;
     email_taken: string;
     already_account: string;
+    accept_terms_prefix: string;
+    accept_terms_link: string;
+    accept_required_error: string;
   };
   discover: {
     header_title: string;
@@ -305,6 +311,9 @@ export const fr: Translations = {
     discover_link: 'Découvrir des événements sans compte',
     or_divider: 'ou',
     apple_error: 'La connexion avec Apple a échoué. Réessaie.',
+    apple_notice_prefix: 'En continuant, tu acceptes nos ',
+    apple_notice_terms_link: "Conditions d'utilisation",
+    apple_notice_suffix: '.',
   },
   signup: {
     title: 'Créer un compte',
@@ -315,6 +324,9 @@ export const fr: Translations = {
     submit: 'Créer le compte',
     email_taken: 'Un compte existe déjà avec cet email.',
     already_account: 'Déjà un compte ? Connecte-toi',
+    accept_terms_prefix: "J'accepte les ",
+    accept_terms_link: "Conditions d'utilisation",
+    accept_required_error: "Tu dois accepter les Conditions d'utilisation pour créer un compte.",
   },
   discover: {
     header_title: 'Découvrir',
@@ -600,6 +612,9 @@ export const en: Translations = {
     discover_link: 'Discover events without an account',
     or_divider: 'or',
     apple_error: 'Sign in with Apple failed. Try again.',
+    apple_notice_prefix: 'By continuing, you agree to our ',
+    apple_notice_terms_link: 'Terms of Use',
+    apple_notice_suffix: '.',
   },
   signup: {
     title: 'Create an account',
@@ -610,6 +625,9 @@ export const en: Translations = {
     submit: 'Create account',
     email_taken: 'An account already exists with this email.',
     already_account: 'Already have an account? Sign in',
+    accept_terms_prefix: 'I agree to the ',
+    accept_terms_link: 'Terms of Use',
+    accept_required_error: 'You must accept the Terms of Use to create an account.',
   },
   discover: {
     header_title: 'Discover',

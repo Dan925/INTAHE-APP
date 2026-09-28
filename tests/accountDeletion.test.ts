@@ -82,7 +82,7 @@ describe('DELETE /v1/me', () => {
 
     const resignupRes = await request(app)
       .post('/v1/auth/signup')
-      .send({ email: 'jane@example.com', password: 'a-different-password', full_name: 'New Jane' });
+      .send({ email: 'jane@example.com', password: 'a-different-password', full_name: 'New Jane', accept_terms: true });
     expect(resignupRes.status).toBe(201);
   });
 

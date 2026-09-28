@@ -34,8 +34,11 @@ describe('POST /v1/legal/acceptances', () => {
     expect(res.body.document_type).toBe('stripe_connected_account_agreement');
     expect(res.body.document_version).toBe(LEGAL_DOCUMENT_VERSIONS.stripe_connected_account_agreement.version);
 
+    // Filtered to this document_type: signupTestUser's own signup call
+    // already logged a separate terms_of_use row for this same user.
     const row = await pool.query(
-      `SELECT user_id, document_type, document_version, user_agent, ip_address FROM legal_acceptances WHERE user_id = $1`,
+      `SELECT user_id, document_type, document_version, user_agent, ip_address FROM legal_acceptances
+       WHERE user_id = $1 AND document_type = 'stripe_connected_account_agreement'`,
       [user.userId],
     );
     expect(row.rows).toHaveLength(1);
@@ -57,7 +60,7 @@ describe('POST /v1/legal/acceptances', () => {
 });
 
 describe('GET /v1/legal/acceptances/outstanding', () => {
-  it('lists terms_of_use and organizer_terms as outstanding before an organization is ever created', async () => {
+  it('lists organizer_terms as outstanding before an organization is ever created (terms_of_use is already accepted at signup)', async () => {
     const user = await signupTestUser(app);
 
     const res = await request(app)
@@ -65,7 +68,7 @@ describe('GET /v1/legal/acceptances/outstanding', () => {
       .set('Authorization', `Bearer ${user.accessToken}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.outstanding.sort()).toEqual(['organizer_terms', 'terms_of_use']);
+    expect(res.body.outstanding).toEqual(['organizer_terms']);
   });
 
   it('is empty once an organization has been created (both accepted together)', async () => {

@@ -1,7 +1,7 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Link } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
@@ -9,13 +9,16 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/hooks/use-theme';
 import { useTranslation } from '@/lib/i18n/context';
 import { ApiError, useAuth } from '@/lib/auth-context';
+import { openLegalDocument } from '@/lib/legalLinks';
 
 export default function LoginScreen() {
   const { login, loginWithApple } = useAuth();
   const { t, locale, setLocale } = useTranslation();
   const colorScheme = useColorScheme();
+  const theme = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +120,13 @@ export default function LoginScreen() {
               <ThemedText type="small" themeColor="textSecondary" style={styles.orDivider}>
                 {t('login.or_divider')}
               </ThemedText>
+              <Text style={[styles.appleNotice, { color: theme.textSecondary }]}>
+                {t('login.apple_notice_prefix')}
+                <Text style={{ color: theme.primary }} onPress={() => openLegalDocument('terms')}>
+                  {t('login.apple_notice_terms_link')}
+                </Text>
+                {t('login.apple_notice_suffix')}
+              </Text>
               <AppleAuthentication.AppleAuthenticationButton
                 buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
                 buttonStyle={
@@ -175,6 +185,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: Spacing.four,
     marginBottom: Spacing.three,
+  },
+  appleNotice: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: Spacing.two,
   },
   appleButton: {
     height: 48,

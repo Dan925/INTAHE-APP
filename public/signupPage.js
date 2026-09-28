@@ -28,6 +28,14 @@
     '<div class="field"><label for="password">' +
     window.intaheT('signup.password') +
     '</label><input id="password" type="password" autocomplete="new-password" minlength="8" required /></div>' +
+    '<div class="switch-row">' +
+    '<label class="small"><input type="checkbox" id="accept-terms" /> ' +
+    window.intaheT('signup.accept_terms_label') +
+    '</label>' +
+    '</div>' +
+    '<p class="small text-secondary">' +
+    window.intaheT('signup.cookie_notice') +
+    '</p>' +
     '<div id="error"></div>' +
     '<button type="submit" id="submit-btn">' +
     window.intaheT('signup.submit') +
@@ -44,12 +52,22 @@
   var fullNameInput = form.querySelector('#full_name');
   var emailInput = form.querySelector('#email');
   var passwordInput = form.querySelector('#password');
+  var acceptTermsInput = form.querySelector('#accept-terms');
   var errorEl = form.querySelector('#error');
   var submitBtn = form.querySelector('#submit-btn');
 
   form.addEventListener('submit', function (event) {
     event.preventDefault();
     errorEl.textContent = '';
+
+    if (!acceptTermsInput.checked) {
+      var p = document.createElement('p');
+      p.className = 'error';
+      p.textContent = window.intaheT('signup.accept_required_error');
+      errorEl.appendChild(p);
+      return;
+    }
+
     submitBtn.disabled = true;
     submitBtn.textContent = window.intaheT('signup.submit_wait');
 
@@ -60,6 +78,7 @@
         email: emailInput.value.trim().toLowerCase(),
         password: passwordInput.value,
         full_name: fullNameInput.value.trim(),
+        accept_terms: true,
       }),
     })
       .then(function (res) {
