@@ -243,7 +243,8 @@ router.get('/forgot-password', (req, res) => {
   });
 });
 
-// The one page PASSWORD_RESET_URL points to (see .env.example) — without
+// The one page the password reset email's link points to (built from
+// APP_BASE_URL — see authService.ts's deliverPasswordResetEmail) — without
 // it, the link in the reset email was a dead end: the confirm API route
 // existed, but nothing in either app ever rendered a form to submit to it.
 router.get('/reset-password', (req, res) => {

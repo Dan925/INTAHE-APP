@@ -432,7 +432,7 @@ const PASSWORD_RESET_COPY: Record<
 };
 
 async function deliverPasswordResetEmail(email: string, locale: Locale, rawToken: string): Promise<void> {
-  const resetUrl = `${env.PASSWORD_RESET_URL}?token=${encodeURIComponent(rawToken)}`;
+  const resetUrl = `${env.APP_BASE_URL}/reset-password?token=${encodeURIComponent(rawToken)}`;
   const copy = PASSWORD_RESET_COPY[locale];
   try {
     await sendEmail({

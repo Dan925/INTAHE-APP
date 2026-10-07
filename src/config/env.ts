@@ -165,11 +165,9 @@ const envSchema = z.object({
   // calling" mode the way email has, since there's nothing useful to do
   // with a description-generation request otherwise.
   ANTHROPIC_API_KEY: z.string().default(''),
-  // Frontend route the password reset email's link points to — served by
-  // this same app's /reset-password page (see src/web/routes.ts).
-  PASSWORD_RESET_URL: z.string().url().default('http://localhost:3000/reset-password'),
   // Used to build absolute links (e.g. the order confirmation email's
-  // "view your tickets" link) to this service's own public web pages.
+  // "view your tickets" link, and the password reset email's link to this
+  // app's own /reset-password page) to this service's own public web pages.
   // Render sets RENDER_EXTERNAL_URL automatically on every web service, so
   // this only needs to be set explicitly for local dev or non-Render hosts.
   APP_BASE_URL: z.string().url().default(process.env['RENDER_EXTERNAL_URL'] ?? 'http://localhost:3000'),
